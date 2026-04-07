@@ -511,10 +511,13 @@ const Game = {
             p.update(dt);
         }
 
-        // Cleanup
+        // Cleanup + particle cap
         this.enemies = this.enemies.filter(e => !(e.dead && e.deathTimer <= 0 && !e.isBoss));
         this.projectiles = this.projectiles.filter(p => !p.dead);
         this.particles = this.particles.filter(p => !p.dead);
+        if (this.particles.length > MAX_PARTICLES) {
+            this.particles.splice(0, this.particles.length - MAX_PARTICLES);
+        }
 
         // Camera
         if (!this.player.dead) {
@@ -550,14 +553,16 @@ const Game = {
             key.draw(ctx, this.camera);
         }
 
-        // Enemies
+        // Enemies (with offscreen culling)
         for (const enemy of this.enemies) {
             if (enemy.dead && enemy.deathTimer <= 0) continue;
+            if (!enemy.isBoss && !isOnScreen(enemy, this.camera)) continue;
             enemy.draw(ctx, this.camera);
         }
 
-        // Projectiles
+        // Projectiles (with offscreen culling)
         for (const proj of this.projectiles) {
+            if (!isOnScreen({ x: proj.x - 5, y: proj.y - 5, w: 10, h: 10 }, this.camera, 10)) continue;
             proj.draw(ctx, this.camera);
         }
 
@@ -566,8 +571,9 @@ const Game = {
             this.player.draw(ctx, this.camera);
         }
 
-        // Particles
+        // Particles (with offscreen culling)
         for (const p of this.particles) {
+            if (!isOnScreen({ x: p.x - 5, y: p.y - 5, w: 10, h: 10 }, this.camera, 10)) continue;
             p.draw(ctx, this.camera);
         }
 

@@ -43,3 +43,28 @@ function circleRectOverlap(cx, cy, cr, rx, ry, rw, rh) {
     const dy = cy - closestY;
     return dx * dx + dy * dy < cr * cr;
 }
+
+function getCenter(entity) {
+    return { x: entity.x + entity.w / 2, y: entity.y + entity.h / 2 };
+}
+
+function spawnRadialParticles(cx, cy, count, dist, speed, color, lifetime, particles) {
+    for (let i = 0; i < count; i++) {
+        const a = (Math.PI * 2 * i) / count;
+        particles.push(new Particle(
+            cx + Math.cos(a) * dist, cy + Math.sin(a) * dist,
+            Math.cos(a) * speed, Math.sin(a) * speed,
+            color, lifetime
+        ));
+    }
+}
+
+function isOnScreen(entity, camera, margin) {
+    margin = margin || 50;
+    return entity.x + entity.w + margin > camera.x &&
+           entity.x - margin < camera.x + camera.width &&
+           entity.y + entity.h + margin > camera.y &&
+           entity.y - margin < camera.y + camera.height;
+}
+
+const MAX_PARTICLES = 200;

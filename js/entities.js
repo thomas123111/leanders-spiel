@@ -21,7 +21,10 @@ class Enemy {
 
     centerX() { return this.x + this.w / 2; }
     centerY() { return this.y + this.h / 2; }
+    center() { return { x: this.centerX(), y: this.centerY() }; }
     rect() { return { x: this.x, y: this.y, w: this.w, h: this.h }; }
+    isFlashing() { return this.iFrames > 0 && Math.floor(this.iFrames * 20) % 2; }
+    deathProgress() { return 1 - this.deathTimer / 0.4; }
 
     takeDamage(amount, knockbackAngle, knockbackForce) {
         if (this.iFrames > 0 || this.dead) return;

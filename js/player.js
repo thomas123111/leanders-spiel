@@ -67,9 +67,7 @@ class Player {
 
     takeDamage(amount, knockbackAngle, knockbackForce) {
         if (this.iFrames > 0 || this.dodging || this.dead) return;
-        // Crown shield blocks all damage
         if (this.crownShieldTimer > 0) return;
-        // Auto mode: no damage while driving
         if (this.autoActive) return;
         this.hp -= amount;
         this.iFrames = this.iFrameDuration;
@@ -127,16 +125,8 @@ class Player {
             }
         }
 
-        // Auto activation (E key or double-tap right joystick)
-        if (this.hasAuto && this.autoReady && !this.autoActive) {
-            if (Input._key('KeyE')) {
-                if (!this._eWasDown) {
-                    this.activateAuto();
-                    this._eWasDown = true;
-                }
-            } else {
-                this._eWasDown = false;
-            }
+        if (this.hasAuto && this.autoReady && !this.autoActive && Input.keyPressed('KeyE')) {
+            this.activateAuto();
         }
 
         // Power-ups
@@ -208,15 +198,7 @@ class Player {
             }
         }
 
-        // Weapon switch (Q key)
-        if (Input._key('KeyQ')) {
-            if (!this._qWasDown) {
-                this.switchWeapon();
-                this._qWasDown = true;
-            }
-        } else {
-            this._qWasDown = false;
-        }
+        if (Input.keyPressed('KeyQ')) this.switchWeapon();
     }
 
     _moveWithCollision(dx, dy, world) {

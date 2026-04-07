@@ -205,5 +205,16 @@ const Input = {
 
     _key(code) {
         return this.keys[code] && this.keys[code].down;
+    },
+
+    _keyPressed: {},
+    keyPressed(code) {
+        const down = this._key(code);
+        if (down && !this._keyPressed[code]) {
+            this._keyPressed[code] = true;
+            return true;
+        }
+        if (!down) this._keyPressed[code] = false;
+        return false;
     }
 };
