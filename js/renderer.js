@@ -64,13 +64,22 @@ const Renderer = {
             ctx.fill();
         }
 
+        // ── World indicator ──
+        const worldNames = [null, 'Geisterschloss', 'Roboter-Fabrik', 'Schleim-Arena'];
+        const worldColors = [null, '#A6F', '#F80', '#4D4'];
+        ctx.fillStyle = worldColors[game.currentWorld];
+        ctx.font = 'bold 11px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText('Welt ' + game.currentWorld + ': ' + worldNames[game.currentWorld], ctx.canvas.width - 10, 14);
+        ctx.textAlign = 'left';
+
         // ── Key indicator ──
         if (game.hasKey) {
             const kx = ctx.canvas.width - 40;
-            const ky = 20;
+            const ky = 30;
             ctx.fillStyle = '#FFD700';
             ctx.font = 'bold 14px monospace';
-            ctx.fillText('🔑', kx, ky);
+            ctx.fillText('\uD83D\uDD11', kx, ky);
             ctx.fillRect(kx + 2, ky - 2, 12, 4);
         }
 
@@ -79,8 +88,28 @@ const Renderer = {
             ctx.fillStyle = '#FFD700';
             ctx.font = '12px monospace';
             ctx.textAlign = 'center';
-            ctx.fillText('Schlüssel gefunden! Finde die Boss-Tür!', ctx.canvas.width / 2, 20);
+            ctx.fillText('Schl\u00fcssel gefunden! Finde die Boss-T\u00fcr!', ctx.canvas.width / 2, 20);
             ctx.textAlign = 'left';
+        }
+
+        // ── Auto ability indicator ──
+        if (player.hasAuto) {
+            const autoX = ctx.canvas.width - 120;
+            const autoY = 45;
+            if (player.autoActive) {
+                ctx.fillStyle = '#0FF';
+                ctx.font = 'bold 11px monospace';
+                ctx.fillText('AUTO: ' + Math.ceil(player.autoTimer) + 's', autoX, autoY);
+            } else if (player.autoReady) {
+                ctx.fillStyle = '#0FF';
+                ctx.font = '11px monospace';
+                ctx.fillText('[E] Auto bereit!', autoX, autoY);
+            } else {
+                // Show charge progress
+                ctx.fillStyle = '#666';
+                ctx.font = '10px monospace';
+                ctx.fillText('Auto: ' + player.autoCharges + '/' + player.autoChargesNeeded, autoX, autoY);
+            }
         }
 
         // ── Power-ups ──
@@ -209,40 +238,49 @@ const Renderer = {
         ctx.fillStyle = '#111';
         ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
+        const cx = ctx.canvas.width / 2;
+        const cy = ctx.canvas.height / 2;
+
         ctx.save();
         ctx.textAlign = 'center';
 
         // Title
         ctx.fillStyle = '#4A9';
         ctx.font = 'bold 28px monospace';
-        ctx.fillText('Mark und die', ctx.canvas.width / 2, ctx.canvas.height / 2 - 60);
+        ctx.fillText('Mark und die', cx, cy - 80);
         ctx.fillStyle = '#F88';
         ctx.font = 'bold 24px monospace';
-        ctx.fillText('geklauten Erfindungen', ctx.canvas.width / 2, ctx.canvas.height / 2 - 25);
+        ctx.fillText('geklauten Erfindungen', cx, cy - 45);
 
-        // Subtitle
-        ctx.fillStyle = '#888';
-        ctx.font = '14px monospace';
-        ctx.fillText('Welt 1: Das bunte Geisterschloss', ctx.canvas.width / 2, ctx.canvas.height / 2 + 15);
+        // World list
+        const worlds = [
+            { name: 'Welt 1: Das bunte Geisterschloss', icon: '\uD83D\uDC7B', color: '#A6F' },
+            { name: 'Welt 2: Die Roboter-K\u00fcken', icon: '\uD83E\uDD16', color: '#F80' },
+            { name: 'Welt 3: Die Schleim-Arena', icon: '\uD83D\uDFE2', color: '#4D4' },
+        ];
+        for (let i = 0; i < worlds.length; i++) {
+            ctx.fillStyle = worlds[i].color;
+            ctx.globalAlpha = 0.6 + Math.sin(Date.now() / 600 + i) * 0.2;
+            ctx.font = '12px monospace';
+            ctx.fillText(worlds[i].icon + ' ' + worlds[i].name, cx, cy - 5 + i * 20);
+        }
+        ctx.globalAlpha = 1;
 
         // Start prompt
         const blink = Math.sin(Date.now() / 500) > 0;
         if (blink) {
             ctx.fillStyle = '#FFF';
             ctx.font = '16px monospace';
-            const text = Input.isMobile ? 'Tippen zum Starten' : 'Enter drücken zum Starten';
-            ctx.fillText(text, ctx.canvas.width / 2, ctx.canvas.height / 2 + 60);
+            ctx.fillText(Input.isMobile ? 'Tippen zum Starten' : 'Enter dr\u00fccken zum Starten', cx, cy + 80);
         }
 
         // Controls
         ctx.fillStyle = '#555';
         ctx.font = '11px monospace';
         if (!Input.isMobile) {
-            ctx.fillText('WASD / Pfeiltasten = Bewegen', ctx.canvas.width / 2, ctx.canvas.height / 2 + 100);
-            ctx.fillText('Mausklick = Angriff | Leertaste = Ausweichen', ctx.canvas.width / 2, ctx.canvas.height / 2 + 118);
+            ctx.fillText('WASD = Bewegen | Maus = Zielen & Angriff | Leertaste = Ausweichen | Q = Waffe wechseln', cx, cy + 115);
         } else {
-            ctx.fillText('Linker Joystick = Bewegen', ctx.canvas.width / 2, ctx.canvas.height / 2 + 100);
-            ctx.fillText('Rechter Joystick = Zielen & Angreifen', ctx.canvas.width / 2, ctx.canvas.height / 2 + 118);
+            ctx.fillText('Links = Bewegen | Rechts = Zielen & Angreifen', cx, cy + 115);
         }
 
         ctx.restore();
@@ -256,33 +294,110 @@ const Renderer = {
         ctx.textAlign = 'center';
         ctx.fillStyle = '#F44';
         ctx.font = 'bold 32px monospace';
-        ctx.fillText('GAME OVER', ctx.canvas.width / 2, ctx.canvas.height / 2 - 10);
+        ctx.fillText('GAME OVER', ctx.canvas.width / 2, ctx.canvas.height / 2 - 20);
+        ctx.fillStyle = '#AAA';
+        ctx.font = '14px monospace';
+        const worldNames = [null, 'Geisterschloss', 'Roboter-Fabrik', 'Schleim-Arena'];
+        ctx.fillText('Welt ' + Game.currentWorld + ': ' + worldNames[Game.currentWorld], ctx.canvas.width / 2, ctx.canvas.height / 2 + 8);
         ctx.fillStyle = '#FFF';
         ctx.font = '16px monospace';
         const blink = Math.sin(Date.now() / 500) > 0;
         if (blink) {
-            const text = Input.isMobile ? 'Tippen zum Neustarten' : 'Enter drücken zum Neustarten';
-            ctx.fillText(text, ctx.canvas.width / 2, ctx.canvas.height / 2 + 30);
+            ctx.fillText(Input.isMobile ? 'Tippen zum Neustarten' : 'Enter = Neustarten', ctx.canvas.width / 2, ctx.canvas.height / 2 + 40);
         }
         ctx.restore();
     },
 
-    drawWinScreen(ctx) {
-        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    drawWorldClearScreen(ctx, worldNum) {
+        ctx.fillStyle = 'rgba(0,0,0,0.75)';
         ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+        const cx = ctx.canvas.width / 2;
+        const cy = ctx.canvas.height / 2;
 
         ctx.save();
         ctx.textAlign = 'center';
+
         ctx.fillStyle = '#FFD700';
         ctx.font = 'bold 28px monospace';
-        ctx.fillText('🏆 GEWONNEN! 🏆', ctx.canvas.width / 2, ctx.canvas.height / 2 - 30);
+        ctx.fillText('WELT ' + worldNum + ' GESCHAFFT!', cx, cy - 40);
+
+        // Reward
         ctx.fillStyle = '#FFF';
         ctx.font = '16px monospace';
-        ctx.fillText('Du hast den Baseball-Werfer', ctx.canvas.width / 2, ctx.canvas.height / 2 + 10);
-        ctx.fillText('zurückerobert!', ctx.canvas.width / 2, ctx.canvas.height / 2 + 30);
+        if (worldNum === 1) {
+            ctx.fillText('Belohnung: Baseball-Werfer!', cx, cy + 5);
+            ctx.fillStyle = '#AAA';
+            ctx.font = '12px monospace';
+            ctx.fillText('Du kannst jetzt Baseballs auf Gegner schie\u00dfen! [Q] zum Wechseln', cx, cy + 28);
+        } else if (worldNum === 2) {
+            ctx.fillText('Belohnung: Auto-F\u00e4higkeit!', cx, cy + 5);
+            ctx.fillStyle = '#0FF';
+            ctx.font = '12px monospace';
+            ctx.fillText('[E] dr\u00fccken: 15 Sekunden durch W\u00e4nde fahren!', cx, cy + 28);
+        }
+
+        // Next world preview
         ctx.fillStyle = '#4A9';
         ctx.font = '14px monospace';
-        ctx.fillText('Welt 2 kommt bald...', ctx.canvas.width / 2, ctx.canvas.height / 2 + 65);
+        const nextName = worldNum === 1 ? 'Weiter zu: Die Roboter-K\u00fcken' : 'Weiter zu: Die Schleim-Arena';
+        ctx.fillText(nextName, cx, cy + 60);
+
+        const blink = Math.sin(Date.now() / 400) > 0;
+        if (blink) {
+            ctx.fillStyle = '#FFF';
+            ctx.font = '13px monospace';
+            ctx.fillText(Input.isMobile ? 'Tippen zum Fortfahren' : 'Enter = Weiter', cx, cy + 90);
+        }
+
+        ctx.restore();
+    },
+
+    drawFinalWinScreen(ctx) {
+        ctx.fillStyle = 'rgba(0,0,0,0.8)';
+        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+        const cx = ctx.canvas.width / 2;
+        const cy = ctx.canvas.height / 2;
+
+        ctx.save();
+        ctx.textAlign = 'center';
+
+        // Confetti-like particles
+        ctx.globalAlpha = 0.6;
+        for (let i = 0; i < 20; i++) {
+            const t = Date.now() / 1000 + i * 0.5;
+            const px = cx + Math.sin(t * 1.3 + i) * 200;
+            const py = cy + Math.cos(t * 0.8 + i * 2) * 100;
+            ctx.fillStyle = `hsl(${(i * 40 + Date.now() / 10) % 360}, 80%, 60%)`;
+            ctx.fillRect(px - 3, py - 3, 6, 6);
+        }
+        ctx.globalAlpha = 1;
+
+        ctx.fillStyle = '#FFD700';
+        ctx.font = 'bold 32px monospace';
+        ctx.fillText('ALLE 3 WELTEN GESCHAFFT!', cx, cy - 50);
+
+        ctx.fillStyle = '#FFF';
+        ctx.font = '16px monospace';
+        ctx.fillText('Mark hat alle Erfindungen zur\u00fcckerobert!', cx, cy - 10);
+
+        ctx.fillStyle = '#AAA';
+        ctx.font = '13px monospace';
+        ctx.fillText('Belohnung: Die goldene Schutzschild-Krone', cx, cy + 20);
+        ctx.fillText('(5 Sekunden Unverwundbarkeit zu Beginn jedes Levels)', cx, cy + 38);
+
+        ctx.fillStyle = '#888';
+        ctx.font = '12px monospace';
+        ctx.fillText('Welt 4 kommt bald...', cx, cy + 70);
+
+        const blink = Math.sin(Date.now() / 500) > 0;
+        if (blink) {
+            ctx.fillStyle = '#FFF';
+            ctx.font = '14px monospace';
+            ctx.fillText(Input.isMobile ? 'Tippen f\u00fcr Hauptmen\u00fc' : 'Enter = Hauptmen\u00fc', cx, cy + 100);
+        }
+
         ctx.restore();
     }
 };

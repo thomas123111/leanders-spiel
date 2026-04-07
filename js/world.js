@@ -27,6 +27,7 @@ class World {
         this.chestPositions = [];
         this.colorTimer = 0;
         this.bgHue = 270; // purple
+        this.theme = 'castle'; // 'castle', 'factory', 'cave'
     }
 
     load(levelData) {
@@ -96,11 +97,19 @@ class World {
     }
 
     update(dt) {
-        // Color cycling for ghost castle
         this.colorTimer += dt;
-        if (this.colorTimer > 8) {
-            this.colorTimer = 0;
-            this.bgHue = (this.bgHue + randInt(30, 60)) % 360;
+        if (this.theme === 'castle') {
+            // Color cycling for ghost castle
+            if (this.colorTimer > 8) {
+                this.colorTimer = 0;
+                this.bgHue = (this.bgHue + randInt(30, 60)) % 360;
+            }
+        } else if (this.theme === 'factory') {
+            // Blue-gray industrial, no cycling
+            this.bgHue = 200;
+        } else if (this.theme === 'cave') {
+            // Greenish with slight pulse
+            this.bgHue = 120 + Math.sin(this.colorTimer * 0.5) * 10;
         }
     }
 
@@ -115,47 +124,159 @@ class World {
                 const t = this.tiles[y][x];
                 const pos = camera.worldToScreen(x * TILE_SIZE, y * TILE_SIZE);
 
-                if (t === TILE_WALL) {
-                    ctx.fillStyle = `hsl(${this.bgHue}, 20%, 25%)`;
-                    ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
-                    // brick pattern
-                    ctx.strokeStyle = `hsl(${this.bgHue}, 15%, 20%)`;
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(pos.x + 0.5, pos.y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
-                } else if (t === TILE_FLOOR || t === TILE_DOOR || t === TILE_SPAWN || t === TILE_BOSS_SPAWN) {
-                    ctx.fillStyle = `hsl(${this.bgHue}, 15%, 40%)`;
-                    ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
-                    // subtle tile lines
-                    ctx.strokeStyle = `hsl(${this.bgHue}, 10%, 35%)`;
-                    ctx.lineWidth = 0.5;
-                    ctx.strokeRect(pos.x + 0.5, pos.y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
-                } else if (t === TILE_BOSS_DOOR) {
-                    ctx.fillStyle = '#8B0000';
-                    ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
-                    // lock icon
-                    ctx.fillStyle = '#FFD700';
-                    ctx.fillRect(pos.x + 12, pos.y + 8, 8, 10);
-                    ctx.beginPath();
-                    ctx.arc(pos.x + 16, pos.y + 10, 6, Math.PI, 0);
-                    ctx.strokeStyle = '#FFD700';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                } else if (t === TILE_WINDOW) {
-                    ctx.fillStyle = `hsl(${this.bgHue}, 20%, 25%)`;
-                    ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
-                    ctx.fillStyle = `hsl(200, 40%, 60%)`;
-                    ctx.fillRect(pos.x + 6, pos.y + 6, 20, 20);
-                    ctx.strokeStyle = `hsl(${this.bgHue}, 15%, 20%)`;
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.moveTo(pos.x + 16, pos.y + 6);
-                    ctx.lineTo(pos.x + 16, pos.y + 26);
-                    ctx.moveTo(pos.x + 6, pos.y + 16);
-                    ctx.lineTo(pos.x + 26, pos.y + 16);
-                    ctx.stroke();
+                if (this.theme === 'factory') {
+                    this._drawFactory(ctx, t, pos, x, y);
+                } else if (this.theme === 'cave') {
+                    this._drawCave(ctx, t, pos, x, y);
+                } else {
+                    this._drawCastle(ctx, t, pos, x, y);
                 }
             }
         }
+    }
+
+    _drawCastle(ctx, t, pos, x, y) {
+        if (t === TILE_WALL) {
+            ctx.fillStyle = `hsl(${this.bgHue}, 20%, 25%)`;
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            ctx.strokeStyle = `hsl(${this.bgHue}, 15%, 20%)`;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(pos.x + 0.5, pos.y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+        } else if (t === TILE_FLOOR || t === TILE_DOOR || t === TILE_SPAWN || t === TILE_BOSS_SPAWN) {
+            ctx.fillStyle = `hsl(${this.bgHue}, 15%, 40%)`;
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            ctx.strokeStyle = `hsl(${this.bgHue}, 10%, 35%)`;
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(pos.x + 0.5, pos.y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+        } else if (t === TILE_BOSS_DOOR) {
+            this._drawBossDoor(ctx, pos);
+        } else if (t === TILE_WINDOW) {
+            ctx.fillStyle = `hsl(${this.bgHue}, 20%, 25%)`;
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            ctx.fillStyle = `hsl(200, 40%, 60%)`;
+            ctx.fillRect(pos.x + 6, pos.y + 6, 20, 20);
+            ctx.strokeStyle = `hsl(${this.bgHue}, 15%, 20%)`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(pos.x + 16, pos.y + 6);
+            ctx.lineTo(pos.x + 16, pos.y + 26);
+            ctx.moveTo(pos.x + 6, pos.y + 16);
+            ctx.lineTo(pos.x + 26, pos.y + 16);
+            ctx.stroke();
+        }
+    }
+
+    _drawFactory(ctx, t, pos, x, y) {
+        if (t === TILE_WALL) {
+            ctx.fillStyle = '#3A3A44';
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            // metallic panel lines
+            ctx.strokeStyle = '#2E2E36';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(pos.x + 0.5, pos.y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+            // rivets in corners
+            ctx.fillStyle = '#50505A';
+            ctx.beginPath();
+            ctx.arc(pos.x + 4, pos.y + 4, 1.5, 0, Math.PI * 2);
+            ctx.arc(pos.x + TILE_SIZE - 4, pos.y + 4, 1.5, 0, Math.PI * 2);
+            ctx.arc(pos.x + 4, pos.y + TILE_SIZE - 4, 1.5, 0, Math.PI * 2);
+            ctx.arc(pos.x + TILE_SIZE - 4, pos.y + TILE_SIZE - 4, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (t === TILE_FLOOR || t === TILE_DOOR || t === TILE_SPAWN || t === TILE_BOSS_SPAWN) {
+            ctx.fillStyle = '#5A5A64';
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            // rivet dots on floor
+            ctx.fillStyle = '#4A4A54';
+            ctx.beginPath();
+            ctx.arc(pos.x + 16, pos.y + 16, 1, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#505058';
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(pos.x + 0.5, pos.y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+        } else if (t === TILE_BOSS_DOOR) {
+            this._drawBossDoor(ctx, pos);
+        } else if (t === TILE_WINDOW) {
+            // Factory window showing machinery
+            ctx.fillStyle = '#3A3A44';
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            ctx.fillStyle = '#1A2A3A';
+            ctx.fillRect(pos.x + 5, pos.y + 5, 22, 22);
+            // gear silhouette inside window
+            ctx.strokeStyle = '#4A6A7A';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(pos.x + 16, pos.y + 16, 6, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(pos.x + 16, pos.y + 16, 2, 0, Math.PI * 2);
+            ctx.stroke();
+            // frame
+            ctx.strokeStyle = '#50505A';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(pos.x + 5, pos.y + 5, 22, 22);
+        }
+    }
+
+    _drawCave(ctx, t, pos, x, y) {
+        if (t === TILE_WALL) {
+            ctx.fillStyle = '#3D2E1A';
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            // rough earth texture lines
+            ctx.strokeStyle = '#332616';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(pos.x + 0.5, pos.y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+            // earthy speckles
+            ctx.fillStyle = '#4A3820';
+            ctx.fillRect(pos.x + 5, pos.y + 10, 3, 2);
+            ctx.fillRect(pos.x + 20, pos.y + 6, 2, 3);
+            ctx.fillRect(pos.x + 12, pos.y + 22, 3, 2);
+        } else if (t === TILE_FLOOR || t === TILE_DOOR || t === TILE_SPAWN || t === TILE_BOSS_SPAWN) {
+            ctx.fillStyle = '#4A5A3A';
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            // muddy texture
+            ctx.strokeStyle = '#3E4E30';
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(pos.x + 0.5, pos.y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+        } else if (t === TILE_BOSS_DOOR) {
+            this._drawBossDoor(ctx, pos);
+        } else if (t === TILE_WINDOW) {
+            // Glowing crystal formation
+            ctx.fillStyle = '#3D2E1A';
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            // crystal glow
+            const glow = 0.5 + Math.sin(this.colorTimer * 2) * 0.3;
+            ctx.fillStyle = `rgba(100, 255, 180, ${glow * 0.3})`;
+            ctx.fillRect(pos.x + 4, pos.y + 4, 24, 24);
+            // crystal shards
+            ctx.fillStyle = `rgba(100, 255, 180, ${glow})`;
+            ctx.beginPath();
+            ctx.moveTo(pos.x + 10, pos.y + 24);
+            ctx.lineTo(pos.x + 13, pos.y + 8);
+            ctx.lineTo(pos.x + 16, pos.y + 24);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(pos.x + 16, pos.y + 26);
+            ctx.lineTo(pos.x + 20, pos.y + 10);
+            ctx.lineTo(pos.x + 24, pos.y + 26);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(pos.x + 6, pos.y + 26);
+            ctx.lineTo(pos.x + 8, pos.y + 14);
+            ctx.lineTo(pos.x + 12, pos.y + 26);
+            ctx.fill();
+        }
+    }
+
+    _drawBossDoor(ctx, pos) {
+        ctx.fillStyle = '#8B0000';
+        ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(pos.x + 12, pos.y + 8, 8, 10);
+        ctx.beginPath();
+        ctx.arc(pos.x + 16, pos.y + 10, 6, Math.PI, 0);
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 2;
+        ctx.stroke();
     }
 }
 
@@ -203,5 +324,103 @@ const WORLD1_LEVEL = (function() {
         [W,W,W,W,W,W,W,W,WN,F,F,F,F,F,F,F,F,F,WN,W,W,W,W,W,W,W,W,W,W],
         [W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W],
         [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+    ];
+})();
+
+// ── Level Data for World 2: Roboter-Küken Factory ──
+
+const WORLD2_LEVEL = (function() {
+    const W = TILE_WALL, F = TILE_FLOOR, D = TILE_DOOR, B = TILE_BOSS_DOOR;
+    const S = TILE_SPAWN, BS = TILE_BOSS_SPAWN, WN = TILE_WINDOW;
+
+    // 35x30 factory layout
+    return [
+        // Row 0: Top wall
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        // Row 1
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        // Row 2-6: Entry room (top-left)
+        [W,W,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        [W,WN,F,F,S,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        [W,W,F,F,F,F,F,F,F,D,F,F,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        [W,WN,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        [W,W,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        // Row 7-8: Conveyor belt corridor
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        // Row 9-16: Assembly room (large open area)
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,WN,F,F,F,F,F,F,F,F,F,F,F,F,F,WN,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,WN,F,F,F,F,F,F,F,F,F,F,F,F,F,WN,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,D,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        // Row 17-20: Side storage rooms + corridor
+        [W,W,W,W,W,W,F,F,F,F,F,W,W,W,W,W,F,F,F,W,W,W,W,W,F,F,F,F,F,W,W,W,W,W,W],
+        [W,W,W,W,W,WN,F,F,F,F,F,D,F,F,F,F,F,F,F,F,F,F,F,D,F,F,F,F,F,WN,W,W,W,W],
+        [W,W,W,W,W,W,F,F,F,F,F,W,W,W,W,W,F,F,F,W,W,W,W,W,F,F,F,F,F,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        // Row 21-22: Boss antechamber corridor
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,B,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        // Row 23-28: Boss arena (large 10x10 open space)
+        [W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,WN,F,F,F,F,F,F,F,F,F,F,F,WN,W,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,BS,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,WN,F,F,F,F,F,F,F,F,F,F,F,WN,W,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W],
+        // Row 29: Bottom wall
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+    ];
+})();
+
+// ── Level Data for World 3: Schleim-Arena ──
+
+const WORLD3_LEVEL = (function() {
+    const W = TILE_WALL, F = TILE_FLOOR, D = TILE_DOOR, B = TILE_BOSS_DOOR;
+    const S = TILE_SPAWN, BS = TILE_BOSS_SPAWN, WN = TILE_WINDOW;
+
+    // 32x28 cave/arena layout
+    return [
+        // Row 0-1: Top wall
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        // Row 2-5: Cave entrance (organic shape)
+        [W,W,W,W,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        [W,W,W,F,F,F,S,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,F,F,F,F,F,F,D,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,F,F,F,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        // Row 6-8: Narrow tunnel
+        [W,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        // Row 9-13: First arena room (rounded)
+        [W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,WN,F,F,F,F,F,F,F,D,F,F,W,W,W,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W],
+        // Row 14-15: Connecting corridor
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,W,W,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W],
+        // Row 16-19: Second arena + treasure alcoves
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,WN,F,F,F,F,F,F,F,F,F,WN,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W],
+        // Row 20: Treasure alcoves branching off
+        [W,W,WN,F,F,F,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,W,W,W,W,F,F,WN,W],
+        [W,W,W,F,F,F,D,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,W,W,W,W,D,F,F,W,W],
+        [W,W,WN,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,B,W,W,W,W,W,W,W,W,F,F,WN,W],
+        // Row 23-26: Boss pit (large circular-ish)
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,WN,F,F,F,BS,F,F,F,WN,W,W,W,W,W,W,W,W],
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W],
+        // Row 27: Bottom wall
+        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
     ];
 })();

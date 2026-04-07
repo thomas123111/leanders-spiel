@@ -3,7 +3,8 @@
 const Game = {
     canvas: null,
     ctx: null,
-    state: 'TITLE', // TITLE, PLAYING, BOSS_INTRO, GAME_OVER, WIN
+    state: 'TITLE', // TITLE, PLAYING, BOSS_INTRO, GAME_OVER, WORLD_CLEAR, WIN
+    currentWorld: 1, // 1, 2, 3
     player: null,
     world: null,
     camera: null,
@@ -15,7 +16,13 @@ const Game = {
     hasKey: false,
     bossActive: false,
     bossDefeated: false,
+    worldClearTimer: 0,
     lastTime: 0,
+
+    // Persistent unlocks across worlds
+    unlockedRanged: false,
+    unlockedAuto: false,
+    unlockedCrown: false,
 
     init() {
         this.canvas = document.getElementById('game');
@@ -29,7 +36,6 @@ const Game = {
             const rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
             if (rfs) {
                 rfs.call(el).catch(() => {});
-                // Lock to landscape if supported
                 if (screen.orientation && screen.orientation.lock) {
                     screen.orientation.lock('landscape').catch(() => {});
                 }
@@ -49,26 +55,30 @@ const Game = {
     },
 
     resize() {
-        // Fill the entire screen in landscape
         const w = window.innerWidth;
         const h = window.innerHeight;
-
         this.canvas.style.width = w + 'px';
         this.canvas.style.height = h + 'px';
-
-        // Logical resolution scales with aspect ratio, base height 480
         const logicalH = 480;
         const logicalW = Math.round(logicalH * (w / h));
         this.canvas.width = Math.max(640, logicalW);
         this.canvas.height = logicalH;
-
         if (this.camera) {
             this.camera.width = this.canvas.width;
             this.camera.height = this.canvas.height;
         }
     },
 
-    startGame() {
+    startNewGame() {
+        this.currentWorld = 1;
+        this.unlockedRanged = false;
+        this.unlockedAuto = false;
+        this.unlockedCrown = false;
+        this.startWorld(1);
+    },
+
+    startWorld(worldNum) {
+        this.currentWorld = worldNum;
         this.state = 'PLAYING';
         this.enemies = [];
         this.projectiles = [];
@@ -81,69 +91,147 @@ const Game = {
 
         // Load world
         this.world = new World();
-        this.world.load(WORLD1_LEVEL);
+        const levels = [null, WORLD1_LEVEL, WORLD2_LEVEL, WORLD3_LEVEL];
+        const themes = [null, 'castle', 'factory', 'cave'];
+        this.world.load(levels[worldNum]);
+        this.world.theme = themes[worldNum];
 
         // Spawn player
         this.player = new Player(this.world.spawnPoint.x, this.world.spawnPoint.y);
+
+        // Apply unlocked abilities
+        if (this.unlockedRanged) {
+            this.player.rangedWeapon = new BaseballLauncher();
+        }
+        if (this.unlockedAuto) {
+            this.player.hasAuto = true;
+            if (worldNum === 3) {
+                // In World 3, auto must be charged by killing 5 slimes
+                this.player.autoReady = false;
+                this.player.autoCharges = 0;
+            }
+        }
+        if (this.unlockedCrown) {
+            this.player.hasCrown = true;
+            this.player.startCrownShield();
+        }
+
+        // World 2 boss: player gets 5 hearts (GDD)
+        if (worldNum === 2) {
+            this.player.maxHp = 20; // 5 hearts
+            this.player.hp = 20;
+        }
 
         // Camera
         this.camera = new Camera(this.canvas.width, this.canvas.height);
         this.camera.x = this.player.x - this.canvas.width / 2;
         this.camera.y = this.player.y - this.canvas.height / 2;
 
-        // Spawn enemies
-        this._spawnEnemies();
-
-        // Spawn chests
-        this._spawnChests();
+        // Spawn enemies and chests for this world
+        this._spawnWorldContent(worldNum);
     },
 
-    _spawnEnemies() {
-        // Regular ghosts in the rooms
-        // Room 1 (entrance): 2 ghosts
+    _spawnWorldContent(worldNum) {
+        if (worldNum === 1) {
+            this._spawnWorld1();
+        } else if (worldNum === 2) {
+            this._spawnWorld2();
+        } else if (worldNum === 3) {
+            this._spawnWorld3();
+        }
+    },
+
+    // ── World 1: Ghost Castle ──
+    _spawnWorld1() {
+        // Ghosts
         this.enemies.push(new Ghost(5 * 32 + 16, 3 * 32 + 16));
         this.enemies.push(new Ghost(6 * 32 + 16, 5 * 32 + 16));
-
-        // Corridor: 2 ghosts
         this.enemies.push(new Ghost(13 * 32 + 16, 6 * 32 + 16));
         this.enemies.push(new Ghost(13 * 32 + 16, 9 * 32 + 16));
-
-        // Central room: 3 ghosts
         this.enemies.push(new Ghost(12 * 32 + 16, 10 * 32 + 16));
         this.enemies.push(new Ghost(14 * 32 + 16, 11 * 32 + 16));
         this.enemies.push(new Ghost(11 * 32 + 16, 12 * 32 + 16));
-
-        // Right corridor + room: 2 ghosts
         this.enemies.push(new Ghost(20 * 32 + 16, 11 * 32 + 16));
         this.enemies.push(new Ghost(24 * 32 + 16, 13 * 32 + 16));
-
-        // Key ghost room (right side)
         this.enemies.push(new KeyGhost(24 * 32 + 16, 19 * 32 + 16));
         this.enemies.push(new Ghost(23 * 32 + 16, 18 * 32 + 16));
         this.enemies.push(new Ghost(25 * 32 + 16, 20 * 32 + 16));
-
-        // Lower left room (treasure room): 2 ghosts
         this.enemies.push(new Ghost(12 * 32 + 16, 18 * 32 + 16));
         this.enemies.push(new Ghost(14 * 32 + 16, 19 * 32 + 16));
+
+        // Chests
+        this.chests.push(new Chest(6 * 32 + 4, 6 * 32 + 6));
+        this.chests.push(new Chest(15 * 32 + 4, 10 * 32 + 6));
+        this.chests.push(new Chest(24 * 32 + 4, 11 * 32 + 6));
+        this.chests.push(new Chest(13 * 32 + 4, 20 * 32 + 6));
+        this.chests.push(new Chest(12 * 32 + 4, 20 * 32 + 6));
     },
 
-    _spawnChests() {
-        // Entrance room
-        this.chests.push(new Chest(6 * 32 + 4, 6 * 32 + 6));
-        // Central room
-        this.chests.push(new Chest(15 * 32 + 4, 10 * 32 + 6));
-        // Right room
-        this.chests.push(new Chest(24 * 32 + 4, 11 * 32 + 6));
-        // Treasure room (lower left)
-        this.chests.push(new Chest(13 * 32 + 4, 20 * 32 + 6));
-        // Before boss
-        this.chests.push(new Chest(12 * 32 + 4, 20 * 32 + 6));
+    // ── World 2: Robot Chick Factory ──
+    _spawnWorld2() {
+        // RoboChicks in factory rooms
+        this.enemies.push(new RoboChick(6 * 32 + 16, 5 * 32 + 16));
+        this.enemies.push(new RoboChick(8 * 32 + 16, 7 * 32 + 16));
+        this.enemies.push(new RoboChick(16 * 32 + 16, 5 * 32 + 16));
+        this.enemies.push(new RoboChick(20 * 32 + 16, 8 * 32 + 16));
+        this.enemies.push(new RoboChick(14 * 32 + 16, 12 * 32 + 16));
+        this.enemies.push(new RoboChick(18 * 32 + 16, 14 * 32 + 16));
+        // MiniRoboChicks
+        this.enemies.push(new MiniRoboChick(7 * 32 + 16, 4 * 32 + 16));
+        this.enemies.push(new MiniRoboChick(19 * 32 + 16, 6 * 32 + 16));
+        this.enemies.push(new MiniRoboChick(15 * 32 + 16, 13 * 32 + 16));
+        this.enemies.push(new MiniRoboChick(22 * 32 + 16, 10 * 32 + 16));
+        // Key ghost (same mechanic, different look could be a RoboChick variant)
+        this.enemies.push(new KeyGhost(26 * 32 + 16, 18 * 32 + 16));
+        this.enemies.push(new RoboChick(25 * 32 + 16, 17 * 32 + 16));
+        this.enemies.push(new MiniRoboChick(27 * 32 + 16, 19 * 32 + 16));
+
+        // Chests
+        this.chests.push(new Chest(5 * 32 + 4, 7 * 32 + 6));
+        this.chests.push(new Chest(17 * 32 + 4, 6 * 32 + 6));
+        this.chests.push(new Chest(22 * 32 + 4, 12 * 32 + 6));
+        this.chests.push(new Chest(14 * 32 + 4, 19 * 32 + 6));
+        this.chests.push(new Chest(10 * 32 + 4, 15 * 32 + 6));
+    },
+
+    // ── World 3: Slime Arena ──
+    _spawnWorld3() {
+        // Slimes throughout the caves
+        this.enemies.push(new Slime(6 * 32 + 16, 5 * 32 + 16));
+        this.enemies.push(new Slime(8 * 32 + 16, 8 * 32 + 16));
+        this.enemies.push(new Slime(14 * 32 + 16, 6 * 32 + 16));
+        this.enemies.push(new Slime(18 * 32 + 16, 5 * 32 + 16));
+        this.enemies.push(new Slime(12 * 32 + 16, 12 * 32 + 16));
+        this.enemies.push(new Slime(16 * 32 + 16, 14 * 32 + 16));
+        this.enemies.push(new Slime(20 * 32 + 16, 10 * 32 + 16));
+        this.enemies.push(new Slime(24 * 32 + 16, 8 * 32 + 16));
+        this.enemies.push(new Slime(10 * 32 + 16, 16 * 32 + 16));
+        this.enemies.push(new Slime(22 * 32 + 16, 14 * 32 + 16));
+        // Key ghost
+        this.enemies.push(new KeyGhost(24 * 32 + 16, 18 * 32 + 16));
+        this.enemies.push(new Slime(23 * 32 + 16, 17 * 32 + 16));
+        this.enemies.push(new Slime(25 * 32 + 16, 19 * 32 + 16));
+
+        // Chests
+        this.chests.push(new Chest(7 * 32 + 4, 6 * 32 + 6));
+        this.chests.push(new Chest(15 * 32 + 4, 7 * 32 + 6));
+        this.chests.push(new Chest(21 * 32 + 4, 9 * 32 + 6));
+        this.chests.push(new Chest(11 * 32 + 4, 14 * 32 + 6));
+        this.chests.push(new Chest(17 * 32 + 4, 16 * 32 + 6));
     },
 
     _spawnBoss() {
         this.bossActive = true;
         this.state = 'BOSS_INTRO';
-        const boss = new BossGhost(this.world.bossSpawn.x, this.world.bossSpawn.y);
+
+        let boss;
+        if (this.currentWorld === 1) {
+            boss = new BossGhost(this.world.bossSpawn.x, this.world.bossSpawn.y);
+        } else if (this.currentWorld === 2) {
+            boss = new BossGhostChick(this.world.bossSpawn.x, this.world.bossSpawn.y);
+        } else if (this.currentWorld === 3) {
+            boss = new BossSlime(this.world.bossSpawn.x, this.world.bossSpawn.y);
+        }
         this.enemies.push(boss);
 
         setTimeout(() => {
@@ -151,13 +239,37 @@ const Game = {
         }, 2000);
     },
 
+    _onBossDefeated() {
+        this.bossDefeated = true;
+
+        if (this.currentWorld === 1) {
+            // Reward: Baseball-Werfer
+            this.unlockedRanged = true;
+            this.state = 'WORLD_CLEAR';
+            this.worldClearTimer = 4;
+        } else if (this.currentWorld === 2) {
+            // Reward: Auto ability
+            this.unlockedAuto = true;
+            this.state = 'WORLD_CLEAR';
+            this.worldClearTimer = 4;
+        } else if (this.currentWorld === 3) {
+            // Reward: Crown
+            this.unlockedCrown = true;
+            this.state = 'WIN'; // Final victory!
+        }
+    },
+
+    _advanceToNextWorld() {
+        if (this.currentWorld < 3) {
+            this.startWorld(this.currentWorld + 1);
+        }
+    },
+
     gameLoop(timestamp) {
         const dt = Math.min((timestamp - this.lastTime) / 1000, 0.05);
         this.lastTime = timestamp;
-
         this.update(dt);
         this.render();
-
         requestAnimationFrame(t => this.gameLoop(t));
     },
 
@@ -169,7 +281,7 @@ const Game = {
 
         if (this.state === 'TITLE') {
             if (Input.attackPressed || Input._key('Enter') || Input._key('Space')) {
-                this.startGame();
+                this.startNewGame();
             }
             Input.postUpdate();
             return;
@@ -177,13 +289,26 @@ const Game = {
 
         if (this.state === 'GAME_OVER') {
             if (Input.attackPressed || Input._key('Enter') || Input._key('Space')) {
-                this.startGame();
+                // Restart current world
+                this.startWorld(this.currentWorld);
+            }
+            Input.postUpdate();
+            return;
+        }
+
+        if (this.state === 'WORLD_CLEAR') {
+            this.worldClearTimer -= dt;
+            if (this.worldClearTimer <= 0 || Input.attackPressed || Input._key('Enter')) {
+                this._advanceToNextWorld();
             }
             Input.postUpdate();
             return;
         }
 
         if (this.state === 'WIN') {
+            if (Input.attackPressed || Input._key('Enter') || Input._key('Space')) {
+                this.state = 'TITLE';
+            }
             Input.postUpdate();
             return;
         }
@@ -211,7 +336,7 @@ const Game = {
             if (enemy.isBoss) {
                 enemy.update(dt, this.world, this.player, this.enemies, this.particles);
             } else {
-                enemy.update(dt, this.world, this.player);
+                enemy.update(dt, this.world, this.player, this.enemies, this.projectiles);
             }
 
             // Contact damage
@@ -226,7 +351,6 @@ const Game = {
                     );
                     this.player.takeDamage(enemy.damage, angle, 150);
                     this.camera.shake(4, 0.2);
-                    // Hit particles
                     for (let i = 0; i < 4; i++) {
                         this.particles.push(new Particle(
                             this.player.x + this.player.w / 2,
@@ -251,7 +375,6 @@ const Game = {
                 if (this.player.hasPowerUp('attack')) damage += 2;
                 enemy.takeDamage(damage, angle, this.player.activeWeapon.knockback);
                 this.camera.shake(3, 0.15);
-                // Hit particles
                 for (let i = 0; i < 3; i++) {
                     this.particles.push(new Particle(
                         enemy.centerX(), enemy.centerY(),
@@ -263,7 +386,7 @@ const Game = {
         }
 
         // Ranged weapon shooting
-        if (this.player.activeWeapon.type === 'ranged' && Input.attackPressed) {
+        if (this.player.activeWeapon.type === 'ranged' && (Input.attackPressed || Input.attackHeld)) {
             this.player.activeWeapon.attack(this.player.facingAngle, this.player, this.projectiles);
         }
 
@@ -313,7 +436,6 @@ const Game = {
         for (const chest of this.chests) {
             if (!chest.opened && chest.canInteract(this.player) && Input.attackPressed) {
                 chest.open();
-                // Particles
                 for (let i = 0; i < 5; i++) {
                     this.particles.push(new Particle(
                         chest.x + chest.w / 2, chest.y + chest.h / 2,
@@ -330,7 +452,6 @@ const Game = {
             if (key.update(dt, this.player)) {
                 this.hasKey = true;
                 this.world.openBossDoor();
-                // Particles
                 for (let i = 0; i < 8; i++) {
                     this.particles.push(new Particle(
                         key.x + key.w / 2, key.y + key.h / 2,
@@ -349,21 +470,34 @@ const Game = {
             }
         }
 
-        // Check for boss trigger (player walks onto the boss door tile)
+        // Track slime kills for auto charge (World 3)
+        if (this.currentWorld === 3 && this.player.hasAuto) {
+            for (const enemy of this.enemies) {
+                if (enemy.dead && !enemy._countedForCharge && enemy.constructor.name === 'Slime') {
+                    enemy._countedForCharge = true;
+                    this.player.addAutoCharge();
+                }
+            }
+        }
+
+        // Boss door trigger
         if (this.hasKey && this.world.bossDoorOpen && !this.bossActive && !this.bossDefeated) {
             const px = this.player.x + this.player.w / 2;
             const py = this.player.y + this.player.h / 2;
-            // Boss door is at row 22, col 13 - trigger when player is near
-            const doorCenterX = 13 * 32 + 16;
-            const doorCenterY = 22 * 32 + 16;
-            if (vecDist({ x: px, y: py }, { x: doorCenterX, y: doorCenterY }) < 40) {
-                // Teleport player INTO the boss room
-                this.player.x = 13 * 32 - this.player.w / 2;
-                this.player.y = 24 * 32;
-                this._spawnBoss();
-                // Lock boss room (close the door)
-                for (const pos of this.world.bossDoorTiles) {
-                    this.world.tiles[pos.y][pos.x] = TILE_WALL;
+            // Find boss door position dynamically
+            for (const dPos of this.world.bossDoorTiles) {
+                const doorCX = dPos.x * 32 + 16;
+                const doorCY = dPos.y * 32 + 16;
+                if (vecDist({ x: px, y: py }, { x: doorCX, y: doorCY }) < 40) {
+                    // Teleport into boss room
+                    this.player.x = this.world.bossSpawn.x - this.player.w / 2;
+                    this.player.y = this.world.bossSpawn.y - this.player.h / 2 - 64;
+                    this._spawnBoss();
+                    // Lock boss room
+                    for (const pos of this.world.bossDoorTiles) {
+                        this.world.tiles[pos.y][pos.x] = TILE_WALL;
+                    }
+                    break;
                 }
             }
         }
@@ -372,8 +506,7 @@ const Game = {
         if (this.bossActive && !this.bossDefeated) {
             const boss = this.enemies.find(e => e.isBoss);
             if (boss && boss.dead && boss.deathTimer <= 0) {
-                this.bossDefeated = true;
-                this.state = 'WIN';
+                this._onBossDefeated();
             }
         }
 
@@ -382,7 +515,7 @@ const Game = {
             p.update(dt);
         }
 
-        // Cleanup dead entities
+        // Cleanup
         this.enemies = this.enemies.filter(e => !(e.dead && e.deathTimer <= 0 && !e.isBoss));
         this.projectiles = this.projectiles.filter(p => !p.dead);
         this.particles = this.particles.filter(p => !p.dead);
@@ -437,7 +570,7 @@ const Game = {
             this.player.draw(ctx, this.camera);
         }
 
-        // Particles (on top)
+        // Particles
         for (const p of this.particles) {
             p.draw(ctx, this.camera);
         }
@@ -445,14 +578,13 @@ const Game = {
         // HUD
         Renderer.drawHUD(ctx, this.player, this);
 
-        // Game Over
+        // Overlays
         if (this.state === 'GAME_OVER') {
             Renderer.drawGameOver(ctx);
-        }
-
-        // Win
-        if (this.state === 'WIN') {
-            Renderer.drawWinScreen(ctx);
+        } else if (this.state === 'WIN') {
+            Renderer.drawFinalWinScreen(ctx);
+        } else if (this.state === 'WORLD_CLEAR') {
+            Renderer.drawWorldClearScreen(ctx, this.currentWorld);
         }
 
         // Chest interaction hint
@@ -463,8 +595,7 @@ const Game = {
                 ctx.fillStyle = '#FFF';
                 ctx.font = '10px monospace';
                 ctx.textAlign = 'center';
-                const text = Input.isMobile ? 'Tippen' : 'Klick';
-                ctx.fillText(text, pos.x, pos.y);
+                ctx.fillText(Input.isMobile ? 'Tippen' : 'Klick', pos.x, pos.y);
                 ctx.restore();
             }
         }

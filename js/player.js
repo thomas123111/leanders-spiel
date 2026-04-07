@@ -8,8 +8,8 @@ class Player {
         this.h = 28;
         this.baseSpeed = 150;
         this.speed = this.baseSpeed;
-        this.hp = 20; // 5 hearts x 4 quarters
-        this.maxHp = 20;
+        this.hp = 12; // 3 hearts default (GDD says 3 base)
+        this.maxHp = 12;
         this.facingAngle = 0;
         this.dead = false;
 
@@ -34,6 +34,21 @@ class Player {
         // Power-ups
         this.powerUps = {}; // { speed: { timer: 10 }, attack: { timer: 15 } }
 
+        // ── Unlockable abilities ──
+        // Auto (unlocked after World 2): drive through walls for 15s
+        this.hasAuto = false;
+        this.autoActive = false;
+        this.autoTimer = 0;
+        this.autoDuration = 15;
+        this.autoCharges = 0;    // World 3: must kill 5 slimes to charge
+        this.autoChargesNeeded = 5;
+        this.autoReady = true;   // true in W2, in W3 must be charged
+
+        // Krone/Crown (unlocked after World 3): 5s shield at level start
+        this.hasCrown = false;
+        this.crownShieldTimer = 0;
+        this.crownShieldDuration = 5;
+
         // Death
         this.deathTimer = 0;
     }
@@ -52,12 +67,39 @@ class Player {
 
     takeDamage(amount, knockbackAngle, knockbackForce) {
         if (this.iFrames > 0 || this.dodging || this.dead) return;
+        // Crown shield blocks all damage
+        if (this.crownShieldTimer > 0) return;
+        // Auto mode: no damage while driving
+        if (this.autoActive) return;
         this.hp -= amount;
         this.iFrames = this.iFrameDuration;
         if (this.hp <= 0) {
             this.hp = 0;
             this.dead = true;
             this.deathTimer = 1.5;
+        }
+    }
+
+    activateAuto() {
+        if (!this.hasAuto || this.autoActive) return;
+        if (!this.autoReady) return;
+        this.autoActive = true;
+        this.autoTimer = this.autoDuration;
+        this.autoCharges = 0;
+        this.autoReady = true; // will be set false in W3 after use
+    }
+
+    addAutoCharge() {
+        if (!this.hasAuto) return;
+        this.autoCharges++;
+        if (this.autoCharges >= this.autoChargesNeeded) {
+            this.autoReady = true;
+        }
+    }
+
+    startCrownShield() {
+        if (this.hasCrown) {
+            this.crownShieldTimer = this.crownShieldDuration;
         }
     }
 
@@ -74,15 +116,39 @@ class Player {
             return;
         }
 
+        // Crown shield countdown
+        if (this.crownShieldTimer > 0) this.crownShieldTimer -= dt;
+
+        // Auto ability
+        if (this.autoActive) {
+            this.autoTimer -= dt;
+            if (this.autoTimer <= 0) {
+                this.autoActive = false;
+            }
+        }
+
+        // Auto activation (E key or double-tap right joystick)
+        if (this.hasAuto && this.autoReady && !this.autoActive) {
+            if (Input._key('KeyE')) {
+                if (!this._eWasDown) {
+                    this.activateAuto();
+                    this._eWasDown = true;
+                }
+            } else {
+                this._eWasDown = false;
+            }
+        }
+
         // Power-ups
         this.speed = this.baseSpeed;
+        if (this.autoActive) this.speed = this.baseSpeed * 2; // Auto is fast!
         for (const key of Object.keys(this.powerUps)) {
             this.powerUps[key].timer -= dt;
             if (this.powerUps[key].timer <= 0) {
                 delete this.powerUps[key];
             }
         }
-        if (this.hasPowerUp('speed')) this.speed = this.baseSpeed * 1.5;
+        if (this.hasPowerUp('speed')) this.speed *= 1.5;
 
         // Invincibility
         if (this.iFrames > 0) this.iFrames -= dt;
@@ -121,7 +187,13 @@ class Player {
         }
         const dx = dir.x * this.speed * dt;
         const dy = dir.y * this.speed * dt;
-        this._moveWithCollision(dx, dy, world);
+        if (this.autoActive) {
+            // Auto: drive through walls!
+            this.x += dx;
+            this.y += dy;
+        } else {
+            this._moveWithCollision(dx, dy, world);
+        }
 
         // Aim angle (right joystick or mouse)
         this.facingAngle = Input.aimAngle;
@@ -376,6 +448,71 @@ class Player {
                 ctx.arc(cx + Math.cos(sa) * sr, cy + Math.sin(sa) * sr + walkBob, 2, 0, Math.PI * 2);
                 ctx.fill();
             }
+        }
+
+        // ── Crown Shield ──
+        if (this.crownShieldTimer > 0) {
+            const shieldAlpha = Math.min(1, this.crownShieldTimer) * 0.3;
+            ctx.globalAlpha = shieldAlpha + Math.sin(Date.now() / 150) * 0.1;
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(cx, cy + walkBob, this.w * 0.85, 0, Math.PI * 2);
+            ctx.stroke();
+            // Crown icon above head
+            ctx.globalAlpha = 0.8;
+            ctx.fillStyle = '#FFD700';
+            const crY = cy - 20 + walkBob;
+            ctx.beginPath();
+            ctx.moveTo(cx - 7, crY + 5);
+            ctx.lineTo(cx - 7, crY);
+            ctx.lineTo(cx - 4, crY + 3);
+            ctx.lineTo(cx, crY - 2);
+            ctx.lineTo(cx + 4, crY + 3);
+            ctx.lineTo(cx + 7, crY);
+            ctx.lineTo(cx + 7, crY + 5);
+            ctx.closePath();
+            ctx.fill();
+            // Timer
+            ctx.fillStyle = '#FFD700';
+            ctx.font = '8px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(Math.ceil(this.crownShieldTimer) + 's', cx, crY - 5);
+        }
+
+        // ── Auto Mode Visual ──
+        if (this.autoActive) {
+            ctx.globalAlpha = 0.4 + Math.sin(Date.now() / 100) * 0.1;
+            ctx.strokeStyle = '#0FF';
+            ctx.lineWidth = 2;
+            // Car outline around player
+            ctx.beginPath();
+            ctx.roundRect(cx - 18, cy - 12 + walkBob, 36, 28, 6);
+            ctx.stroke();
+            // Wheels
+            ctx.fillStyle = '#333';
+            ctx.fillRect(cx - 18, cy - 8 + walkBob, 4, 6);
+            ctx.fillRect(cx + 14, cy - 8 + walkBob, 4, 6);
+            ctx.fillRect(cx - 18, cy + 8 + walkBob, 4, 6);
+            ctx.fillRect(cx + 14, cy + 8 + walkBob, 4, 6);
+            // Speed lines
+            ctx.globalAlpha = 0.3;
+            ctx.strokeStyle = '#0FF';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 4; i++) {
+                const lx = cx - 22 - i * 8 - Math.cos(this.facingAngle) * 10;
+                const ly = cy + (i - 1.5) * 6 + walkBob;
+                ctx.beginPath();
+                ctx.moveTo(lx, ly);
+                ctx.lineTo(lx - 10, ly);
+                ctx.stroke();
+            }
+            // Timer
+            ctx.globalAlpha = 0.9;
+            ctx.fillStyle = '#0FF';
+            ctx.font = 'bold 10px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(Math.ceil(this.autoTimer) + 's', cx, cy - 18 + walkBob);
         }
 
         // ── Weapon ──
