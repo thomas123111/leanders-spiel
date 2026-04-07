@@ -62,6 +62,9 @@ const Input = {
     },
 
     _handleTouchStart(e) {
+        // Any touch counts as attackPressed (for menus/title screen)
+        this.attackPressed = true;
+
         const rect = this.canvas.getBoundingClientRect();
         const scaleX = this.canvas.width / rect.width;
         const scaleY = this.canvas.height / rect.height;

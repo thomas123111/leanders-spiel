@@ -116,11 +116,7 @@ const Game = {
             this.player.startCrownShield();
         }
 
-        // World 2 boss: player gets 5 hearts (GDD)
-        if (worldNum === 2) {
-            this.player.maxHp = 20; // 5 hearts
-            this.player.hp = 20;
-        }
+        // Player always has 5 hearts (20 HP)
 
         // Camera
         this.camera = new Camera(this.canvas.width, this.canvas.height);

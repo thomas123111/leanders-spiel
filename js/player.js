@@ -8,8 +8,8 @@ class Player {
         this.h = 28;
         this.baseSpeed = 150;
         this.speed = this.baseSpeed;
-        this.hp = 12; // 3 hearts default (GDD says 3 base)
-        this.maxHp = 12;
+        this.hp = 20; // 5 hearts x 4 quarters
+        this.maxHp = 20;
         this.facingAngle = 0;
         this.dead = false;
 
