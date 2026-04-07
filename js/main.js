@@ -305,7 +305,6 @@ const Game = {
     _onBossDefeated() {
         this.bossDefeated = true;
         Sound.bossDeath();
-        this.doHitstop(0.3);
         this.camera.shake(8, 0.5);
         this.vibrate(400);
 
@@ -329,8 +328,7 @@ const Game = {
 
     _advanceToNextWorld() {
         if (this.currentWorld < 3) {
-            const nextWorld = this.currentWorld + 1;
-            this.fadeOut(() => this.startWorld(nextWorld));
+            this.startWorld(this.currentWorld + 1);
         }
     },
 
@@ -349,14 +347,6 @@ const Game = {
                 this.fadeAlpha = 0;
                 this.fadeDir = 0;
             }
-        }
-
-        // Hitstop: skip update but still render
-        if (this.hitstopTimer > 0) {
-            this.hitstopTimer -= dt;
-            this.render();
-            requestAnimationFrame(t => this.gameLoop(t));
-            return;
         }
 
         this.update(dt);
@@ -451,7 +441,7 @@ const Game = {
                     this.camera.shake(4, 0.2);
                     Sound.playerHit();
                     this.vibrate(50);
-                    this.doHitstop(0.05);
+
                     for (let i = 0; i < 4; i++) {
                         this.particles.push(new Particle(
                             this.player.x + this.player.w / 2,
@@ -477,7 +467,7 @@ const Game = {
                 enemy.takeDamage(damage, angle, this.player.activeWeapon.knockback);
                 this.camera.shake(3, 0.15);
                 Sound.hit();
-                this.doHitstop(0.04);
+
                 if (enemy.dead) Sound.enemyDeath();
                 for (let i = 0; i < 3; i++) {
                     this.particles.push(new Particle(
