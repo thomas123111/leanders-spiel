@@ -119,17 +119,45 @@ class Ghost extends Enemy {
 
     draw(ctx, camera) {
         const pos = camera.worldToScreen(this.x, this.y);
+        const gcx = pos.x + this.w / 2;
+        const gcy = pos.y + this.h / 2;
 
         if (this.dead) {
-            // Death poof
-            const alpha = this.deathTimer / 0.4;
-            const scale = 1 + (1 - alpha) * 0.5;
+            // Balloon POP! animation
+            const t = 1 - this.deathTimer / 0.4;
             ctx.save();
-            ctx.globalAlpha = alpha * 0.6;
-            ctx.fillStyle = `hsl(${this.hue}, 70%, 70%)`;
+
+            // Expanding burst fragments
+            const numFragments = 8;
+            for (let i = 0; i < numFragments; i++) {
+                const angle = (Math.PI * 2 * i) / numFragments + t * 0.5;
+                const dist = t * 40;
+                const fragAlpha = 1 - t;
+                const fragSize = (1 - t) * 6;
+                ctx.globalAlpha = fragAlpha * 0.8;
+                ctx.fillStyle = `hsl(${this.hue + i * 20}, 80%, 65%)`;
+                ctx.beginPath();
+                ctx.arc(
+                    gcx + Math.cos(angle) * dist,
+                    gcy + Math.sin(angle) * dist,
+                    fragSize, 0, Math.PI * 2
+                );
+                ctx.fill();
+            }
+            // Central flash
+            ctx.globalAlpha = (1 - t) * 0.5;
+            ctx.fillStyle = '#FFF';
             ctx.beginPath();
-            ctx.arc(pos.x + this.w / 2, pos.y + this.h / 2, this.w * scale / 2, 0, Math.PI * 2);
+            ctx.arc(gcx, gcy, (1 - t) * 15 + t * 25, 0, Math.PI * 2);
             ctx.fill();
+            // "POP" text
+            if (t < 0.6) {
+                ctx.globalAlpha = (0.6 - t) * 1.5;
+                ctx.fillStyle = '#FFF';
+                ctx.font = 'bold 14px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('POP!', gcx, gcy - 10 - t * 20);
+            }
             ctx.restore();
             return;
         }
@@ -140,33 +168,103 @@ class Ghost extends Enemy {
         ctx.save();
         ctx.globalAlpha = flash ? 0.3 : this.alpha;
 
-        // Ghost body
-        ctx.fillStyle = `hsl(${this.hue}, 70%, 65%)`;
+        // Glow underneath
+        ctx.globalAlpha = (flash ? 0.1 : 0.15);
+        ctx.fillStyle = `hsl(${this.hue}, 80%, 70%)`;
         ctx.beginPath();
-        ctx.arc(pos.x + this.w / 2, pos.y + this.h / 2 + bob - 4, this.w / 2, Math.PI, 0);
-        ctx.lineTo(pos.x + this.w, pos.y + this.h + bob);
-        // Wavy bottom
-        const segments = 4;
-        const segW = this.w / segments;
+        ctx.arc(gcx, gcy + bob, this.w * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = flash ? 0.3 : this.alpha;
+
+        // Balloon-like body (rounder, shinier)
+        const bodyGrad = ctx.createRadialGradient(
+            gcx - 3, gcy + bob - 6, 2,
+            gcx, gcy + bob - 2, this.w / 2 + 2
+        );
+        bodyGrad.addColorStop(0, `hsl(${this.hue}, 80%, 80%)`);
+        bodyGrad.addColorStop(0.6, `hsl(${this.hue}, 70%, 60%)`);
+        bodyGrad.addColorStop(1, `hsl(${this.hue}, 60%, 45%)`);
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath();
+        ctx.arc(gcx, gcy + bob - 4, this.w / 2 + 1, Math.PI, 0);
+        ctx.lineTo(pos.x + this.w + 1, gcy + this.h / 2 + bob);
+
+        // Wavy tentacle bottom
+        const segments = 5;
+        const segW = (this.w + 2) / segments;
         for (let i = segments; i > 0; i--) {
-            const sx = pos.x + i * segW;
-            const wave = Math.sin(Date.now() / 200 + i) * 3;
-            ctx.lineTo(sx - segW / 2, pos.y + this.h + bob - 4 + wave);
-            ctx.lineTo(sx - segW, pos.y + this.h + bob);
+            const sx = pos.x - 1 + i * segW;
+            const wave = Math.sin(Date.now() / 180 + i + this.bobOffset) * 4;
+            ctx.lineTo(sx - segW / 2, gcy + this.h / 2 + bob - 2 + wave);
+            ctx.lineTo(sx - segW, gcy + this.h / 2 + bob);
         }
         ctx.closePath();
         ctx.fill();
 
-        // Eyes
+        // Shine highlight (balloon reflection)
+        ctx.fillStyle = 'rgba(255,255,255,0.25)';
+        ctx.beginPath();
+        ctx.ellipse(gcx - 4, gcy + bob - 8, 4, 6, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ── Funny Face ──
+        const faceY = gcy + bob - 2;
+
+        // Big round eyes
         ctx.fillStyle = '#FFF';
         ctx.beginPath();
-        ctx.arc(pos.x + this.w * 0.35, pos.y + this.h * 0.35 + bob, 4, 0, Math.PI * 2);
-        ctx.arc(pos.x + this.w * 0.65, pos.y + this.h * 0.35 + bob, 4, 0, Math.PI * 2);
+        ctx.ellipse(gcx - 5, faceY - 2, 5, 5.5, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = '#222';
         ctx.beginPath();
-        ctx.arc(pos.x + this.w * 0.35, pos.y + this.h * 0.35 + bob + 1, 2, 0, Math.PI * 2);
-        ctx.arc(pos.x + this.w * 0.65, pos.y + this.h * 0.35 + bob + 1, 2, 0, Math.PI * 2);
+        ctx.ellipse(gcx + 5, faceY - 2, 5, 5.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Iris (looks toward player if chasing)
+        const irisOff = this.chasing ? 1.5 : 0;
+        ctx.fillStyle = `hsl(${this.hue + 60}, 70%, 35%)`;
+        ctx.beginPath();
+        ctx.arc(gcx - 5 + irisOff, faceY - 1, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(gcx + 5 + irisOff, faceY - 1, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        // Pupil
+        ctx.fillStyle = '#111';
+        ctx.beginPath();
+        ctx.arc(gcx - 5 + irisOff, faceY - 0.5, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(gcx + 5 + irisOff, faceY - 0.5, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        // Eye shine
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath();
+        ctx.arc(gcx - 6, faceY - 3, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(gcx + 4, faceY - 3, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Goofy smile (wide, happy)
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(gcx, faceY + 3, 5, 0.15, Math.PI - 0.15);
+        ctx.stroke();
+        // Tongue
+        if (this.chasing) {
+            ctx.fillStyle = '#F77';
+            ctx.beginPath();
+            ctx.ellipse(gcx + 2, faceY + 7, 2.5, 2, 0.2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // Blush circles
+        ctx.fillStyle = `hsla(${this.hue + 30}, 80%, 70%, 0.35)`;
+        ctx.beginPath();
+        ctx.arc(gcx - 9, faceY + 1, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(gcx + 9, faceY + 1, 3, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();
@@ -362,16 +460,28 @@ class BossGhost extends Enemy {
 
     draw(ctx, camera) {
         const pos = camera.worldToScreen(this.x, this.y);
-        const bob = Math.sin(Date.now() / 400) * 5;
+        const bcx = pos.x + this.w / 2;
+        const bcy = pos.y + this.h / 2;
+        const bob = Math.sin(Date.now() / 400) * 6;
         const flash = this.iFrames > 0 && Math.floor(this.iFrames * 20) % 2;
 
         if (this.dead) {
-            const alpha = this.deathTimer / 0.4;
+            // Epic death: boss explodes in green fireworks
+            const t = 1 - this.deathTimer / 0.4;
             ctx.save();
-            ctx.globalAlpha = alpha * 0.6;
-            ctx.fillStyle = '#0F0';
+            for (let i = 0; i < 16; i++) {
+                const a = (Math.PI * 2 * i) / 16 + t;
+                const dist = t * 80;
+                ctx.globalAlpha = (1 - t) * 0.8;
+                ctx.fillStyle = `hsl(${120 + i * 15}, 80%, ${50 + i * 2}%)`;
+                ctx.beginPath();
+                ctx.arc(bcx + Math.cos(a) * dist, bcy + Math.sin(a) * dist, (1 - t) * 12, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = (1 - t);
+            ctx.fillStyle = '#FFF';
             ctx.beginPath();
-            ctx.arc(pos.x + this.w / 2, pos.y + this.h / 2, this.w * (1 + (1 - alpha)), 0, Math.PI * 2);
+            ctx.arc(bcx, bcy, (1 - t) * 40 + t * 60, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
             return;
@@ -380,126 +490,283 @@ class BossGhost extends Enemy {
         ctx.save();
         ctx.globalAlpha = flash ? 0.3 : this.alpha;
 
-        // Body
-        ctx.fillStyle = this.state === 'stunned' ? '#0a5' : '#0C0';
+        // ── Ominous glow underneath ──
+        ctx.globalAlpha = 0.12;
+        const glowGrad = ctx.createRadialGradient(bcx, bcy + bob, 10, bcx, bcy + bob, this.w);
+        glowGrad.addColorStop(0, '#0F0');
+        glowGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = glowGrad;
         ctx.beginPath();
-        ctx.arc(pos.x + this.w / 2, pos.y + this.h / 2 + bob - 10, this.w / 2, Math.PI, 0);
-        ctx.lineTo(pos.x + this.w, pos.y + this.h + bob);
-        const segments = 6;
-        const segW = this.w / segments;
+        ctx.arc(bcx, bcy + bob, this.w, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = flash ? 0.3 : this.alpha;
+
+        // ── Hands (always visible, oversize) ──
+        const handY = bcy + bob;
+        let leftHandX, rightHandX, handRot;
+
+        if (this.state === 'clap') {
+            const t = this.clapProgress / this.clapDuration;
+            let spread;
+            if (t < 0.45) spread = 1 - t / 0.45;
+            else if (t < 0.55) spread = 0;
+            else spread = (t - 0.55) / 0.45;
+            leftHandX = bcx - 20 - spread * 60;
+            rightHandX = bcx + 20 + spread * 60;
+            handRot = (1 - spread) * 0.3;
+        } else if (this.state === 'stunned') {
+            // Hands droop down
+            leftHandX = bcx - 55;
+            rightHandX = bcx + 55;
+            handRot = 0.5;
+        } else {
+            // Idle floating hands
+            const idleWave = Math.sin(Date.now() / 600) * 8;
+            leftHandX = bcx - 55 - idleWave;
+            rightHandX = bcx + 55 + idleWave;
+            handRot = Math.sin(Date.now() / 800) * 0.15;
+        }
+
+        this._drawHand(ctx, leftHandX, handY, 28, -handRot, false);
+        this._drawHand(ctx, rightHandX, handY, 28, handRot, true);
+
+        // ── Clap shockwave ──
+        if (this.state === 'clap') {
+            const t = this.clapProgress / this.clapDuration;
+            // Warning zone
+            if (t < 0.35) {
+                ctx.globalAlpha = 0.08 + Math.sin(t * 40) * 0.06;
+                ctx.fillStyle = '#F00';
+                ctx.beginPath();
+                ctx.arc(bcx, handY, this.clapRange, 0, Math.PI * 2);
+                ctx.fill();
+                // Pulsing ring
+                ctx.globalAlpha = 0.3;
+                ctx.strokeStyle = '#F44';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.arc(bcx, handY, this.clapRange, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            // Impact shockwave
+            if (t >= 0.45 && t <= 0.75) {
+                const shockT = (t - 0.45) / 0.3;
+                ctx.globalAlpha = (1 - shockT) * 0.8;
+                // Outer ring
+                ctx.strokeStyle = '#FF0';
+                ctx.lineWidth = 5 - shockT * 3;
+                ctx.beginPath();
+                ctx.arc(bcx, handY, 20 + shockT * 130, 0, Math.PI * 2);
+                ctx.stroke();
+                // Inner ring
+                ctx.strokeStyle = '#FFA500';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(bcx, handY, 10 + shockT * 90, 0, Math.PI * 2);
+                ctx.stroke();
+                // Flash at center
+                if (shockT < 0.3) {
+                    ctx.globalAlpha = (0.3 - shockT) * 2;
+                    ctx.fillStyle = '#FFF';
+                    ctx.beginPath();
+                    ctx.arc(bcx, handY, 20, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            ctx.globalAlpha = flash ? 0.3 : this.alpha;
+        }
+
+        // ── Main body (massive ghost) ──
+        const bodyGrad = ctx.createRadialGradient(bcx - 8, bcy + bob - 20, 5, bcx, bcy + bob, this.w / 2 + 5);
+        bodyGrad.addColorStop(0, this.state === 'stunned' ? '#2A8' : '#4E4');
+        bodyGrad.addColorStop(0.5, this.state === 'stunned' ? '#0A5' : '#0C0');
+        bodyGrad.addColorStop(1, this.state === 'stunned' ? '#063' : '#080');
+        ctx.fillStyle = bodyGrad;
+
+        ctx.beginPath();
+        ctx.arc(bcx, bcy + bob - 12, this.w / 2 + 2, Math.PI, 0);
+        ctx.lineTo(pos.x + this.w + 2, pos.y + this.h + bob);
+        const segments = 8;
+        const segW = (this.w + 4) / segments;
         for (let i = segments; i > 0; i--) {
-            const sx = pos.x + i * segW;
-            const wave = Math.sin(Date.now() / 200 + i) * 5;
-            ctx.lineTo(sx - segW / 2, pos.y + this.h + bob - 6 + wave);
+            const sx = pos.x - 2 + i * segW;
+            const wave = Math.sin(Date.now() / 180 + i * 0.8) * 6;
+            ctx.lineTo(sx - segW / 2, pos.y + this.h + bob - 4 + wave);
             ctx.lineTo(sx - segW, pos.y + this.h + bob);
         }
         ctx.closePath();
         ctx.fill();
 
-        // Eyes (angry)
-        ctx.fillStyle = '#FF0';
-        const eyeY = pos.y + this.h * 0.3 + bob;
+        // Body shine
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
         ctx.beginPath();
-        ctx.arc(pos.x + this.w * 0.35, eyeY, 8, 0, Math.PI * 2);
-        ctx.arc(pos.x + this.w * 0.65, eyeY, 8, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#F00';
-        ctx.beginPath();
-        ctx.arc(pos.x + this.w * 0.35, eyeY + 1, 4, 0, Math.PI * 2);
-        ctx.arc(pos.x + this.w * 0.65, eyeY + 1, 4, 0, Math.PI * 2);
+        ctx.ellipse(bcx - 12, bcy + bob - 22, 12, 18, -0.2, 0, Math.PI * 2);
         ctx.fill();
 
-        // Eyebrow (angry)
-        ctx.strokeStyle = '#080';
-        ctx.lineWidth = 3;
+        // ── Face ──
+        const faceY = bcy + bob - 5;
+
+        // Angry eyes (big, glowing)
+        const eyeGlow = ctx.createRadialGradient(bcx - 14, faceY, 2, bcx - 14, faceY, 12);
+        eyeGlow.addColorStop(0, '#FF0');
+        eyeGlow.addColorStop(0.6, '#FA0');
+        eyeGlow.addColorStop(1, 'rgba(255,100,0,0)');
+        ctx.fillStyle = eyeGlow;
         ctx.beginPath();
-        ctx.moveTo(pos.x + this.w * 0.2, eyeY - 10);
-        ctx.lineTo(pos.x + this.w * 0.45, eyeY - 6);
-        ctx.moveTo(pos.x + this.w * 0.8, eyeY - 10);
-        ctx.lineTo(pos.x + this.w * 0.55, eyeY - 6);
+        ctx.arc(bcx - 14, faceY, 12, 0, Math.PI * 2);
+        ctx.fill();
+
+        const eyeGlow2 = ctx.createRadialGradient(bcx + 14, faceY, 2, bcx + 14, faceY, 12);
+        eyeGlow2.addColorStop(0, '#FF0');
+        eyeGlow2.addColorStop(0.6, '#FA0');
+        eyeGlow2.addColorStop(1, 'rgba(255,100,0,0)');
+        ctx.fillStyle = eyeGlow2;
+        ctx.beginPath();
+        ctx.arc(bcx + 14, faceY, 12, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eye whites
+        ctx.fillStyle = '#FF0';
+        ctx.beginPath();
+        ctx.ellipse(bcx - 14, faceY, 9, 7, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(bcx + 14, faceY, 9, 7, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Pupils (red, menacing)
+        ctx.fillStyle = '#D00';
+        ctx.beginPath();
+        ctx.arc(bcx - 14, faceY + 1, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(bcx + 14, faceY + 1, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        // Pupil core
+        ctx.fillStyle = '#300';
+        ctx.beginPath();
+        ctx.arc(bcx - 14, faceY + 1, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(bcx + 14, faceY + 1, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Angry eyebrows (thick)
+        ctx.strokeStyle = '#060';
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(bcx - 25, faceY - 13);
+        ctx.lineTo(bcx - 8, faceY - 8);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(bcx + 25, faceY - 13);
+        ctx.lineTo(bcx + 8, faceY - 8);
         ctx.stroke();
 
-        // Clap animation - two big hands coming together
-        if (this.state === 'clap') {
-            const t = this.clapProgress / this.clapDuration;
-            let handSpread;
-            if (t < 0.45) handSpread = 1 - t / 0.45; // hands wind up and come together
-            else if (t < 0.55) handSpread = 0; // CLAP moment
-            else handSpread = (t - 0.55) / 0.45; // hands pull back
-
-            const spreadDist = handSpread * 55;
-            const leftX = pos.x - 15 - spreadDist;
-            const rightX = pos.x + this.w + 15 + spreadDist;
-            const handY = pos.y + this.h * 0.45 + bob;
-            const handSize = 22;
-
-            ctx.globalAlpha = 0.95;
-            ctx.fillStyle = '#0C0';
-
-            // Left hand (palm shape)
+        // Mouth (wide angry grin in phase 2, scowl in phase 1)
+        if (this.phase === 2) {
+            // Wide menacing grin
+            ctx.fillStyle = '#030';
             ctx.beginPath();
-            ctx.ellipse(leftX, handY, handSize, handSize * 0.7, 0.2, 0, Math.PI * 2);
+            ctx.arc(bcx, faceY + 14, 14, 0.1, Math.PI - 0.1);
+            ctx.closePath();
             ctx.fill();
-            ctx.fillStyle = '#0A0';
-            // Fingers left
-            for (let f = -1; f <= 1; f++) {
-                ctx.beginPath();
-                ctx.arc(leftX + 10, handY + f * 8, 5, 0, Math.PI * 2);
-                ctx.fill();
+            // Teeth
+            ctx.fillStyle = '#FFE';
+            for (let i = -2; i <= 2; i++) {
+                ctx.fillRect(bcx + i * 5 - 2, faceY + 14, 4, 5);
             }
-
-            // Right hand
-            ctx.fillStyle = '#0C0';
+        } else {
+            // Scowl
+            ctx.strokeStyle = '#040';
+            ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.ellipse(rightX, handY, handSize, handSize * 0.7, -0.2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#0A0';
-            for (let f = -1; f <= 1; f++) {
-                ctx.beginPath();
-                ctx.arc(rightX - 10, handY + f * 8, 5, 0, Math.PI * 2);
-                ctx.fill();
-            }
+            ctx.arc(bcx, faceY + 20, 10, Math.PI + 0.3, -0.3);
+            ctx.stroke();
+        }
 
-            // Shockwave on clap impact
-            if (t >= 0.45 && t <= 0.7) {
-                const shockT = (t - 0.45) / 0.25;
-                ctx.globalAlpha = (1 - shockT) * 0.7;
-                ctx.strokeStyle = '#FF0';
-                ctx.lineWidth = 4;
-                ctx.beginPath();
-                ctx.arc(pos.x + this.w / 2, handY, 30 + shockT * 120, 0, Math.PI * 2);
-                ctx.stroke();
-                // Inner ring
-                ctx.strokeStyle = '#FFA500';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.arc(pos.x + this.w / 2, handY, 15 + shockT * 80, 0, Math.PI * 2);
-                ctx.stroke();
-            }
-
-            // Warning indicator before clap
-            if (t < 0.3) {
-                ctx.globalAlpha = 0.15 + Math.sin(t * 30) * 0.1;
-                ctx.fillStyle = '#F00';
-                ctx.beginPath();
-                ctx.arc(pos.x + this.w / 2, handY, this.clapRange || 130, 0, Math.PI * 2);
-                ctx.fill();
+        // Stunned indicator (stars)
+        if (this.state === 'stunned') {
+            ctx.globalAlpha = 0.8;
+            ctx.fillStyle = '#FF0';
+            ctx.font = '14px monospace';
+            const starT = Date.now() / 300;
+            for (let i = 0; i < 4; i++) {
+                const sa = starT + i * Math.PI / 2;
+                ctx.fillText('★', bcx + Math.cos(sa) * 30 - 5, pos.y - 8 + Math.sin(sa) * 8 + bob);
             }
         }
 
-        // HP bar
+        // ── HP bar (wider, below boss name) ──
         ctx.globalAlpha = 1;
-        const barW = this.w;
-        const barH = 6;
-        const barX = pos.x;
-        const barY = pos.y - 14 + bob;
-        ctx.fillStyle = '#333';
-        ctx.fillRect(barX, barY, barW, barH);
-        ctx.fillStyle = this.hp > 15 ? '#0F0' : this.hp > 8 ? '#FF0' : '#F00';
-        ctx.fillRect(barX, barY, barW * (this.hp / this.maxHp), barH);
-        ctx.strokeStyle = '#000';
+        const barW = this.w + 20;
+        const barH = 8;
+        const barX = bcx - barW / 2;
+        const barY = pos.y - 24 + bob;
+
+        // Boss name
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('RIESEN-GEIST', bcx, barY - 4);
+        ctx.textAlign = 'left';
+
+        // Bar background
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        ctx.roundRect(barX, barY, barW, barH, 3);
+        ctx.fill();
+        // Bar fill
+        const hpPct = this.hp / this.maxHp;
+        const barColor = hpPct > 0.4 ? '#0F0' : hpPct > 0.2 ? '#FF0' : '#F00';
+        ctx.fillStyle = barColor;
+        ctx.beginPath();
+        ctx.roundRect(barX + 1, barY + 1, (barW - 2) * hpPct, barH - 2, 2);
+        ctx.fill();
+        // Bar border
+        ctx.strokeStyle = '#FFF';
         ctx.lineWidth = 1;
-        ctx.strokeRect(barX, barY, barW, barH);
+        ctx.beginPath();
+        ctx.roundRect(barX, barY, barW, barH, 3);
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
+    _drawHand(ctx, x, y, size, rotation, isRight) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(rotation);
+
+        // Palm
+        const palmGrad = ctx.createRadialGradient(-2, -2, 2, 0, 0, size);
+        palmGrad.addColorStop(0, '#3E3');
+        palmGrad.addColorStop(1, '#0A0');
+        ctx.fillStyle = palmGrad;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, size, size * 0.75, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Fingers (5 chunky fingers)
+        const fingerDir = isRight ? 1 : -1;
+        ctx.fillStyle = '#0B0';
+        for (let i = -2; i <= 2; i++) {
+            const angle = i * 0.35 + (isRight ? 0 : Math.PI);
+            const fx = Math.cos(angle) * (size - 2);
+            const fy = Math.sin(angle) * (size * 0.6) + i * 2;
+            ctx.beginPath();
+            ctx.ellipse(fx, fy, 8, 6, angle, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Knuckle highlights
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.beginPath();
+        ctx.ellipse(-4, -6, size * 0.4, size * 0.3, -0.2, 0, Math.PI * 2);
+        ctx.fill();
 
         ctx.restore();
     }

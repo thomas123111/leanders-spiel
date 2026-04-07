@@ -4,35 +4,64 @@ const Renderer = {
     drawHUD(ctx, player, game) {
         ctx.save();
 
-        // ── Hearts ──
-        const heartSize = 20;
-        const heartSpacing = 26;
-        const startX = 12;
-        const startY = 12;
+        // ── Hearts (quarter-step with gray for lost quarters) ──
+        const heartSize = 22;
+        const heartSpacing = 28;
+        const startX = 14;
+        const startY = 16;
         const totalHearts = player.maxHp / 4;
         const fullHearts = Math.floor(player.hp / 4);
         const remainder = player.hp % 4;
 
+        // Heart container background
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.beginPath();
+        ctx.roundRect(4, 2, totalHearts * heartSpacing + 8, 30, 6);
+        ctx.fill();
+
         for (let i = 0; i < totalHearts; i++) {
             const x = startX + i * heartSpacing;
             const y = startY;
-            // Background (empty heart)
-            this._drawHeartIcon(ctx, x, y, heartSize, '#444');
+
+            // Empty/gray heart background
+            this._drawHeartIcon(ctx, x, y, heartSize, '#555');
 
             if (i < fullHearts) {
-                // Full heart
-                this._drawHeartIcon(ctx, x, y, heartSize, '#F44');
+                // Full red heart with gradient
+                this._drawHeartIcon(ctx, x, y, heartSize, '#F44', null, true);
             } else if (i === fullHearts && remainder > 0) {
-                // Partial heart - clip
-                ctx.save();
-                ctx.beginPath();
-                ctx.rect(x - heartSize / 2, y - heartSize / 2, heartSize * (remainder / 4), heartSize);
-                ctx.clip();
-                this._drawHeartIcon(ctx, x, y, heartSize, '#F44');
-                ctx.restore();
+                // Quarter-step damage: draw filled portion, gray rest
+                // Draw each quarter as a vertical stripe
+                const quarterW = heartSize / 4;
+                for (let q = 0; q < 4; q++) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(x - heartSize / 2 + q * quarterW, y - heartSize / 2, quarterW, heartSize);
+                    ctx.clip();
+                    if (q < remainder) {
+                        this._drawHeartIcon(ctx, x, y, heartSize, '#F44', null, true);
+                    } else {
+                        this._drawHeartIcon(ctx, x, y, heartSize, '#666');
+                    }
+                    ctx.restore();
+                }
+                // Divider lines for quarters (subtle)
+                ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+                ctx.lineWidth = 0.5;
+                for (let q = 1; q < 4; q++) {
+                    ctx.beginPath();
+                    ctx.moveTo(x - heartSize / 2 + q * quarterW, y - heartSize / 2 + 3);
+                    ctx.lineTo(x - heartSize / 2 + q * quarterW, y + heartSize / 2 - 3);
+                    ctx.stroke();
+                }
             }
-            // Heart outline
-            this._drawHeartIcon(ctx, x, y, heartSize, null, '#B22');
+            // Outline
+            this._drawHeartIcon(ctx, x, y, heartSize, null, '#D33');
+            // Shine highlight
+            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+            ctx.beginPath();
+            ctx.ellipse(x - 2, y - 3, 4, 3, -0.3, 0, Math.PI * 2);
+            ctx.fill();
         }
 
         // ── Key indicator ──
@@ -91,7 +120,7 @@ const Renderer = {
         ctx.restore();
     },
 
-    _drawHeartIcon(ctx, x, y, size, fill, stroke) {
+    _drawHeartIcon(ctx, x, y, size, fill, stroke, useGradient) {
         const s = size / 2;
         ctx.beginPath();
         ctx.moveTo(x, y + s * 0.2);
@@ -101,7 +130,15 @@ const Renderer = {
         ctx.bezierCurveTo(x + s, y - s * 0.5, x, y - s * 0.5, x, y + s * 0.2);
         ctx.closePath();
         if (fill) {
-            ctx.fillStyle = fill;
+            if (useGradient) {
+                const grad = ctx.createRadialGradient(x - 2, y - 2, 1, x, y + 2, s);
+                grad.addColorStop(0, '#FF8888');
+                grad.addColorStop(0.4, fill);
+                grad.addColorStop(1, '#AA1111');
+                ctx.fillStyle = grad;
+            } else {
+                ctx.fillStyle = fill;
+            }
             ctx.fill();
         }
         if (stroke) {

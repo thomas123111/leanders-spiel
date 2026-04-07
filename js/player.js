@@ -171,14 +171,24 @@ class Player {
     draw(ctx, camera) {
         const pos = camera.worldToScreen(this.x, this.y);
         const flash = this.iFrames > 0 && Math.floor(this.iFrames * 10) % 2;
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
 
         if (this.dead) {
+            // Death: Mark spins and fades
             const alpha = this.deathTimer / 1.5;
+            const spin = (1 - alpha) * Math.PI * 4;
             ctx.save();
             ctx.globalAlpha = alpha;
+            ctx.translate(cx, cy);
+            ctx.rotate(spin);
             ctx.fillStyle = '#F44';
             ctx.beginPath();
-            ctx.arc(pos.x + this.w / 2, pos.y + this.h / 2, this.w * (2 - alpha), 0, Math.PI * 2);
+            ctx.arc(0, 0, this.w / 2 + (1 - alpha) * 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#FCA';
+            ctx.beginPath();
+            ctx.arc(0, -2, 8, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
             return;
@@ -187,60 +197,189 @@ class Player {
         ctx.save();
         if (flash) ctx.globalAlpha = 0.4;
 
-        // Dodge trail
+        // Walk bob animation
+        const walkBob = (Input.direction.x !== 0 || Input.direction.y !== 0)
+            ? Math.sin(Date.now() / 80) * 2 : 0;
+
+        // Dodge trail (afterimages)
         if (this.dodging) {
-            ctx.globalAlpha = 0.3;
-            ctx.fillStyle = '#88F';
-            ctx.fillRect(pos.x - this.dodgeDir.x * 8, pos.y - this.dodgeDir.y * 8, this.w, this.h);
+            for (let i = 1; i <= 3; i++) {
+                ctx.globalAlpha = 0.15 / i;
+                ctx.fillStyle = '#6BF';
+                ctx.beginPath();
+                ctx.arc(
+                    cx - this.dodgeDir.x * i * 7,
+                    cy - this.dodgeDir.y * i * 7,
+                    this.w / 2 - 2, 0, Math.PI * 2
+                );
+                ctx.fill();
+            }
             ctx.globalAlpha = flash ? 0.4 : 1;
         }
 
-        // Body
-        ctx.fillStyle = this.hasPowerUp('attack') ? '#F88' : (this.hasPowerUp('speed') ? '#88F' : '#4A9');
-        ctx.fillRect(pos.x + 2, pos.y + 2, this.w - 4, this.h - 4);
-
-        // Face direction indicator
-        const cx = pos.x + this.w / 2;
-        const cy = pos.y + this.h / 2;
-        ctx.fillStyle = '#FFF';
+        // ── Shadow ──
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
         ctx.beginPath();
-        ctx.arc(
-            cx + Math.cos(this.facingAngle) * 8,
-            cy + Math.sin(this.facingAngle) * 8,
-            4, 0, Math.PI * 2
-        );
+        ctx.ellipse(cx, cy + this.h / 2 + 1, 10, 4, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Eyes
-        ctx.fillStyle = '#FFF';
-        const eyeOffset = 5;
-        const eyeAngle1 = this.facingAngle - 0.4;
-        const eyeAngle2 = this.facingAngle + 0.4;
+        // ── Body (torso) ──
+        const bodyColor = this.hasPowerUp('attack') ? '#E85555' : (this.hasPowerUp('speed') ? '#5588EE' : '#4499AA');
+        ctx.fillStyle = bodyColor;
         ctx.beginPath();
-        ctx.arc(cx + Math.cos(eyeAngle1) * eyeOffset, cy + Math.sin(eyeAngle1) * eyeOffset, 3, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(cx + Math.cos(eyeAngle2) * eyeOffset, cy + Math.sin(eyeAngle2) * eyeOffset, 3, 0, Math.PI * 2);
-        ctx.fill();
-        // Pupils
-        ctx.fillStyle = '#222';
-        ctx.beginPath();
-        ctx.arc(cx + Math.cos(eyeAngle1) * (eyeOffset + 1), cy + Math.sin(eyeAngle1) * (eyeOffset + 1), 1.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(cx + Math.cos(eyeAngle2) * (eyeOffset + 1), cy + Math.sin(eyeAngle2) * (eyeOffset + 1), 1.5, 0, Math.PI * 2);
+        ctx.roundRect(cx - 9, cy - 4 + walkBob, 18, 14, 3);
         ctx.fill();
 
-        // Power-up glow
-        if (this.hasPowerUp('speed') || this.hasPowerUp('attack')) {
-            ctx.globalAlpha = 0.15 + Math.sin(Date.now() / 200) * 0.05;
-            ctx.fillStyle = this.hasPowerUp('attack') ? '#F00' : '#44F';
+        // ── Tool belt ──
+        ctx.fillStyle = '#8B5E3C';
+        ctx.fillRect(cx - 10, cy + 6 + walkBob, 20, 3);
+        // Belt buckle
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(cx - 2, cy + 6 + walkBob, 4, 3);
+        // Tools on belt
+        ctx.fillStyle = '#AAA';
+        ctx.fillRect(cx - 8, cy + 4 + walkBob, 2, 4); // wrench
+        ctx.fillStyle = '#C44';
+        ctx.fillRect(cx + 6, cy + 4 + walkBob, 2, 4); // screwdriver
+
+        // ── Legs (simple, animated) ──
+        const legSwing = (Input.direction.x !== 0 || Input.direction.y !== 0)
+            ? Math.sin(Date.now() / 100) * 3 : 0;
+        ctx.fillStyle = '#3366AA';
+        // Left leg
+        ctx.fillRect(cx - 6, cy + 9 + walkBob, 4, 6);
+        ctx.fillRect(cx - 6 - legSwing * 0.3, cy + 13 + walkBob, 5, 3);
+        // Right leg
+        ctx.fillRect(cx + 2, cy + 9 + walkBob, 4, 6);
+        ctx.fillRect(cx + 2 + legSwing * 0.3, cy + 13 + walkBob, 5, 3);
+        // Shoes
+        ctx.fillStyle = '#553322';
+        ctx.fillRect(cx - 7 - legSwing * 0.3, cy + 14 + walkBob, 6, 3);
+        ctx.fillRect(cx + 1 + legSwing * 0.3, cy + 14 + walkBob, 6, 3);
+
+        // ── Head ──
+        ctx.fillStyle = '#FFCC88'; // skin
+        ctx.beginPath();
+        ctx.arc(cx, cy - 6 + walkBob, 9, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ── Hair (messy inventor hair) ──
+        ctx.fillStyle = '#663300';
+        ctx.beginPath();
+        ctx.arc(cx, cy - 9 + walkBob, 9, Math.PI, 0);
+        ctx.fill();
+        // Spiky hair tufts
+        ctx.fillStyle = '#773311';
+        for (let i = -2; i <= 2; i++) {
             ctx.beginPath();
-            ctx.arc(cx, cy, this.w * 0.7, 0, Math.PI * 2);
+            ctx.moveTo(cx + i * 4, cy - 14 + walkBob);
+            ctx.lineTo(cx + i * 4 - 2, cy - 9 + walkBob);
+            ctx.lineTo(cx + i * 4 + 2, cy - 9 + walkBob);
+            ctx.closePath();
             ctx.fill();
         }
 
-        // Weapon
+        // ── Goggles ──
+        const goggleY = cy - 6 + walkBob;
+        const eyeAngle1 = this.facingAngle - 0.35;
+        const eyeAngle2 = this.facingAngle + 0.35;
+        const goggleDist = 4.5;
+
+        // Goggle strap
+        ctx.strokeStyle = '#666';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(cx, goggleY, 8.5, Math.PI * 0.8, Math.PI * 0.2, true);
+        ctx.stroke();
+
+        // Left goggle lens
+        const gx1 = cx + Math.cos(eyeAngle1) * goggleDist;
+        const gy1 = goggleY + Math.sin(eyeAngle1) * goggleDist;
+        ctx.fillStyle = '#334';
+        ctx.strokeStyle = '#888';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(gx1, gy1, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Lens reflection
+        ctx.fillStyle = 'rgba(100,200,255,0.5)';
+        ctx.beginPath();
+        ctx.arc(gx1, gy1, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        // Pupil
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath();
+        ctx.arc(gx1 + Math.cos(this.facingAngle) * 1.5, gy1 + Math.sin(this.facingAngle) * 1.5, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Right goggle lens
+        const gx2 = cx + Math.cos(eyeAngle2) * goggleDist;
+        const gy2 = goggleY + Math.sin(eyeAngle2) * goggleDist;
+        ctx.fillStyle = '#334';
+        ctx.strokeStyle = '#888';
+        ctx.beginPath();
+        ctx.arc(gx2, gy2, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(100,200,255,0.5)';
+        ctx.beginPath();
+        ctx.arc(gx2, gy2, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath();
+        ctx.arc(gx2 + Math.cos(this.facingAngle) * 1.5, gy2 + Math.sin(this.facingAngle) * 1.5, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ── Mouth (small smile) ──
+        ctx.strokeStyle = '#884422';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        const mouthX = cx + Math.cos(this.facingAngle) * 5;
+        const mouthY = goggleY + Math.sin(this.facingAngle) * 5 + 3;
+        ctx.arc(mouthX, mouthY, 2, 0.1, Math.PI - 0.1);
+        ctx.stroke();
+
+        // ── Arms (extend toward facing direction) ──
+        const armAngle = this.facingAngle;
+        ctx.strokeStyle = '#FFBB77';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        // Leading arm (toward aim)
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(armAngle + Math.PI / 2) * 7, cy + Math.sin(armAngle + Math.PI / 2) * 4 + walkBob);
+        ctx.lineTo(cx + Math.cos(armAngle) * 14 + Math.cos(armAngle + Math.PI / 2) * 4,
+                   cy + Math.sin(armAngle) * 14 + Math.sin(armAngle + Math.PI / 2) * 4 + walkBob);
+        ctx.stroke();
+        // Trailing arm
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(armAngle - Math.PI / 2) * 7, cy + Math.sin(armAngle - Math.PI / 2) * 4 + walkBob);
+        ctx.lineTo(cx + Math.cos(armAngle) * 10 + Math.cos(armAngle - Math.PI / 2) * 5,
+                   cy + Math.sin(armAngle) * 10 + Math.sin(armAngle - Math.PI / 2) * 5 + walkBob);
+        ctx.stroke();
+
+        // ── Power-up glow ──
+        if (this.hasPowerUp('speed') || this.hasPowerUp('attack')) {
+            ctx.globalAlpha = 0.12 + Math.sin(Date.now() / 200) * 0.05;
+            ctx.fillStyle = this.hasPowerUp('attack') ? '#F44' : '#44F';
+            ctx.beginPath();
+            ctx.arc(cx, cy + walkBob, this.w * 0.8, 0, Math.PI * 2);
+            ctx.fill();
+            // Sparkles
+            ctx.globalAlpha = 0.6;
+            const sparkColor = this.hasPowerUp('attack') ? '#F88' : '#8BF';
+            for (let i = 0; i < 3; i++) {
+                const sa = Date.now() / 300 + i * Math.PI * 2 / 3;
+                const sr = 16 + Math.sin(Date.now() / 200 + i) * 4;
+                ctx.fillStyle = sparkColor;
+                ctx.beginPath();
+                ctx.arc(cx + Math.cos(sa) * sr, cy + Math.sin(sa) * sr + walkBob, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // ── Weapon ──
+        ctx.globalAlpha = 1;
         this.activeWeapon.draw(ctx, camera, this);
 
         ctx.restore();

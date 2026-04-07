@@ -60,28 +60,59 @@ class BaseballBat {
         const progress = 1 - (this.swingTimer / this.swingDuration);
         const startAngle = this.swingAngle - this.arcWidth / 2;
         const sweepAngle = this.arcWidth * progress;
+        const currentAngle = startAngle + sweepAngle;
 
         ctx.save();
-        ctx.strokeStyle = '#DDD';
+
+        // Swing trail (motion blur arc)
+        ctx.strokeStyle = 'rgba(255, 220, 150, 0.25)';
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.arc(center.x, center.y, this.range * 0.75, startAngle, currentAngle);
+        ctx.stroke();
+
+        // Bat handle
+        ctx.strokeStyle = '#8B5E3C';
         ctx.lineWidth = 4;
         ctx.lineCap = 'round';
-
-        // Draw bat line at current sweep position
-        const currentAngle = startAngle + sweepAngle;
         ctx.beginPath();
-        ctx.moveTo(center.x, center.y);
-        ctx.lineTo(
-            center.x + Math.cos(currentAngle) * this.range,
-            center.y + Math.sin(currentAngle) * this.range
-        );
+        ctx.moveTo(center.x + Math.cos(currentAngle) * 8, center.y + Math.sin(currentAngle) * 8);
+        ctx.lineTo(center.x + Math.cos(currentAngle) * 22, center.y + Math.sin(currentAngle) * 22);
         ctx.stroke();
 
-        // Draw arc trail
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.lineWidth = 2;
+        // Bat grip tape
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 5;
         ctx.beginPath();
-        ctx.arc(center.x, center.y, this.range * 0.8, startAngle, startAngle + sweepAngle);
+        ctx.moveTo(center.x + Math.cos(currentAngle) * 8, center.y + Math.sin(currentAngle) * 8);
+        ctx.lineTo(center.x + Math.cos(currentAngle) * 14, center.y + Math.sin(currentAngle) * 14);
         ctx.stroke();
+
+        // Bat barrel (thick end)
+        ctx.strokeStyle = '#C8A060';
+        ctx.lineWidth = 7;
+        ctx.beginPath();
+        ctx.moveTo(center.x + Math.cos(currentAngle) * 22, center.y + Math.sin(currentAngle) * 22);
+        ctx.lineTo(center.x + Math.cos(currentAngle) * this.range, center.y + Math.sin(currentAngle) * this.range);
+        ctx.stroke();
+        // Bat tip highlight
+        ctx.strokeStyle = '#E0C080';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(center.x + Math.cos(currentAngle) * (this.range - 6), center.y + Math.sin(currentAngle) * (this.range - 6));
+        ctx.lineTo(center.x + Math.cos(currentAngle) * this.range, center.y + Math.sin(currentAngle) * this.range);
+        ctx.stroke();
+
+        // Impact sparkle at tip
+        if (progress > 0.3 && progress < 0.8) {
+            ctx.fillStyle = '#FFF';
+            ctx.globalAlpha = 0.7;
+            const tipX = center.x + Math.cos(currentAngle) * (this.range + 2);
+            const tipY = center.y + Math.sin(currentAngle) * (this.range + 2);
+            ctx.beginPath();
+            ctx.arc(tipX, tipY, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
 
         ctx.restore();
     }
