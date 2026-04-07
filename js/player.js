@@ -167,6 +167,7 @@ class Player {
                 this.dodgeTimer = this.dodgeDuration;
                 this.dodgeDir = vecNormalize(dir);
                 this.iFrames = this.dodgeDuration + 0.1;
+                Sound.dodge();
             }
         }
 
@@ -195,6 +196,7 @@ class Player {
         if ((Input.attackPressed || Input.attackHeld) && this.activeWeapon.canAttack()) {
             if (this.activeWeapon.type === 'melee') {
                 this.activeWeapon.attack(this.facingAngle);
+                Sound.swing();
             }
         }
 

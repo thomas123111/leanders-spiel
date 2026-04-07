@@ -266,12 +266,18 @@ const Renderer = {
         }
         ctx.globalAlpha = 1;
 
-        // Start prompt
+        // Start/Continue prompt
         const blink = Math.sin(Date.now() / 500) > 0;
+        if (Game.currentWorld > 1) {
+            ctx.fillStyle = '#4A9';
+            ctx.font = '13px monospace';
+            ctx.fillText('Gespeicherter Fortschritt: Welt ' + Game.currentWorld, cx, cy + 62);
+        }
         if (blink) {
             ctx.fillStyle = '#FFF';
             ctx.font = '16px monospace';
-            ctx.fillText(Input.isMobile ? 'Tippen zum Starten' : 'Enter dr\u00fccken zum Starten', cx, cy + 80);
+            const label = Game.currentWorld > 1 ? 'Fortfahren' : 'Starten';
+            ctx.fillText(Input.isMobile ? 'Tippen zum ' + label : 'Enter = ' + label, cx, cy + 82);
         }
 
         // Controls

@@ -3,8 +3,8 @@
 const Game = {
     canvas: null,
     ctx: null,
-    state: 'TITLE', // TITLE, PLAYING, BOSS_INTRO, GAME_OVER, WORLD_CLEAR, WIN
-    currentWorld: 1, // 1, 2, 3
+    state: 'TITLE',
+    currentWorld: 1,
     player: null,
     world: null,
     camera: null,
@@ -19,10 +19,18 @@ const Game = {
     worldClearTimer: 0,
     lastTime: 0,
 
-    // Persistent unlocks across worlds
+    // Persistent unlocks
     unlockedRanged: false,
     unlockedAuto: false,
     unlockedCrown: false,
+
+    // Hitstop (freeze frames on impact)
+    hitstopTimer: 0,
+
+    // Screen transition
+    fadeAlpha: 0,
+    fadeDir: 0, // 0=none, 1=fading out, -1=fading in
+    fadeCallback: null,
 
     init() {
         this.canvas = document.getElementById('game');
@@ -49,9 +57,62 @@ const Game = {
         document.addEventListener('fullscreenchange', () => this.resize());
         document.addEventListener('webkitfullscreenchange', () => this.resize());
 
+        Sound.init();
         Input.init(this.canvas);
+        this.loadSave();
         this.lastTime = performance.now();
         this.gameLoop(this.lastTime);
+    },
+
+    // ── Save System ──
+    save() {
+        try {
+            localStorage.setItem('mark_save', JSON.stringify({
+                world: this.currentWorld,
+                ranged: this.unlockedRanged,
+                auto: this.unlockedAuto,
+                crown: this.unlockedCrown
+            }));
+        } catch (e) {}
+    },
+
+    loadSave() {
+        try {
+            const data = JSON.parse(localStorage.getItem('mark_save'));
+            if (data) {
+                this.currentWorld = data.world || 1;
+                this.unlockedRanged = !!data.ranged;
+                this.unlockedAuto = !!data.auto;
+                this.unlockedCrown = !!data.crown;
+            }
+        } catch (e) {}
+    },
+
+    clearSave() {
+        try { localStorage.removeItem('mark_save'); } catch (e) {}
+    },
+
+    // ── Hitstop ──
+    doHitstop(duration) {
+        this.hitstopTimer = Math.max(this.hitstopTimer, duration);
+    },
+
+    // ── Haptic Feedback ──
+    vibrate(ms) {
+        if (navigator.vibrate) navigator.vibrate(ms);
+    },
+
+    // ── Screen Transition ──
+    fadeOut(callback) {
+        this.fadeDir = 1;
+        this.fadeAlpha = 0;
+        this.fadeCallback = callback;
+    },
+
+    fadeIn() {
+        this.fadeDir = -1;
+        this.fadeAlpha = 1;
+        this.fadeCallback = null;
     },
 
     resize() {
@@ -70,16 +131,20 @@ const Game = {
     },
 
     startNewGame() {
+        Sound.resume();
         this.currentWorld = 1;
         this.unlockedRanged = false;
         this.unlockedAuto = false;
         this.unlockedCrown = false;
+        this.clearSave();
         this.startWorld(1);
     },
 
     startWorld(worldNum) {
         this.currentWorld = worldNum;
         this.state = 'PLAYING';
+        this.hitstopTimer = 0;
+        this.fadeIn();
         this.enemies = [];
         this.projectiles = [];
         this.particles = [];
@@ -219,6 +284,8 @@ const Game = {
     _spawnBoss() {
         this.bossActive = true;
         this.state = 'BOSS_INTRO';
+        Sound.bossIntro();
+        this.vibrate(200);
 
         let boss;
         if (this.currentWorld === 1) {
@@ -237,33 +304,61 @@ const Game = {
 
     _onBossDefeated() {
         this.bossDefeated = true;
+        Sound.bossDeath();
+        this.doHitstop(0.3);
+        this.camera.shake(8, 0.5);
+        this.vibrate(400);
 
         if (this.currentWorld === 1) {
-            // Reward: Baseball-Werfer
             this.unlockedRanged = true;
             this.state = 'WORLD_CLEAR';
             this.worldClearTimer = 4;
+            Sound.worldClear();
         } else if (this.currentWorld === 2) {
-            // Reward: Auto ability
             this.unlockedAuto = true;
             this.state = 'WORLD_CLEAR';
             this.worldClearTimer = 4;
+            Sound.worldClear();
         } else if (this.currentWorld === 3) {
-            // Reward: Crown
             this.unlockedCrown = true;
-            this.state = 'WIN'; // Final victory!
+            this.state = 'WIN';
+            Sound.worldClear();
         }
+        this.save();
     },
 
     _advanceToNextWorld() {
         if (this.currentWorld < 3) {
-            this.startWorld(this.currentWorld + 1);
+            const nextWorld = this.currentWorld + 1;
+            this.fadeOut(() => this.startWorld(nextWorld));
         }
     },
 
     gameLoop(timestamp) {
         const dt = Math.min((timestamp - this.lastTime) / 1000, 0.05);
         this.lastTime = timestamp;
+
+        // Fade transitions
+        if (this.fadeDir !== 0) {
+            this.fadeAlpha += this.fadeDir * dt * 3;
+            if (this.fadeDir === 1 && this.fadeAlpha >= 1) {
+                this.fadeAlpha = 1;
+                this.fadeDir = 0;
+                if (this.fadeCallback) this.fadeCallback();
+            } else if (this.fadeDir === -1 && this.fadeAlpha <= 0) {
+                this.fadeAlpha = 0;
+                this.fadeDir = 0;
+            }
+        }
+
+        // Hitstop: skip update but still render
+        if (this.hitstopTimer > 0) {
+            this.hitstopTimer -= dt;
+            this.render();
+            requestAnimationFrame(t => this.gameLoop(t));
+            return;
+        }
+
         this.update(dt);
         this.render();
         requestAnimationFrame(t => this.gameLoop(t));
@@ -277,7 +372,12 @@ const Game = {
 
         if (this.state === 'TITLE') {
             if (Input.attackPressed || Input._key('Enter') || Input._key('Space')) {
-                this.startNewGame();
+                Sound.resume();
+                if (this.currentWorld > 1) {
+                    this.startWorld(this.currentWorld);
+                } else {
+                    this.startNewGame();
+                }
             }
             Input.postUpdate();
             return;
@@ -321,6 +421,8 @@ const Game = {
         // Check player death
         if (this.player.dead && this.player.deathTimer <= 0) {
             this.state = 'GAME_OVER';
+            Sound.gameOver();
+            this.vibrate(300);
         }
 
         // Enemies
@@ -347,6 +449,9 @@ const Game = {
                     );
                     this.player.takeDamage(enemy.damage, angle, 150);
                     this.camera.shake(4, 0.2);
+                    Sound.playerHit();
+                    this.vibrate(50);
+                    this.doHitstop(0.05);
                     for (let i = 0; i < 4; i++) {
                         this.particles.push(new Particle(
                             this.player.x + this.player.w / 2,
@@ -371,6 +476,9 @@ const Game = {
                 if (this.player.hasPowerUp('attack')) damage += 2;
                 enemy.takeDamage(damage, angle, this.player.activeWeapon.knockback);
                 this.camera.shake(3, 0.15);
+                Sound.hit();
+                this.doHitstop(0.04);
+                if (enemy.dead) Sound.enemyDeath();
                 for (let i = 0; i < 3; i++) {
                     this.particles.push(new Particle(
                         enemy.centerX(), enemy.centerY(),
@@ -383,7 +491,9 @@ const Game = {
 
         // Ranged weapon shooting
         if (this.player.activeWeapon.type === 'ranged' && (Input.attackPressed || Input.attackHeld)) {
-            this.player.activeWeapon.attack(this.player.facingAngle, this.player, this.projectiles);
+            if (this.player.activeWeapon.attack(this.player.facingAngle, this.player, this.projectiles)) {
+                Sound.shoot();
+            }
         }
 
         // Projectiles
@@ -404,6 +514,8 @@ const Game = {
                         if (this.player.hasPowerUp('attack')) damage += 1;
                         enemy.takeDamage(damage, angle, proj.knockback);
                         proj.dead = true;
+                        Sound.hit();
+                        if (enemy.dead) Sound.enemyDeath();
                         for (let i = 0; i < 3; i++) {
                             this.particles.push(new Particle(
                                 proj.x, proj.y,
@@ -432,6 +544,7 @@ const Game = {
         for (const chest of this.chests) {
             if (!chest.opened && chest.canInteract(this.player) && Input.attackPressed) {
                 chest.open();
+                Sound.chest();
                 for (let i = 0; i < 5; i++) {
                     this.particles.push(new Particle(
                         chest.x + chest.w / 2, chest.y + chest.h / 2,
@@ -448,6 +561,7 @@ const Game = {
             if (key.update(dt, this.player)) {
                 this.hasKey = true;
                 this.world.openBossDoor();
+                Sound.key();
                 for (let i = 0; i < 8; i++) {
                     this.particles.push(new Particle(
                         key.x + key.w / 2, key.y + key.h / 2,
@@ -600,6 +714,12 @@ const Game = {
                 ctx.fillText(Input.isMobile ? 'Tippen' : 'Klick', pos.x, pos.y);
                 ctx.restore();
             }
+        }
+
+        // Fade overlay
+        if (this.fadeAlpha > 0) {
+            ctx.fillStyle = `rgba(0,0,0,${this.fadeAlpha})`;
+            ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         }
     }
 };
