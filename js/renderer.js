@@ -112,62 +112,60 @@ const Renderer = {
     },
 
     _drawMobileControls(ctx) {
-        // Left joystick area hint
-        if (!Input.joystick.active) {
+        const joystickRadius = 50;
+        const knobRadius = 20;
+
+        // ── Left Joystick (Movement) ──
+        this._drawJoystick(ctx, Input.joystick, 100, ctx.canvas.height - 100, joystickRadius, knobRadius, '#FFF', 'Bewegen');
+
+        // ── Right Joystick (Aim & Attack) ──
+        this._drawJoystick(ctx, Input.aimJoystick, ctx.canvas.width - 100, ctx.canvas.height - 100, joystickRadius, knobRadius, '#F66', 'Zielen & Hauen');
+    },
+
+    _drawJoystick(ctx, joystickState, defaultX, defaultY, radius, knobRadius, color, label) {
+        if (!joystickState.active) {
+            // Inactive hint
             ctx.save();
-            ctx.globalAlpha = 0.15;
-            ctx.fillStyle = '#FFF';
+            ctx.globalAlpha = 0.12;
+            ctx.fillStyle = color;
             ctx.beginPath();
-            ctx.arc(100, ctx.canvas.height - 100, 50, 0, Math.PI * 2);
+            ctx.arc(defaultX, defaultY, radius, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
 
             ctx.save();
-            ctx.globalAlpha = 0.3;
+            ctx.globalAlpha = 0.25;
             ctx.fillStyle = '#FFF';
             ctx.font = '10px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText('Bewegen', 100, ctx.canvas.height - 50);
+            ctx.fillText(label, defaultX, defaultY + radius + 14);
             ctx.restore();
         } else {
-            // Active joystick
+            // Active: base circle
             ctx.save();
-            ctx.globalAlpha = 0.2;
-            ctx.strokeStyle = '#FFF';
+            ctx.globalAlpha = 0.15;
+            ctx.strokeStyle = color;
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.arc(Input.joystick.baseX, Input.joystick.baseY, 50, 0, Math.PI * 2);
+            ctx.arc(joystickState.baseX, joystickState.baseY, radius, 0, Math.PI * 2);
             ctx.stroke();
 
-            ctx.fillStyle = '#FFF';
-            ctx.globalAlpha = 0.4;
-            const stickDx = Input.joystick.stickX - Input.joystick.baseX;
-            const stickDy = Input.joystick.stickY - Input.joystick.baseY;
-            const stickDist = Math.min(50, Math.sqrt(stickDx * stickDx + stickDy * stickDy));
-            const stickAngle = Math.atan2(stickDy, stickDx);
+            // Knob
+            const dx = joystickState.stickX - joystickState.baseX;
+            const dy = joystickState.stickY - joystickState.baseY;
+            const dist = Math.min(radius, Math.sqrt(dx * dx + dy * dy));
+            const angle = Math.atan2(dy, dx);
+            ctx.fillStyle = color;
+            ctx.globalAlpha = 0.35;
             ctx.beginPath();
             ctx.arc(
-                Input.joystick.baseX + Math.cos(stickAngle) * stickDist,
-                Input.joystick.baseY + Math.sin(stickAngle) * stickDist,
-                18, 0, Math.PI * 2
+                joystickState.baseX + Math.cos(angle) * dist,
+                joystickState.baseY + Math.sin(angle) * dist,
+                knobRadius, 0, Math.PI * 2
             );
             ctx.fill();
             ctx.restore();
         }
-
-        // Right attack button
-        ctx.save();
-        ctx.globalAlpha = 0.2;
-        ctx.fillStyle = '#F44';
-        ctx.beginPath();
-        ctx.arc(ctx.canvas.width - 80, ctx.canvas.height - 100, 35, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 0.4;
-        ctx.fillStyle = '#FFF';
-        ctx.font = '12px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('Angriff', ctx.canvas.width - 80, ctx.canvas.height - 56);
-        ctx.restore();
     },
 
     drawTitleScreen(ctx) {
@@ -206,8 +204,8 @@ const Renderer = {
             ctx.fillText('WASD / Pfeiltasten = Bewegen', ctx.canvas.width / 2, ctx.canvas.height / 2 + 100);
             ctx.fillText('Mausklick = Angriff | Leertaste = Ausweichen', ctx.canvas.width / 2, ctx.canvas.height / 2 + 118);
         } else {
-            ctx.fillText('Links = Bewegen | Rechts = Angriff', ctx.canvas.width / 2, ctx.canvas.height / 2 + 100);
-            ctx.fillText('Joystick lang halten = Ausweichen', ctx.canvas.width / 2, ctx.canvas.height / 2 + 118);
+            ctx.fillText('Linker Joystick = Bewegen', ctx.canvas.width / 2, ctx.canvas.height / 2 + 100);
+            ctx.fillText('Rechter Joystick = Zielen & Angreifen', ctx.canvas.width / 2, ctx.canvas.height / 2 + 118);
         }
 
         ctx.restore();

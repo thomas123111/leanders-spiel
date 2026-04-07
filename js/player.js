@@ -8,8 +8,8 @@ class Player {
         this.h = 28;
         this.baseSpeed = 150;
         this.speed = this.baseSpeed;
-        this.hp = 12; // 3 hearts x 4 quarters
-        this.maxHp = 12;
+        this.hp = 20; // 5 hearts x 4 quarters
+        this.maxHp = 20;
         this.facingAngle = 0;
         this.dead = false;
 
@@ -123,14 +123,14 @@ class Player {
         const dy = dir.y * this.speed * dt;
         this._moveWithCollision(dx, dy, world);
 
-        // Aim angle
+        // Aim angle (right joystick or mouse)
         this.facingAngle = Input.aimAngle;
 
         // Weapon update
         this.activeWeapon.update(dt);
 
-        // Attack
-        if (Input.attackPressed && this.activeWeapon.canAttack()) {
+        // Attack - triggered by click/tap or by holding the right aim joystick
+        if ((Input.attackPressed || Input.attackHeld) && this.activeWeapon.canAttack()) {
             if (this.activeWeapon.type === 'melee') {
                 this.activeWeapon.attack(this.facingAngle);
             }

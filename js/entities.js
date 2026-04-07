@@ -226,17 +226,19 @@ class BossGhost extends Enemy {
         this.damage = 2; // 1/2 heart
         this.phasesThroughWalls = true;
         this.isBoss = true;
+        this.contactDamage = false; // Boss hurts via clap, not contact
         this.phase = 1;
         this.bobOffset = 0;
         this.alpha = 0.8;
 
         // Attack patterns
         this.clapTimer = 0;
-        this.clapCooldown = 4;
+        this.clapCooldown = 3;
         this.clapping = false;
         this.clapProgress = 0;
-        this.clapDuration = 1.2;
+        this.clapDuration = 1.4;
         this.clapDamageDealt = false;
+        this.clapRange = 130; // wide clap range
 
         this.spawnTimer = 8;
         this.spawnCooldown = 8;
@@ -274,26 +276,40 @@ class BossGhost extends Enemy {
 
         if (this.state === 'clap') {
             this.clapProgress += dt;
-            // At clap moment (0.6s into animation), deal damage if player is close
-            if (this.clapProgress >= 0.6 && !this.clapDamageDealt) {
+            // At clap moment (0.7s into animation), deal damage in wide area
+            if (this.clapProgress >= 0.7 && !this.clapDamageDealt) {
                 this.clapDamageDealt = true;
                 const dist = vecDist(myCenter, playerCenter);
-                if (dist < 90) {
-                    player.takeDamage(this.damage + 1, angleBetween(myCenter, playerCenter), 300);
+                if (dist < this.clapRange) {
+                    player.takeDamage(this.damage + 1, angleBetween(myCenter, playerCenter), 350);
                     if (particles) {
-                        for (let i = 0; i < 8; i++) {
+                        for (let i = 0; i < 12; i++) {
+                            const a = (Math.PI * 2 * i) / 12;
                             particles.push(new Particle(
-                                playerCenter.x, playerCenter.y,
-                                randRange(-100, 100), randRange(-100, 100),
-                                '#FF0', 0.5
+                                myCenter.x + Math.cos(a) * 40,
+                                myCenter.y + Math.sin(a) * 40,
+                                Math.cos(a) * 150, Math.sin(a) * 150,
+                                '#FF0', 0.6
                             ));
                         }
+                    }
+                }
+                // Shockwave particles even if miss (visual feedback)
+                if (particles) {
+                    for (let i = 0; i < 8; i++) {
+                        const a = (Math.PI * 2 * i) / 8;
+                        particles.push(new Particle(
+                            myCenter.x + Math.cos(a) * 20,
+                            myCenter.y + Math.sin(a) * 20,
+                            Math.cos(a) * 100, Math.sin(a) * 100,
+                            '#0F0', 0.4
+                        ));
                     }
                 }
             }
             if (this.clapProgress >= this.clapDuration) {
                 this.state = 'stunned';
-                this.stunnedTimer = 1.5;
+                this.stunnedTimer = 1.8;
                 this.clapProgress = 0;
                 this.clapping = false;
             }
@@ -306,9 +322,9 @@ class BossGhost extends Enemy {
         this.x += Math.cos(angle) * this.speed * dt;
         this.y += Math.sin(angle) * this.speed * dt;
 
-        // Clap attack
+        // Clap attack - triggers at wider range
         this.clapTimer -= dt;
-        if (this.clapTimer <= 0 && dist < 150) {
+        if (this.clapTimer <= 0 && dist < 200) {
             this.state = 'clap';
             this.clapping = true;
             this.clapProgress = 0;
@@ -403,36 +419,71 @@ class BossGhost extends Enemy {
         ctx.lineTo(pos.x + this.w * 0.55, eyeY - 6);
         ctx.stroke();
 
-        // Clap animation - hands
+        // Clap animation - two big hands coming together
         if (this.state === 'clap') {
             const t = this.clapProgress / this.clapDuration;
             let handSpread;
-            if (t < 0.4) handSpread = 1 - t / 0.4; // hands come together
-            else if (t < 0.5) handSpread = 0; // clap moment
-            else handSpread = (t - 0.5) / 0.5; // hands apart
+            if (t < 0.45) handSpread = 1 - t / 0.45; // hands wind up and come together
+            else if (t < 0.55) handSpread = 0; // CLAP moment
+            else handSpread = (t - 0.55) / 0.45; // hands pull back
 
-            const leftX = pos.x - 10 - handSpread * 30;
-            const rightX = pos.x + this.w + 10 + handSpread * 30;
-            const handY = pos.y + this.h * 0.5 + bob;
+            const spreadDist = handSpread * 55;
+            const leftX = pos.x - 15 - spreadDist;
+            const rightX = pos.x + this.w + 15 + spreadDist;
+            const handY = pos.y + this.h * 0.45 + bob;
+            const handSize = 22;
 
+            ctx.globalAlpha = 0.95;
             ctx.fillStyle = '#0C0';
-            // Left hand
-            ctx.beginPath();
-            ctx.arc(leftX, handY, 15, 0, Math.PI * 2);
-            ctx.fill();
-            // Right hand
-            ctx.beginPath();
-            ctx.arc(rightX, handY, 15, 0, Math.PI * 2);
-            ctx.fill();
 
-            // Clap effect
-            if (t >= 0.45 && t <= 0.6) {
-                ctx.globalAlpha = (0.6 - t) * 6;
-                ctx.strokeStyle = '#FF0';
-                ctx.lineWidth = 3;
+            // Left hand (palm shape)
+            ctx.beginPath();
+            ctx.ellipse(leftX, handY, handSize, handSize * 0.7, 0.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#0A0';
+            // Fingers left
+            for (let f = -1; f <= 1; f++) {
                 ctx.beginPath();
-                ctx.arc(pos.x + this.w / 2, handY, 40 + t * 60, 0, Math.PI * 2);
+                ctx.arc(leftX + 10, handY + f * 8, 5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Right hand
+            ctx.fillStyle = '#0C0';
+            ctx.beginPath();
+            ctx.ellipse(rightX, handY, handSize, handSize * 0.7, -0.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#0A0';
+            for (let f = -1; f <= 1; f++) {
+                ctx.beginPath();
+                ctx.arc(rightX - 10, handY + f * 8, 5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Shockwave on clap impact
+            if (t >= 0.45 && t <= 0.7) {
+                const shockT = (t - 0.45) / 0.25;
+                ctx.globalAlpha = (1 - shockT) * 0.7;
+                ctx.strokeStyle = '#FF0';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(pos.x + this.w / 2, handY, 30 + shockT * 120, 0, Math.PI * 2);
                 ctx.stroke();
+                // Inner ring
+                ctx.strokeStyle = '#FFA500';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(pos.x + this.w / 2, handY, 15 + shockT * 80, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            // Warning indicator before clap
+            if (t < 0.3) {
+                ctx.globalAlpha = 0.15 + Math.sin(t * 30) * 0.1;
+                ctx.fillStyle = '#F00';
+                ctx.beginPath();
+                ctx.arc(pos.x + this.w / 2, handY, this.clapRange || 130, 0, Math.PI * 2);
+                ctx.fill();
             }
         }
 

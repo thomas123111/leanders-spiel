@@ -5,23 +5,25 @@ const Input = {
     mouse: { x: 0, y: 0, down: false, pressed: false },
     direction: { x: 0, y: 0 },
     aimAngle: 0,
+    aimDirection: { x: 0, y: 0 },
     attackPressed: false,
+    attackHeld: false,
     dodgeTriggered: false,
     isMobile: false,
 
     // Touch state
-    _touches: {},
     _moveTouch: null,
     _moveTouchStart: null,
-    _attackTouch: null,
+    _aimTouch: null,
+    _aimTouchStart: null,
 
-    // Virtual joystick display
+    // Dual joystick display
     joystick: { active: false, baseX: 0, baseY: 0, stickX: 0, stickY: 0 },
+    aimJoystick: { active: false, baseX: 0, baseY: 0, stickX: 0, stickY: 0 },
 
     // Long press for dodge
     _moveHoldStart: 0,
-    _dodgeCooldown: 0,
-    DODGE_HOLD_TIME: 400, // ms
+    DODGE_HOLD_TIME: 400,
 
     init(canvas) {
         this.canvas = canvas;
@@ -69,7 +71,8 @@ const Input = {
             const y = (touch.clientY - rect.top) * scaleY;
             const screenHalf = this.canvas.width / 2;
 
-            if (x < screenHalf && !this._moveTouch) {
+            if (x < screenHalf && this._moveTouch === null) {
+                // Left side: movement joystick
                 this._moveTouch = touch.identifier;
                 this._moveTouchStart = { x, y };
                 this._moveHoldStart = Date.now();
@@ -78,9 +81,16 @@ const Input = {
                 this.joystick.baseY = y;
                 this.joystick.stickX = x;
                 this.joystick.stickY = y;
-            } else if (x >= screenHalf) {
-                this._attackTouch = touch.identifier;
-                this.attackPressed = true;
+            } else if (x >= screenHalf && this._aimTouch === null) {
+                // Right side: aim joystick
+                this._aimTouch = touch.identifier;
+                this._aimTouchStart = { x, y };
+                this.aimJoystick.active = true;
+                this.aimJoystick.baseX = x;
+                this.aimJoystick.baseY = y;
+                this.aimJoystick.stickX = x;
+                this.aimJoystick.stickY = y;
+                this.attackHeld = true;
             }
         }
     },
@@ -91,11 +101,16 @@ const Input = {
         const scaleY = this.canvas.height / rect.height;
 
         for (const touch of e.changedTouches) {
+            const x = (touch.clientX - rect.left) * scaleX;
+            const y = (touch.clientY - rect.top) * scaleY;
+
             if (touch.identifier === this._moveTouch) {
-                const x = (touch.clientX - rect.left) * scaleX;
-                const y = (touch.clientY - rect.top) * scaleY;
                 this.joystick.stickX = x;
                 this.joystick.stickY = y;
+            }
+            if (touch.identifier === this._aimTouch) {
+                this.aimJoystick.stickX = x;
+                this.aimJoystick.stickY = y;
             }
         }
     },
@@ -109,46 +124,58 @@ const Input = {
                 this.direction = { x: 0, y: 0 };
                 this._moveHoldStart = 0;
             }
-            if (touch.identifier === this._attackTouch) {
-                this._attackTouch = null;
+            if (touch.identifier === this._aimTouch) {
+                this._aimTouch = null;
+                this._aimTouchStart = null;
+                this.aimJoystick.active = false;
+                this.attackHeld = false;
+                this.aimDirection = { x: 0, y: 0 };
             }
         }
     },
 
     update(dt, playerScreenPos) {
-        // ── Direction ──
+        // ── Movement Direction (left joystick / WASD) ──
         if (this._moveTouch !== null && this._moveTouchStart) {
-            // Touch joystick
             const dx = this.joystick.stickX - this.joystick.baseX;
             const dy = this.joystick.stickY - this.joystick.baseY;
             const dist = Math.sqrt(dx * dx + dy * dy);
             const deadzone = 10;
             if (dist > deadzone) {
                 this.direction = vecNormalize({ x: dx, y: dy });
-                this.aimAngle = Math.atan2(dy, dx);
             } else {
                 this.direction = { x: 0, y: 0 };
             }
         } else {
-            // Keyboard
             let dx = 0, dy = 0;
             if (this._key('KeyW') || this._key('ArrowUp')) dy -= 1;
             if (this._key('KeyS') || this._key('ArrowDown')) dy += 1;
             if (this._key('KeyA') || this._key('ArrowLeft')) dx -= 1;
             if (this._key('KeyD') || this._key('ArrowRight')) dx += 1;
             this.direction = vecNormalize({ x: dx, y: dy });
-
-            // Mouse aim
-            if (playerScreenPos) {
-                this.aimAngle = Math.atan2(
-                    this.mouse.y - playerScreenPos.y,
-                    this.mouse.x - playerScreenPos.x
-                );
-            }
         }
 
-        // ── Attack ──
-        if (!this.isMobile || this._moveTouch === null) {
+        // ── Aim Direction (right joystick / mouse) ──
+        if (this._aimTouch !== null && this._aimTouchStart) {
+            const dx = this.aimJoystick.stickX - this.aimJoystick.baseX;
+            const dy = this.aimJoystick.stickY - this.aimJoystick.baseY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const deadzone = 8;
+            if (dist > deadzone) {
+                this.aimDirection = vecNormalize({ x: dx, y: dy });
+                this.aimAngle = Math.atan2(dy, dx);
+                this.attackPressed = true;
+            }
+        } else if (playerScreenPos) {
+            // Mouse aim on desktop
+            this.aimAngle = Math.atan2(
+                this.mouse.y - playerScreenPos.y,
+                this.mouse.x - playerScreenPos.x
+            );
+        }
+
+        // ── Attack (mouse click on desktop) ──
+        if (!this.isMobile) {
             if (this.mouse.pressed) {
                 this.attackPressed = true;
             }
@@ -159,12 +186,11 @@ const Input = {
         if (this._key('Space') || this._key('ShiftLeft') || this._key('ShiftRight')) {
             this.dodgeTriggered = true;
         }
-        // Mobile: long hold on joystick
         if (this._moveTouch !== null && this._moveHoldStart > 0) {
             const holdTime = Date.now() - this._moveHoldStart;
             if (holdTime > this.DODGE_HOLD_TIME) {
                 this.dodgeTriggered = true;
-                this._moveHoldStart = 0; // prevent re-trigger
+                this._moveHoldStart = 0;
             }
         }
     },

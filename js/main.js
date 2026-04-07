@@ -23,29 +23,49 @@ const Game = {
         this.resize();
         window.addEventListener('resize', () => this.resize());
 
+        // Request fullscreen on first user interaction
+        const requestFS = () => {
+            const el = document.documentElement;
+            const rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+            if (rfs) {
+                rfs.call(el).catch(() => {});
+                // Lock to landscape if supported
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(() => {});
+                }
+            }
+            document.removeEventListener('touchstart', requestFS);
+            document.removeEventListener('click', requestFS);
+        };
+        document.addEventListener('touchstart', requestFS, { once: true });
+        document.addEventListener('click', requestFS, { once: true });
+
+        document.addEventListener('fullscreenchange', () => this.resize());
+        document.addEventListener('webkitfullscreenchange', () => this.resize());
+
         Input.init(this.canvas);
         this.lastTime = performance.now();
         this.gameLoop(this.lastTime);
     },
 
     resize() {
-        const dpr = 1; // keep it simple for performance
-        const maxW = 640;
-        const maxH = 480;
-        const aspect = maxW / maxH;
-        let w = window.innerWidth;
-        let h = window.innerHeight;
-
-        if (w / h > aspect) {
-            w = h * aspect;
-        } else {
-            h = w / aspect;
-        }
+        // Fill the entire screen in landscape
+        const w = window.innerWidth;
+        const h = window.innerHeight;
 
         this.canvas.style.width = w + 'px';
         this.canvas.style.height = h + 'px';
-        this.canvas.width = maxW;
-        this.canvas.height = maxH;
+
+        // Logical resolution scales with aspect ratio, base height 480
+        const logicalH = 480;
+        const logicalW = Math.round(logicalH * (w / h));
+        this.canvas.width = Math.max(640, logicalW);
+        this.canvas.height = logicalH;
+
+        if (this.camera) {
+            this.camera.width = this.canvas.width;
+            this.camera.height = this.canvas.height;
+        }
     },
 
     startGame() {
@@ -329,12 +349,17 @@ const Game = {
             }
         }
 
-        // Check for boss trigger (player enters boss room)
-        if (this.hasKey && !this.bossActive && !this.bossDefeated) {
+        // Check for boss trigger (player walks onto the boss door tile)
+        if (this.hasKey && this.world.bossDoorOpen && !this.bossActive && !this.bossDefeated) {
             const px = this.player.x + this.player.w / 2;
             const py = this.player.y + this.player.h / 2;
-            // Boss room area: rows 23-28, cols 9-17
-            if (py > 23 * 32 && px > 9 * 32 && px < 17 * 32) {
+            // Boss door is at row 22, col 13 - trigger when player is near
+            const doorCenterX = 13 * 32 + 16;
+            const doorCenterY = 22 * 32 + 16;
+            if (vecDist({ x: px, y: py }, { x: doorCenterX, y: doorCenterY }) < 40) {
+                // Teleport player INTO the boss room
+                this.player.x = 13 * 32 - this.player.w / 2;
+                this.player.y = 24 * 32;
                 this._spawnBoss();
                 // Lock boss room (close the door)
                 for (const pos of this.world.bossDoorTiles) {
