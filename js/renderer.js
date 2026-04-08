@@ -236,7 +236,7 @@ const Renderer = {
 
     _buttons: [],
 
-    _drawButton(ctx, x, y, w, h, text) {
+    _drawButton(ctx, x, y, w, h, text, fontSize) {
         ctx.fillStyle = '#FFD700';
         ctx.beginPath();
         ctx.roundRect(x, y, w, h, 10);
@@ -250,10 +250,11 @@ const Renderer = {
         ctx.beginPath();
         ctx.roundRect(x, y, w, h, 10);
         ctx.stroke();
+        const fs = fontSize || 18;
         ctx.fillStyle = '#000';
-        ctx.font = 'bold 18px monospace';
+        ctx.font = 'bold ' + fs + 'px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(text, x + w / 2, y + h / 2 + 6);
+        ctx.fillText(text, x + w / 2, y + h / 2 + Math.floor(fs / 3));
         this._buttons.push({ x, y, w, h, id: text });
     },
 
@@ -380,25 +381,30 @@ const Renderer = {
             { name: 'Welt 4: Ritterburg', color: '#C66' },
         ];
 
-        // World select buttons
-        const btnW = 160;
-        const btnH = 32;
-        const startY = ch * 0.36;
+        // World select buttons (big, easy to tap)
+        const btnW = 260;
+        const btnH = 42;
+        const startY = ch * 0.34;
         for (let i = 0; i < worlds.length; i++) {
             const unlocked = i + 1 <= Game.maxWorldUnlocked;
             const bx = tx - btnW / 2;
-            const by = startY + i * 40;
+            const by = startY + i * 50;
             if (unlocked) {
-                this._drawButton(ctx, bx, by, btnW, btnH, worlds[i].name);
+                this._drawButton(ctx, bx, by, btnW, btnH, worlds[i].name, 14);
             } else {
                 ctx.fillStyle = '#333';
                 ctx.beginPath();
-                ctx.roundRect(bx, by, btnW, btnH, 8);
+                ctx.roundRect(bx, by, btnW, btnH, 10);
                 ctx.fill();
+                ctx.strokeStyle = '#555';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.roundRect(bx, by, btnW, btnH, 10);
+                ctx.stroke();
                 ctx.fillStyle = '#666';
-                ctx.font = '12px monospace';
+                ctx.font = '14px monospace';
                 ctx.textAlign = 'center';
-                ctx.fillText('\uD83D\uDD12 ' + worlds[i].name, tx, by + btnH / 2 + 4);
+                ctx.fillText('\uD83D\uDD12 ' + worlds[i].name, tx, by + btnH / 2 + 5);
             }
         }
 
@@ -411,6 +417,13 @@ const Renderer = {
         } else {
             ctx.fillText('Links = Bewegen | Rechts = Zielen & Angreifen', tx, ch * 0.92);
         }
+
+        // Version number
+        ctx.fillStyle = '#444';
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText('v1.4.0', cw - 8, ch - 6);
+
         ctx.restore();
     },
 

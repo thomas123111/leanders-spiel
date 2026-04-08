@@ -374,14 +374,14 @@ const Game = {
             if (Input.attackPressed || Input.mouse.pressed) {
                 Sound.resume();
                 const btn = Renderer.getClickedButton(Input.mouse.x, Input.mouse.y);
-                // World select buttons
-                const worldNames = ['Welt 1: Geisterschloss', 'Welt 2: Roboter-K\u00fcken', 'Welt 3: Schleim-Arena', 'Welt 4: Ritterburg'];
-                for (let i = 0; i < worldNames.length; i++) {
-                    if (btn === worldNames[i]) {
-                        this.startWorld(i + 1);
+                if (btn) {
+                    const worldNames = ['Welt 1: Geisterschloss', 'Welt 2: Roboter-K\u00fcken', 'Welt 3: Schleim-Arena', 'Welt 4: Ritterburg'];
+                    for (let i = 0; i < worldNames.length; i++) {
+                        if (btn === worldNames[i] && i + 1 <= this.maxWorldUnlocked) {
+                            this.startWorld(i + 1);
+                            break;
+                        }
                     }
-                }
-                if (false) { // old SPIELEN button removed
                 }
             }
             Input.postUpdate();
