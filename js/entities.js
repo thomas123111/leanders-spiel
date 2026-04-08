@@ -2645,450 +2645,1369 @@ class ShadowCrocodile {
     }
 }
 
-// ══════════════════════════════════════════
-// ── World 5-8 Unique Bosses ──
-// ══════════════════════════════════════════
 
+// ══════════════════════════════════════════════════════════════
+// BossMushroomGiant - RIESEN PILZ (World 5)
+// ══════════════════════════════════════════════════════════════
 class BossMushroomGiant extends Enemy {
-    constructor(x,y) {
-        super(x,y,90,100); this.hp=50; this.maxHp=50; this.speed=20;
-        this.damage=2; this.isBoss=true; this.contactDamage=false;
-        this.state='intro'; this.introTimer=2; this.stunnedTimer=0;
-        this.sporeTimer=3; this.vineTimer=6; this.phase=1;
-    }
-    update(dt,world,player,enemies,particles) {
-        this.baseUpdate(dt,world); if(this.dead) return;
-        if(this.hp<=25&&this.phase===1){this.phase=2;this.speed=30;}
-        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
-        if(this.state==='intro'){this.introTimer-=dt;if(this.introTimer<=0)this.state='chase';return;}
-        if(this.state==='stunned'){this.stunnedTimer-=dt;if(this.stunnedTimer<=0)this.state='chase';return;}
-        const a=angleBetween(mc,pc);
-        this._moveWithCollision(Math.cos(a)*this.speed*dt,Math.sin(a)*this.speed*dt,world);
-        this.sporeTimer-=dt;
-        if(this.sporeTimer<=0){
-            this.sporeTimer=this.phase===1?3:2;
-            const n=this.phase===1?6:10;
-            for(let i=0;i<n;i++){const sa=(Math.PI*2*i)/n;
-                if(typeof Game!=='undefined')Game.projectiles.push(new Projectile(mc.x,mc.y,Math.cos(sa)*120,Math.sin(sa)*120,1,'enemy',60));
-            }
-            this.state='stunned';this.stunnedTimer=2;
-        }
-        this.vineTimer-=dt;
-        if(this.vineTimer<=0){
-            this.vineTimer=this.phase===1?6:4;
-            const dist=vecDist(mc,pc);
-            if(dist<150)player.takeDamage(2,a,200);
-            if(particles)for(let i=0;i<6;i++)particles.push(new Particle(mc.x+Math.cos(a)*i*20,mc.y+Math.sin(a)*i*20,0,-30,'#0A0',0.5));
-        }
-    }
-    draw(ctx,camera) {
-        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
-        if(this.dead){const t=this.deathProgress();ctx.save();for(let i=0;i<10;i++){ctx.globalAlpha=(1-t)*0.7;const a=(Math.PI*2*i)/10+t;ctx.fillStyle=i%2?'#F44':'#A84';ctx.beginPath();ctx.arc(cx+Math.cos(a)*t*60,cy+Math.sin(a)*t*60,(1-t)*8,0,Math.PI*2);ctx.fill();}ctx.restore();return;}
-        ctx.save();if(this.isFlashing())ctx.globalAlpha=0.4;
-        // Stem
-        ctx.fillStyle='#DDB88C';ctx.fillRect(cx-15,cy,30,45);
-        // Cap (red dome with white spots)
-        ctx.fillStyle='#CC3333';ctx.beginPath();ctx.ellipse(cx,cy,42,30,0,Math.PI,0);ctx.fill();
-        ctx.fillStyle='#FFF';
-        ctx.beginPath();ctx.arc(cx-15,cy-15,6,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.arc(cx+12,cy-20,5,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.arc(cx+5,cy-8,4,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.arc(cx-20,cy-5,3,0,Math.PI*2);ctx.fill();
-        // Face
-        ctx.fillStyle='#000';
-        ctx.beginPath();ctx.arc(cx-10,cy+15,4,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.arc(cx+10,cy+15,4,0,Math.PI*2);ctx.fill();
-        ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy+25,8,0.2,Math.PI-0.2);ctx.stroke();
-        // Stunned
-        if(this.state==='stunned'){ctx.globalAlpha=0.7;ctx.fillStyle='#FF0';ctx.font='12px monospace';for(let i=0;i<3;i++){const sa=Date.now()/300+i*2;ctx.fillText('\u2605',cx+Math.cos(sa)*30,pos.y-10+Math.sin(sa)*6);}}
-        // HP bar
-        ctx.globalAlpha=1;ctx.fillStyle='#FFF';ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.fillText('RIESEN PILZ',cx,pos.y-15);ctx.textAlign='left';
-        ctx.fillStyle='#222';ctx.beginPath();ctx.roundRect(cx-45,pos.y-10,90,7,3);ctx.fill();
-        ctx.fillStyle=this.hp>20?'#A84':'#F00';ctx.beginPath();ctx.roundRect(cx-44,pos.y-9,88*(this.hp/this.maxHp),5,2);ctx.fill();
-        ctx.restore();
-    }
-}
+    constructor(x, y) {
+        super(x, y, 90, 100);
+        this.hp = 50;
+        this.maxHp = 50;
+        this.speed = 20;
+        this.damage = 2;
+        this.isBoss = true;
+        this.contactDamage = false;
+        this.phase = 1;
 
-class BossMosquito extends Enemy {
-    constructor(x,y) {
-        super(x,y,80,60); this.hp=55; this.maxHp=55; this.speed=60;
-        this.damage=2; this.isBoss=true; this.contactDamage=false; this.phasesThroughWalls=true;
-        this.state='intro'; this.introTimer=2; this.stunnedTimer=0;
-        this.spinTimer=3; this.swoopDir={x:0,y:0}; this.swoopProgress=0;
-        this.wingAnim=0; this.spawnTimer=12;
-    }
-    update(dt,world,player,enemies,particles) {
-        this.baseUpdate(dt,world); if(this.dead) return; this.wingAnim+=dt*10;
-        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
-        if(this.state==='intro'){this.introTimer-=dt;if(this.introTimer<=0)this.state='fly';return;}
-        if(this.state==='stunned'){this.stunnedTimer-=dt;if(this.stunnedTimer<=0)this.state='fly';return;}
-        if(this.state==='spin'){
-            this.swoopProgress+=dt;this.x+=this.swoopDir.x*250*dt;this.y+=this.swoopDir.y*250*dt;
-            if(vecDist(mc,pc)<50)player.takeDamage(2,angleBetween(mc,pc),200);
-            if(this.swoopProgress>1){this.state='stunned';this.stunnedTimer=2;}return;
-        }
-        const a=angleBetween(mc,pc);
-        this.x+=Math.cos(a)*this.speed*dt+Math.sin(Date.now()/300)*20*dt;
-        this.y+=Math.sin(a)*this.speed*dt+Math.cos(Date.now()/250)*15*dt;
-        this.spinTimer-=dt;
-        if(this.spinTimer<=0){this.spinTimer=3;this.state='spin';this.swoopDir=vecNormalize(vecSub(pc,mc));this.swoopProgress=0;}
-        this.spawnTimer-=dt;
-        if(this.spawnTimer<=0&&enemies){this.spawnTimer=12;for(let i=0;i<2;i++){const sa=Math.random()*Math.PI*2;enemies.push(new GiantBat(mc.x+Math.cos(sa)*50,mc.y+Math.sin(sa)*50));}}
-    }
-    draw(ctx,camera) {
-        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
-        if(this.dead){const t=this.deathProgress();ctx.save();ctx.globalAlpha=(1-t);ctx.fillStyle='#8A4';ctx.beginPath();ctx.arc(cx,cy,30*(1-t),0,Math.PI*2);ctx.fill();ctx.restore();return;}
-        ctx.save();if(this.isFlashing())ctx.globalAlpha=0.4;
-        const ws=Math.sin(this.wingAnim)*15;
-        // Wings
-        ctx.fillStyle='rgba(200,220,255,0.4)';
-        ctx.beginPath();ctx.ellipse(cx-25-ws,cy-5,20+ws*0.5,12,-0.2,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.ellipse(cx+25+ws,cy-5,20+ws*0.5,12,0.2,0,Math.PI*2);ctx.fill();
-        // Body (striped)
-        ctx.fillStyle='#554';ctx.beginPath();ctx.ellipse(cx,cy,20,14,0,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle='#443';for(let i=-1;i<=1;i++)ctx.fillRect(cx-18,cy+i*6-2,36,3);
-        // Proboscis (needle)
-        ctx.strokeStyle='#666';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx,cy+14);ctx.lineTo(cx,cy+35);ctx.stroke();
-        // Eyes (compound, red)
-        ctx.fillStyle='#F44';ctx.beginPath();ctx.arc(cx-8,cy-8,7,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(cx+8,cy-8,7,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle='#800';ctx.beginPath();ctx.arc(cx-8,cy-7,3,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(cx+8,cy-7,3,0,Math.PI*2);ctx.fill();
-        if(this.state==='stunned'){ctx.globalAlpha=0.7;ctx.fillStyle='#FF0';ctx.font='12px monospace';for(let i=0;i<3;i++){const sa=Date.now()/300+i*2;ctx.fillText('\u2605',cx+Math.cos(sa)*30,pos.y-10+Math.sin(sa)*6);}}
-        ctx.globalAlpha=1;ctx.fillStyle='#FFF';ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.fillText('RIESEN M\u00dcCKE',cx,pos.y-15);ctx.textAlign='left';
-        ctx.fillStyle='#222';ctx.beginPath();ctx.roundRect(cx-40,pos.y-10,80,7,3);ctx.fill();
-        ctx.fillStyle=this.hp>25?'#8A4':'#F00';ctx.beginPath();ctx.roundRect(cx-39,pos.y-9,78*(this.hp/this.maxHp),5,2);ctx.fill();
-        ctx.restore();
-    }
-}
+        this.state = 'intro';
+        this.introTimer = 2;
+        this.stateTimer = 0;
+        this.stunnedTimer = 0;
+        this.attackCycle = 0;
 
-class BossSnowEagle extends Enemy {
-    constructor(x,y) {
-        super(x,y,100,80); this.hp=60; this.maxHp=60; this.speed=45;
-        this.damage=2; this.isBoss=true; this.contactDamage=false; this.phasesThroughWalls=true;
-        this.state='intro'; this.introTimer=2; this.stunnedTimer=0;
-        this.iceTimer=4; this.windTimer=7; this.wingAnim=0;
-    }
-    update(dt,world,player,enemies,particles) {
-        this.baseUpdate(dt,world); if(this.dead) return; this.wingAnim+=dt*4;
-        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
-        if(this.state==='intro'){this.introTimer-=dt;if(this.introTimer<=0)this.state='fly';return;}
-        if(this.state==='stunned'){this.stunnedTimer-=dt;if(this.stunnedTimer<=0)this.state='fly';return;}
-        const a=angleBetween(mc,pc);
-        this.x+=Math.cos(a)*this.speed*dt+Math.sin(Date.now()/500)*25*dt;
-        this.y+=Math.sin(a)*this.speed*dt+Math.cos(Date.now()/400)*20*dt;
-        this.iceTimer-=dt;
-        if(this.iceTimer<=0){
-            this.iceTimer=4;
-            for(let i=0;i<8;i++){const ix=mc.x-100+i*30;
-                if(typeof Game!=='undefined')Game.projectiles.push(new Projectile(ix,mc.y-200,0,180,1,'enemy',40));
-            }
-            this.state='stunned';this.stunnedTimer=2;
-        }
-        this.windTimer-=dt;
-        if(this.windTimer<=0){
-            this.windTimer=7;const dist=vecDist(mc,pc);
-            if(dist<200){const wa=angleBetween(mc,pc);player.takeDamage(0,wa,400);}
-            if(particles)for(let i=0;i<8;i++)particles.push(new Particle(mc.x,mc.y,Math.cos(a)*200+randRange(-40,40),Math.sin(a)*200+randRange(-40,40),'#ADF',0.6));
+        // Spore cloud
+        this.sporeCooldown = 4;
+        this.sporeTimer = 3;
+
+        // Vine attack
+        this.vines = [];
+        this.vineTimer = 0;
+        this.vineCooldown = 5;
+
+        // Spore ambient particles
+        this.sporeParticles = [];
+        for (let i = 0; i < 8; i++) {
+            this.sporeParticles.push({
+                ox: randRange(-50, 50),
+                oy: randRange(-60, 20),
+                phase: Math.random() * Math.PI * 2,
+                speed: randRange(0.5, 1.5)
+            });
         }
     }
-    draw(ctx,camera) {
-        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
-        if(this.dead){const t=this.deathProgress();ctx.save();for(let i=0;i<12;i++){ctx.globalAlpha=(1-t);const a=(Math.PI*2*i)/12+t*2;ctx.fillStyle=i%2?'#ADF':'#FFF';ctx.beginPath();ctx.arc(cx+Math.cos(a)*t*70,cy+Math.sin(a)*t*70,(1-t)*8,0,Math.PI*2);ctx.fill();}ctx.restore();return;}
-        ctx.save();if(this.isFlashing())ctx.globalAlpha=0.4;
-        const ws=Math.sin(this.wingAnim)*20;
-        // Wings (white with ice-blue tips)
-        ctx.fillStyle='#EEF';ctx.beginPath();ctx.ellipse(cx-35-ws,cy,25+ws*0.5,16,-0.15,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.ellipse(cx+35+ws,cy,25+ws*0.5,16,0.15,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle='#8CF';
-        ctx.beginPath();ctx.ellipse(cx-50-ws,cy-2,10,8,-0.2,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.ellipse(cx+50+ws,cy-2,10,8,0.2,0,Math.PI*2);ctx.fill();
-        // Body
-        ctx.fillStyle='#FFF';ctx.beginPath();ctx.ellipse(cx,cy,22,16,0,0,Math.PI*2);ctx.fill();
-        // Head
-        ctx.fillStyle='#FFF';ctx.beginPath();ctx.arc(cx,cy-18,12,0,Math.PI*2);ctx.fill();
-        // Beak
-        ctx.fillStyle='#FA0';ctx.beginPath();ctx.moveTo(cx,cy-16);ctx.lineTo(cx+10,cy-12);ctx.lineTo(cx,cy-8);ctx.closePath();ctx.fill();
-        // Eyes (cold blue)
-        ctx.fillStyle='#48F';ctx.beginPath();ctx.arc(cx-4,cy-20,4,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle='#003';ctx.beginPath();ctx.arc(cx-4,cy-19,2,0,Math.PI*2);ctx.fill();
-        if(this.state==='stunned'){ctx.globalAlpha=0.7;ctx.fillStyle='#FF0';ctx.font='12px monospace';for(let i=0;i<4;i++){const sa=Date.now()/250+i*Math.PI/2;ctx.fillText('\u2605',cx+Math.cos(sa)*35,pos.y-25+Math.sin(sa)*6);}}
-        ctx.globalAlpha=1;ctx.fillStyle='#FFF';ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.fillText('SCHNEE ADLER',cx,pos.y-30);ctx.textAlign='left';
-        ctx.fillStyle='#222';ctx.beginPath();ctx.roundRect(cx-45,pos.y-25,90,7,3);ctx.fill();
-        ctx.fillStyle=this.hp>25?'#8CF':'#F00';ctx.beginPath();ctx.roundRect(cx-44,pos.y-24,88*(this.hp/this.maxHp),5,2);ctx.fill();
-        ctx.restore();
-    }
-}
 
-class BossFirePhoenix extends Enemy {
-    constructor(x,y) {
-        super(x,y,100,90); this.hp=70; this.maxHp=70; this.speed=40;
-        this.damage=3; this.isBoss=true; this.contactDamage=false; this.phasesThroughWalls=true;
-        this.state='intro'; this.introTimer=2; this.stunnedTimer=0;
-        this.fireTimer=3; this.waveTimer=6; this.wingAnim=0; this.phase=1;
-    }
-    update(dt,world,player,enemies,particles) {
-        this.baseUpdate(dt,world); if(this.dead) return; this.wingAnim+=dt*6;
-        if(this.hp<=35&&this.phase===1){this.phase=2;this.speed=55;}
-        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
-        if(this.state==='intro'){this.introTimer-=dt;if(this.introTimer<=0)this.state='fly';return;}
-        if(this.state==='stunned'){this.stunnedTimer-=dt;if(this.stunnedTimer<=0)this.state='fly';return;}
-        const a=angleBetween(mc,pc);
-        this.x+=Math.cos(a)*this.speed*dt+Math.sin(Date.now()/400)*30*dt;
-        this.y+=Math.sin(a)*this.speed*dt+Math.cos(Date.now()/350)*25*dt;
-        if(particles&&Math.random()<0.3)particles.push(new Particle(mc.x+randRange(-20,20),mc.y+randRange(-10,20),randRange(-15,15),-40,'#F80',0.4));
-        this.fireTimer-=dt;
-        if(this.fireTimer<=0){
-            this.fireTimer=this.phase===1?3:1.5;
-            const targets=[pc,{x:pc.x+50,y:pc.y},{x:pc.x-50,y:pc.y}];
-            for(const t of targets){const ta=angleBetween(mc,t);
-                if(typeof Game!=='undefined')Game.projectiles.push(new Projectile(mc.x,mc.y,Math.cos(ta)*200,Math.sin(ta)*200,2,'enemy',80));
-            }
+    update(dt, world, player, enemies, projectiles) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+
+        if (this.hp <= 25 && this.phase === 1) {
+            this.phase = 2;
+            this.sporeCooldown = 2.5;
+            this.vineCooldown = 3.5;
         }
-        this.waveTimer-=dt;
-        if(this.waveTimer<=0){
-            this.waveTimer=this.phase===1?6:3;
-            const n=12;for(let i=0;i<n;i++){const wa=(Math.PI*2*i)/n;
-                if(typeof Game!=='undefined')Game.projectiles.push(new Projectile(mc.x,mc.y,Math.cos(wa)*150,Math.sin(wa)*150,1,'enemy',60));
-            }
-            this.state='stunned';this.stunnedTimer=2;
-        }
-    }
-    draw(ctx,camera) {
-        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
-        if(this.dead){const t=this.deathProgress();ctx.save();for(let i=0;i<16;i++){ctx.globalAlpha=(1-t);const a=(Math.PI*2*i)/16+t*3;ctx.fillStyle=`hsl(${i*20},90%,55%)`;ctx.beginPath();ctx.arc(cx+Math.cos(a)*t*80,cy+Math.sin(a)*t*80,(1-t)*10,0,Math.PI*2);ctx.fill();}ctx.restore();return;}
-        ctx.save();if(this.isFlashing())ctx.globalAlpha=0.4;
-        const ws=Math.sin(this.wingAnim)*18;
-        // Fire wings
-        const wGrad=ctx.createRadialGradient(cx,cy,10,cx,cy,50);
-        wGrad.addColorStop(0,'#FF0');wGrad.addColorStop(0.5,'#F80');wGrad.addColorStop(1,'rgba(255,0,0,0.3)');
-        ctx.fillStyle=wGrad;
-        ctx.beginPath();ctx.ellipse(cx-35-ws,cy,28+ws*0.5,18,-0.2,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.ellipse(cx+35+ws,cy,28+ws*0.5,18,0.2,0,Math.PI*2);ctx.fill();
-        // Body
-        const bGrad=ctx.createRadialGradient(cx-5,cy-10,5,cx,cy,30);
-        bGrad.addColorStop(0,'#FF0');bGrad.addColorStop(0.4,'#F80');bGrad.addColorStop(1,'#C00');
-        ctx.fillStyle=bGrad;ctx.beginPath();ctx.ellipse(cx,cy,25,18,0,0,Math.PI*2);ctx.fill();
-        // Head
-        ctx.fillStyle='#FA0';ctx.beginPath();ctx.arc(cx,cy-22,12,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle='#FF0';ctx.beginPath();ctx.arc(cx,cy-24,8,Math.PI,0);ctx.fill();
-        // Beak
-        ctx.fillStyle='#F60';ctx.beginPath();ctx.moveTo(cx+8,cy-22);ctx.lineTo(cx+18,cy-18);ctx.lineTo(cx+8,cy-16);ctx.closePath();ctx.fill();
-        // Eyes (fierce red)
-        ctx.fillStyle='#F00';ctx.beginPath();ctx.arc(cx-3,cy-24,3.5,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle='#800';ctx.beginPath();ctx.arc(cx-3,cy-23,1.5,0,Math.PI*2);ctx.fill();
-        // Fire tail
-        ctx.fillStyle='#F80';for(let i=0;i<5;i++){const tx=cx-10-i*8,ty=cy+15+Math.sin(Date.now()/100+i)*5;
-            ctx.beginPath();ctx.arc(tx,ty,6-i,0,Math.PI*2);ctx.fill();}
-        if(this.state==='stunned'){ctx.globalAlpha=0.7;ctx.fillStyle='#FF0';ctx.font='14px monospace';for(let i=0;i<4;i++){const sa=Date.now()/250+i*Math.PI/2;ctx.fillText('\u2605',cx+Math.cos(sa)*40,pos.y-30+Math.sin(sa)*6);}}
-        ctx.globalAlpha=1;ctx.fillStyle='#FFF';ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.fillText('FEUER PH\u00d6NIX',cx,pos.y-35);ctx.textAlign='left';
-        ctx.fillStyle='#222';ctx.beginPath();ctx.roundRect(cx-45,pos.y-30,90,7,3);ctx.fill();
-        ctx.fillStyle=this.hp>30?'#F84':'#F00';ctx.beginPath();ctx.roundRect(cx-44,pos.y-29,88*(this.hp/this.maxHp),5,2);ctx.fill();
-        ctx.restore();
-    }
-}
 
-// ══════════════════════════════════════════
-// ── World-Specific Enemies (GDD accurate) ──
-// ══════════════════════════════════════════
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
 
-// W2: Drone (flies, throws wrenches)
-class Drone extends Enemy {
-    constructor(x,y) {
-        super(x,y,20,16); this.hp=3; this.maxHp=3; this.speed=70; this.damage=1;
-        this.phasesThroughWalls=true; this.detectionRange=200;
-        this.shootTimer=0; this.shootCooldown=2; this.wingAnim=0;
-    }
-    update(dt,world,player,enemies,projectiles) {
-        this.baseUpdate(dt,world); if(this.dead) return; this.wingAnim+=dt*12;
-        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
-        const dist=vecDist(mc,pc);
-        if(dist<this.detectionRange) {
-            const a=angleBetween(mc,pc);
-            this.x+=Math.cos(a)*this.speed*dt; this.y+=Math.sin(a)*this.speed*dt;
-            this.shootTimer-=dt;
-            if(this.shootTimer<=0&&typeof Game!=='undefined') {
-                this.shootTimer=this.shootCooldown;
-                Game.projectiles.push(new Projectile(mc.x,mc.y,Math.cos(a)*140,Math.sin(a)*140,1,'enemy',50));
-            }
-        } else { this.x+=Math.sin(Date.now()/800)*20*dt; this.y+=Math.cos(Date.now()/600)*15*dt; }
-    }
-    draw(ctx,camera) {
-        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
-        if(this.dead){const t=this.deathProgress();ctx.save();ctx.globalAlpha=(1-t);ctx.fillStyle='#888';ctx.beginPath();ctx.arc(cx,cy,8*(1-t),0,Math.PI*2);ctx.fill();ctx.restore();return;}
-        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
-        const ws=Math.sin(this.wingAnim)*4;
-        ctx.fillStyle='#BBB'; ctx.beginPath(); ctx.ellipse(cx,cy,10,6,0,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='rgba(200,200,255,0.4)';
-        ctx.beginPath(); ctx.ellipse(cx-8,cy-4-ws,6,3,0,0,Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(cx+8,cy-4+ws,6,3,0,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#F00'; ctx.beginPath(); ctx.arc(cx,cy,2,0,Math.PI*2); ctx.fill();
-        ctx.restore();
-    }
-}
-
-// W5: Walking Mushroom (poison cloud on proximity)
-class WalkingMushroom extends Enemy {
-    constructor(x,y) {
-        super(x,y,22,24); this.hp=5; this.maxHp=5; this.speed=30; this.damage=1;
-        this.detectionRange=120; this.cloudTimer=0; this.cloudCooldown=3;
-    }
-    update(dt,world,player) {
-        this.baseUpdate(dt,world); if(this.dead) return;
-        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
-        const dist=vecDist(mc,pc);
-        if(dist<this.detectionRange) {
-            const a=angleBetween(mc,pc);
-            this._moveWithCollision(Math.cos(a)*this.speed*dt,Math.sin(a)*this.speed*dt,world);
-            this.cloudTimer-=dt;
-            if(this.cloudTimer<=0&&dist<50) {
-                this.cloudTimer=this.cloudCooldown;
-                player.takeDamage(1, a, 80);
-            }
-        }
-    }
-    draw(ctx,camera) {
-        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
-        if(this.dead){const t=this.deathProgress();ctx.save();ctx.globalAlpha=(1-t);ctx.fillStyle='#A84';ctx.beginPath();ctx.arc(cx,cy,11*(1-t),0,Math.PI*2);ctx.fill();ctx.restore();return;}
-        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
-        ctx.fillStyle='#DDB88C'; ctx.fillRect(cx-4,cy+2,8,12);
-        ctx.fillStyle='#CC6644'; ctx.beginPath(); ctx.ellipse(cx,cy,12,8,0,Math.PI,0); ctx.fill();
-        ctx.fillStyle='#FFF'; ctx.beginPath(); ctx.arc(cx-4,cy-3,3,0,Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx+5,cy-1,2,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(cx-3,cy+4,2,0,Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx+3,cy+4,2,0,Math.PI*2); ctx.fill();
-        if(this.cloudTimer>this.cloudCooldown-0.5){ctx.globalAlpha=0.3;ctx.fillStyle='#A0F';ctx.beginPath();ctx.arc(cx,cy,20,0,Math.PI*2);ctx.fill();}
-        ctx.restore();
-    }
-}
-
-// W6: Swamp Mosquito (fast, dive attack)
-class SwampMosquito extends Enemy {
-    constructor(x,y) {
-        super(x,y,18,14); this.hp=3; this.maxHp=3; this.speed=90; this.damage=1;
-        this.phasesThroughWalls=true; this.detectionRange=200; this.wingAnim=0;
-        this.diving=false; this.diveDir={x:0,y:0}; this.diveTimer=0;
-    }
-    update(dt,world,player) {
-        this.baseUpdate(dt,world); if(this.dead) return; this.wingAnim+=dt*15;
-        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
-        const dist=vecDist(mc,pc);
-        if(this.diving) {
-            this.x+=this.diveDir.x*180*dt; this.y+=this.diveDir.y*180*dt;
-            this.diveTimer-=dt;
-            if(dist<25) player.takeDamage(1,angleBetween(mc,pc),100);
-            if(this.diveTimer<=0) this.diving=false;
+        if (this.state === 'intro') {
+            this.introTimer -= dt;
+            if (this.introTimer <= 0) { this.state = 'wander'; this.stateTimer = 2; }
             return;
         }
-        if(dist<this.detectionRange) {
-            const a=angleBetween(mc,pc);
-            this.x+=Math.cos(a)*this.speed*0.3*dt+Math.sin(Date.now()/200)*30*dt;
-            this.y+=Math.sin(a)*this.speed*0.3*dt+Math.cos(Date.now()/180)*25*dt;
-            if(dist<80&&Math.random()<0.01) {
-                this.diving=true; this.diveDir=vecNormalize(vecSub(pc,mc)); this.diveTimer=0.5;
+
+        if (this.state === 'stunned') {
+            this.stunnedTimer -= dt;
+            if (this.stunnedTimer <= 0) { this.state = 'wander'; this.stateTimer = 2; }
+            return;
+        }
+
+        // Update vines
+        for (const vine of this.vines) {
+            vine.progress += dt * 2;
+            if (vine.progress >= 1) {
+                // Check damage at vine endpoint
+                const ex = vine.sx + vine.dx * 1;
+                const ey = vine.sy + vine.dy * 1;
+                const dist = Math.sqrt((ex - pc.x) ** 2 + (ey - pc.y) ** 2);
+                if (dist < 30 && !vine.hit) {
+                    vine.hit = true;
+                    player.takeDamage(2, angleBetween(mc, pc), 200);
+                }
+            }
+        }
+        this.vines = this.vines.filter(v => v.progress < 1.5);
+
+        if (this.state === 'spore_cloud') {
+            this.stateTimer -= dt;
+            if (this.stateTimer <= 0) {
+                // Fire spore projectiles
+                const count = this.phase === 2 ? 10 : 6;
+                if (projectiles) {
+                    for (let i = 0; i < count; i++) {
+                        const a = (Math.PI * 2 * i) / count;
+                        const speed = 140;
+                        projectiles.push(new Projectile(
+                            mc.x, mc.y,
+                            Math.cos(a) * speed, Math.sin(a) * speed,
+                            1, 'enemy', 80
+                        ));
+                    }
+                }
+                this.state = 'stunned';
+                this.stunnedTimer = 2;
+            }
+            return;
+        }
+
+        if (this.state === 'vine_attack') {
+            this.stateTimer -= dt;
+            if (this.stateTimer <= 0) {
+                // Spawn vines
+                const vineCount = this.phase === 2 ? 6 : 4;
+                for (let i = 0; i < vineCount; i++) {
+                    const spread = (i - (vineCount - 1) / 2) * 0.3;
+                    const angle = angleBetween(mc, pc) + spread;
+                    this.vines.push({
+                        sx: mc.x, sy: mc.y + 30,
+                        dx: Math.cos(angle) * 200,
+                        dy: Math.sin(angle) * 200,
+                        progress: 0, hit: false
+                    });
+                }
+                this.state = 'stunned';
+                this.stunnedTimer = 2;
+            }
+            return;
+        }
+
+        // Wander state - move slowly toward player
+        const angle = angleBetween(mc, pc);
+        const dx = Math.cos(angle) * this.speed * dt;
+        const dy = Math.sin(angle) * this.speed * dt;
+        this._moveWithCollision(dx, dy, world);
+
+        // Attack timers
+        this.sporeTimer -= dt;
+        this.vineTimer -= dt;
+
+        if (this.sporeTimer <= 0) {
+            this.sporeTimer = this.sporeCooldown;
+            this.state = 'spore_cloud';
+            this.stateTimer = 0.8;
+            return;
+        }
+
+        if (this.vineTimer <= 0) {
+            this.vineTimer = this.vineCooldown;
+            this.state = 'vine_attack';
+            this.stateTimer = 0.6;
+            return;
+        }
+    }
+
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        const flash = this.iFrames > 0 && Math.floor(this.iFrames * 20) % 2;
+
+        if (this.dead) {
+            const t = 1 - this.deathTimer / 0.4;
+            ctx.save();
+            // Mushroom explodes into spore cloud
+            for (let i = 0; i < 20; i++) {
+                const a = (Math.PI * 2 * i) / 20 + t * 2;
+                const dist = t * 100;
+                ctx.globalAlpha = (1 - t) * 0.8;
+                ctx.fillStyle = i % 3 === 0 ? '#A020F0' : i % 3 === 1 ? '#FF4444' : '#FFFFFF';
+                ctx.beginPath();
+                ctx.arc(cx + Math.cos(a) * dist, cy + Math.sin(a) * dist, (1 - t) * (8 + i % 5), 0, Math.PI * 2);
+                ctx.fill();
+            }
+            // Central flash
+            ctx.globalAlpha = (1 - t);
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath();
+            ctx.arc(cx, cy, (1 - t) * 50 + t * 80, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            return;
+        }
+
+        ctx.save();
+        if (flash) ctx.globalAlpha = 0.4;
+
+        // Draw vines
+        for (const vine of this.vines) {
+            const p = Math.min(vine.progress, 1);
+            const vpos = camera.worldToScreen(vine.sx, vine.sy);
+            ctx.strokeStyle = '#228B22';
+            ctx.lineWidth = 4;
+            ctx.globalAlpha = flash ? 0.4 : 0.8;
+            ctx.beginPath();
+            ctx.moveTo(vpos.x, vpos.y);
+            ctx.lineTo(vpos.x + vine.dx * p, vpos.y + vine.dy * p);
+            ctx.stroke();
+            // Vine tip thorns
+            if (p > 0.5) {
+                ctx.fillStyle = '#32CD32';
+                ctx.beginPath();
+                ctx.arc(vpos.x + vine.dx * p, vpos.y + vine.dy * p, 6, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = flash ? 0.4 : 1;
+        }
+
+        // Stem (thick beige trunk)
+        const stemGrad = ctx.createLinearGradient(cx - 20, cy, cx + 20, cy);
+        stemGrad.addColorStop(0, '#D2B48C');
+        stemGrad.addColorStop(0.5, '#F5DEB3');
+        stemGrad.addColorStop(1, '#D2B48C');
+        ctx.fillStyle = stemGrad;
+        ctx.beginPath();
+        ctx.moveTo(cx - 22, cy + 50);
+        ctx.lineTo(cx - 18, cy - 10);
+        ctx.lineTo(cx + 18, cy - 10);
+        ctx.lineTo(cx + 22, cy + 50);
+        ctx.closePath();
+        ctx.fill();
+
+        // Mushroom cap (red dome with white spots)
+        const capGrad = ctx.createRadialGradient(cx - 10, cy - 35, 5, cx, cy - 20, 50);
+        capGrad.addColorStop(0, '#FF4444');
+        capGrad.addColorStop(0.7, '#CC0000');
+        capGrad.addColorStop(1, '#880000');
+        ctx.fillStyle = capGrad;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy - 20, 48, 35, 0, Math.PI, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        // White spots on cap
+        ctx.fillStyle = '#FFF';
+        const spots = [[-20, -35, 8], [10, -40, 6], [25, -28, 7], [-30, -25, 5], [0, -48, 5], [15, -20, 4]];
+        for (const [sx, sy, sr] of spots) {
+            ctx.beginPath();
+            ctx.arc(cx + sx, cy + sy, sr, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Cap rim
+        ctx.fillStyle = '#AA0000';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy - 5, 50, 10, 0, 0, Math.PI);
+        ctx.fill();
+
+        // Angry face on stem
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        ctx.ellipse(cx - 10, cy + 12, 5, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(cx + 10, cy + 12, 5, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Angry brows
+        ctx.strokeStyle = '#4A3520';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx - 18, cy + 6);
+        ctx.lineTo(cx - 6, cy + 9);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(cx + 18, cy + 6);
+        ctx.lineTo(cx + 6, cy + 9);
+        ctx.stroke();
+        // Angry mouth
+        ctx.fillStyle = '#1A1A1A';
+        ctx.beginPath();
+        ctx.arc(cx, cy + 25, 8, 0, Math.PI);
+        ctx.fill();
+
+        // Purple spore particles floating around
+        const t = Date.now() / 1000;
+        ctx.globalAlpha = flash ? 0.2 : 0.5;
+        for (const sp of this.sporeParticles) {
+            const fx = cx + sp.ox + Math.sin(t * sp.speed + sp.phase) * 12;
+            const fy = cy + sp.oy + Math.cos(t * sp.speed * 0.7 + sp.phase) * 8;
+            ctx.fillStyle = '#A020F0';
+            ctx.beginPath();
+            ctx.arc(fx, fy, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Stunned stars
+        if (this.state === 'stunned') {
+            ctx.globalAlpha = 0.8;
+            ctx.fillStyle = '#FF0';
+            ctx.font = '14px monospace';
+            for (let i = 0; i < 5; i++) {
+                const sa = Date.now() / 250 + i * Math.PI * 2 / 5;
+                ctx.fillText('\u2605', cx + Math.cos(sa) * 40 - 5, cy - 55 + Math.sin(sa) * 8);
+            }
+        }
+
+        // HP bar
+        ctx.globalAlpha = 1;
+        const barW = 100;
+        const barX = cx - barW / 2;
+        const barY = pos.y - 25;
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('RIESEN PILZ', cx, barY - 4);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#222';
+        ctx.beginPath(); ctx.roundRect(barX, barY, barW, 7, 3); ctx.fill();
+        const hpPct = this.hp / this.maxHp;
+        ctx.fillStyle = hpPct > 0.4 ? '#A020F0' : hpPct > 0.2 ? '#FA0' : '#F00';
+        ctx.beginPath(); ctx.roundRect(barX + 1, barY + 1, (barW - 2) * hpPct, 5, 2); ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// BossMosquito - RIESEN MUECKE (World 6)
+// ══════════════════════════════════════════════════════════════
+class BossMosquito extends Enemy {
+    constructor(x, y) {
+        super(x, y, 80, 60);
+        this.hp = 55;
+        this.maxHp = 55;
+        this.speed = 60;
+        this.damage = 2;
+        this.phasesThroughWalls = true;
+        this.isBoss = true;
+        this.contactDamage = false;
+
+        this.state = 'intro';
+        this.introTimer = 2;
+        this.stateTimer = 0;
+        this.stunnedTimer = 0;
+        this.attackCycle = 0;
+
+        // Spin attack
+        this.spinAngle = 0;
+        this.spinVx = 0;
+        this.spinVy = 0;
+        this.spinDamageDealt = false;
+
+        // Arrow ram
+        this.ramTarget = { x: 0, y: 0 };
+        this.ramPhase = 'none';
+        this.ramTimer = 0;
+
+        // Spawn timer
+        this.spawnTimer = 12;
+        this.spawnCooldown = 12;
+
+        // Wing animation
+        this.wingAnim = 0;
+        this.bobTimer = 0;
+
+        // Attack cooldown
+        this.attackTimer = 3;
+        this.attackCooldown = 3.5;
+    }
+
+    update(dt, world, player, enemies, projectiles) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+
+        this.wingAnim += dt * 25;
+        this.bobTimer += dt;
+
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+
+        if (this.state === 'intro') {
+            this.introTimer -= dt;
+            if (this.introTimer <= 0) { this.state = 'hover'; this.stateTimer = 2; }
+            return;
+        }
+
+        if (this.state === 'stunned') {
+            this.stunnedTimer -= dt;
+            if (this.stunnedTimer <= 0) { this.state = 'hover'; this.stateTimer = 2; }
+            return;
+        }
+
+        if (this.state === 'spin') {
+            this.stateTimer -= dt;
+            this.x += this.spinVx * dt;
+            this.y += this.spinVy * dt;
+            this.spinAngle += dt * 15;
+            // Check collision with player
+            const dist = vecDist(mc, pc);
+            if (dist < 50 && !this.spinDamageDealt) {
+                this.spinDamageDealt = true;
+                player.takeDamage(2, angleBetween(mc, pc), 300);
+            }
+            if (this.stateTimer <= 0) {
+                this.state = 'stunned';
+                this.stunnedTimer = 2;
+            }
+            return;
+        }
+
+        if (this.state === 'arrow_ram') {
+            if (this.ramPhase === 'rise') {
+                this.ramTimer -= dt;
+                this.y -= 120 * dt;
+                if (this.ramTimer <= 0) {
+                    this.ramPhase = 'charge';
+                    this.ramTimer = 0.5;
+                    this.ramTarget = { x: pc.x, y: pc.y };
+                    const angle = angleBetween(mc, this.ramTarget);
+                    this.spinVx = Math.cos(angle) * 350;
+                    this.spinVy = Math.sin(angle) * 350;
+                    this.spinDamageDealt = false;
+                }
+            } else if (this.ramPhase === 'charge') {
+                this.ramTimer -= dt;
+                this.x += this.spinVx * dt;
+                this.y += this.spinVy * dt;
+                const dist = vecDist(mc, pc);
+                if (dist < 50 && !this.spinDamageDealt) {
+                    this.spinDamageDealt = true;
+                    player.takeDamage(2, angleBetween(mc, pc), 350);
+                }
+                if (this.ramTimer <= 0) {
+                    this.state = 'stunned';
+                    this.stunnedTimer = 2;
+                }
+            }
+            return;
+        }
+
+        // Hover state - buzzes side to side
+        const angle = angleBetween(mc, pc);
+        const buzzX = Math.sin(this.bobTimer * 4) * 30 * dt;
+        this.x += Math.cos(angle) * this.speed * 0.5 * dt + buzzX;
+        this.y += Math.sin(angle) * this.speed * 0.5 * dt;
+
+        // Spawn minions
+        this.spawnTimer -= dt;
+        if (this.spawnTimer <= 0 && enemies) {
+            this.spawnTimer = this.spawnCooldown;
+            for (let i = 0; i < 2; i++) {
+                const sa = (Math.PI * 2 * i) / 2 + Math.random();
+                enemies.push(new GiantBat(
+                    mc.x + Math.cos(sa) * 60,
+                    mc.y + Math.sin(sa) * 60
+                ));
+            }
+        }
+
+        // Attack timer
+        this.attackTimer -= dt;
+        if (this.attackTimer <= 0) {
+            this.attackTimer = this.attackCooldown;
+            this.attackCycle++;
+            if (this.attackCycle % 2 === 1) {
+                // Spin attack
+                this.state = 'spin';
+                this.stateTimer = 1;
+                const a = angleBetween(mc, pc);
+                this.spinVx = Math.cos(a) * 250;
+                this.spinVy = Math.sin(a) * 250;
+                this.spinAngle = 0;
+                this.spinDamageDealt = false;
+            } else {
+                // Arrow ram
+                this.state = 'arrow_ram';
+                this.ramPhase = 'rise';
+                this.ramTimer = 0.6;
             }
         }
     }
-    draw(ctx,camera) {
-        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
-        if(this.dead){const t=this.deathProgress();ctx.save();ctx.globalAlpha=(1-t);ctx.fillStyle='#8A4';ctx.beginPath();ctx.arc(cx,cy,7*(1-t),0,Math.PI*2);ctx.fill();ctx.restore();return;}
-        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
-        const ws=Math.sin(this.wingAnim)*5;
-        ctx.fillStyle='rgba(180,200,180,0.4)';
-        ctx.beginPath();ctx.ellipse(cx-7,cy-3-ws,5,3,0,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.ellipse(cx+7,cy-3+ws,5,3,0,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle='#665'; ctx.beginPath(); ctx.ellipse(cx,cy,7,5,0,0,Math.PI*2); ctx.fill();
-        ctx.strokeStyle='#554'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(cx,cy+5); ctx.lineTo(cx,cy+12); ctx.stroke();
-        ctx.fillStyle='#F44'; ctx.beginPath(); ctx.arc(cx,cy-3,2,0,Math.PI*2); ctx.fill();
+
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        const flash = this.iFrames > 0 && Math.floor(this.iFrames * 20) % 2;
+
+        if (this.dead) {
+            const t = 1 - this.deathTimer / 0.4;
+            ctx.save();
+            // Mosquito shatters into pieces
+            for (let i = 0; i < 14; i++) {
+                const a = (Math.PI * 2 * i) / 14 + t * 3;
+                const dist = t * 90;
+                ctx.globalAlpha = (1 - t) * 0.9;
+                ctx.fillStyle = i % 2 === 0 ? '#666' : '#8B4513';
+                ctx.beginPath();
+                const size = (1 - t) * (5 + (i % 4) * 3);
+                ctx.ellipse(cx + Math.cos(a) * dist, cy + Math.sin(a) * dist, size, size * 0.6, a, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            // Wing fragments
+            for (let i = 0; i < 6; i++) {
+                const a = (Math.PI * 2 * i) / 6 + t;
+                ctx.globalAlpha = (1 - t) * 0.4;
+                ctx.fillStyle = 'rgba(200,220,255,0.5)';
+                ctx.beginPath();
+                ctx.ellipse(cx + Math.cos(a) * t * 70, cy + Math.sin(a) * t * 70, (1 - t) * 15, (1 - t) * 8, a, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+            return;
+        }
+
+        ctx.save();
+        if (flash) ctx.globalAlpha = 0.4;
+
+        // Rotation for spin attack
+        if (this.state === 'spin') {
+            ctx.translate(cx, cy);
+            ctx.rotate(this.spinAngle);
+            ctx.translate(-cx, -cy);
+        }
+
+        // Translucent wings (flapping)
+        const wingFlap = Math.sin(this.wingAnim) * 0.6;
+        ctx.globalAlpha = flash ? 0.2 : 0.3;
+        ctx.fillStyle = '#CCE0FF';
+        ctx.strokeStyle = '#88AADD';
+        ctx.lineWidth = 1;
+        // Left wing
+        ctx.beginPath();
+        ctx.ellipse(cx - 30, cy - 15 + wingFlap * 10, 28, 14 + wingFlap * 5, -0.3 + wingFlap * 0.2, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+        // Right wing
+        ctx.beginPath();
+        ctx.ellipse(cx + 30, cy - 15 - wingFlap * 10, 28, 14 - wingFlap * 5, 0.3 - wingFlap * 0.2, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+
+        ctx.globalAlpha = flash ? 0.4 : 1;
+
+        // Striped body
+        const bodyGrad = ctx.createLinearGradient(cx, cy - 20, cx, cy + 25);
+        bodyGrad.addColorStop(0, '#555');
+        bodyGrad.addColorStop(0.3, '#777');
+        bodyGrad.addColorStop(0.5, '#444');
+        bodyGrad.addColorStop(0.7, '#777');
+        bodyGrad.addColorStop(1, '#444');
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + 5, 22, 28, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Stripes
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        for (let i = -2; i <= 3; i++) {
+            const sy = cy + i * 8;
+            ctx.beginPath();
+            const sw = 20 - Math.abs(i) * 3;
+            ctx.moveTo(cx - sw, sy);
+            ctx.lineTo(cx + sw, sy);
+            ctx.stroke();
+        }
+
+        // Head
+        ctx.fillStyle = '#666';
+        ctx.beginPath();
+        ctx.arc(cx, cy - 22, 14, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Compound eyes (red, big)
+        ctx.fillStyle = '#CC0000';
+        ctx.beginPath();
+        ctx.arc(cx - 10, cy - 25, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(cx + 10, cy - 25, 8, 0, Math.PI * 2);
+        ctx.fill();
+        // Eye facets
+        ctx.fillStyle = '#FF3333';
+        ctx.beginPath();
+        ctx.arc(cx - 11, cy - 26, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(cx + 11, cy - 26, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Proboscis (long needle nose)
+        ctx.strokeStyle = '#444';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - 30);
+        ctx.lineTo(cx, cy - 65);
+        ctx.stroke();
+        ctx.strokeStyle = '#666';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - 30);
+        ctx.lineTo(cx, cy - 65);
+        ctx.stroke();
+
+        // Legs (thin)
+        ctx.strokeStyle = '#555';
+        ctx.lineWidth = 1.5;
+        for (let side = -1; side <= 1; side += 2) {
+            for (let i = 0; i < 3; i++) {
+                const ly = cy + i * 10;
+                ctx.beginPath();
+                ctx.moveTo(cx + side * 18, ly);
+                ctx.lineTo(cx + side * 38, ly + 12 + i * 3);
+                ctx.stroke();
+            }
+        }
+
+        // Stunned stars
+        if (this.state === 'stunned') {
+            ctx.globalAlpha = 0.8;
+            ctx.fillStyle = '#FF0';
+            ctx.font = '12px monospace';
+            for (let i = 0; i < 4; i++) {
+                const sa = Date.now() / 250 + i * Math.PI / 2;
+                ctx.fillText('\u2605', cx + Math.cos(sa) * 35 - 4, cy - 70 + Math.sin(sa) * 6);
+            }
+        }
+
+        // HP bar
+        ctx.globalAlpha = 1;
+        const barW = 95;
+        const barX = cx - barW / 2;
+        const barY = pos.y - 30;
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('RIESEN MUECKE', cx, barY - 4);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#222';
+        ctx.beginPath(); ctx.roundRect(barX, barY, barW, 7, 3); ctx.fill();
+        const hpPct = this.hp / this.maxHp;
+        ctx.fillStyle = hpPct > 0.4 ? '#C44' : hpPct > 0.2 ? '#FA0' : '#F00';
+        ctx.beginPath(); ctx.roundRect(barX + 1, barY + 1, (barW - 2) * hpPct, 5, 2); ctx.fill();
+
         ctx.restore();
     }
 }
 
-// W6: Crocodile Kid (gives key when helped/defeated)
-class CrocodileKid extends Enemy {
-    constructor(x,y) {
-        super(x,y,24,20); this.hp=6; this.maxHp=6; this.speed=0; this.damage=0;
-        this.contactDamage=false; this.isKeyGhost=true; this.droppedKey=false;
-    }
-    update(dt,world,player) { this.baseUpdate(dt,world); }
-    draw(ctx,camera) {
-        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
-        if(this.dead){const t=this.deathProgress();ctx.save();ctx.globalAlpha=(1-t);ctx.fillStyle='#FFD700';ctx.beginPath();ctx.arc(cx,cy,12*(1-t),0,Math.PI*2);ctx.fill();ctx.restore();return;}
-        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
-        ctx.fillStyle='#5A5'; ctx.beginPath(); ctx.ellipse(cx,cy,11,8,0,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#6B6'; ctx.beginPath(); ctx.ellipse(cx+6,cy-2,6,4,0.3,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#FFF'; ctx.beginPath(); ctx.arc(cx-2,cy-3,2,0,Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx+3,cy-3,2,0,Math.PI*2); ctx.fill();
-        // Key icon above
-        ctx.globalAlpha=0.3+Math.sin(Date.now()/400)*0.15;
-        ctx.fillStyle='#FFD700'; ctx.beginPath(); ctx.arc(cx,pos.y-8,6,0,Math.PI*2); ctx.fill();
-        ctx.restore();
-    }
-}
 
-// W7: Ice Penguin (shoots ice beam that slows)
-class IcePenguin extends Enemy {
-    constructor(x,y) {
-        super(x,y,22,24); this.hp=6; this.maxHp=6; this.speed=35; this.damage=1;
-        this.detectionRange=180; this.shootTimer=0; this.shootCooldown=2.5;
+// ══════════════════════════════════════════════════════════════
+// BossSnowEagle - SCHNEE ADLER (World 7)
+// ══════════════════════════════════════════════════════════════
+class BossSnowEagle extends Enemy {
+    constructor(x, y) {
+        super(x, y, 100, 80);
+        this.hp = 60;
+        this.maxHp = 60;
+        this.speed = 45;
+        this.damage = 2;
+        this.phasesThroughWalls = true;
+        this.isBoss = true;
+        this.contactDamage = false;
+
+        this.state = 'intro';
+        this.introTimer = 2;
+        this.stateTimer = 0;
+        this.stunnedTimer = 0;
+        this.attackCycle = 0;
+
+        this.attackTimer = 3;
+        this.attackCooldown = 3.5;
+
+        // Wing animation
+        this.wingAnim = 0;
+        this.wingSpread = 1;
+
+        // Frost particles trailing behind
+        this.frostTrail = [];
+
+        // Wind push
+        this.windActive = false;
+        this.windTimer = 0;
     }
-    update(dt,world,player,enemies,projectiles) {
-        this.baseUpdate(dt,world); if(this.dead) return;
-        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
-        const dist=vecDist(mc,pc);
-        if(dist<this.detectionRange) {
-            const a=angleBetween(mc,pc);
-            this._moveWithCollision(Math.cos(a)*this.speed*dt,Math.sin(a)*this.speed*dt,world);
-            this.shootTimer-=dt;
-            if(this.shootTimer<=0&&typeof Game!=='undefined') {
-                this.shootTimer=this.shootCooldown;
-                const p=new Projectile(mc.x,mc.y,Math.cos(a)*120,Math.sin(a)*120,1,'enemy',30);
-                p.isIce=true;
-                Game.projectiles.push(p);
+
+    update(dt, world, player, enemies, projectiles) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+
+        this.wingAnim += dt * 3;
+
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+
+        // Update frost trail
+        if (Math.random() < 0.3) {
+            this.frostTrail.push({
+                x: mc.x + randRange(-40, 40),
+                y: mc.y + randRange(-20, 20),
+                life: 0.8,
+                maxLife: 0.8,
+                size: randRange(2, 5)
+            });
+        }
+        for (const p of this.frostTrail) {
+            p.life -= dt;
+            p.y += 10 * dt;
+        }
+        this.frostTrail = this.frostTrail.filter(p => p.life > 0);
+
+        if (this.state === 'intro') {
+            this.introTimer -= dt;
+            if (this.introTimer <= 0) { this.state = 'soar'; this.stateTimer = 2.5; }
+            return;
+        }
+
+        if (this.state === 'stunned') {
+            this.stunnedTimer -= dt;
+            this.wingSpread = 0.5;
+            if (this.stunnedTimer <= 0) { this.state = 'soar'; this.stateTimer = 2.5; this.wingSpread = 1; }
+            return;
+        }
+
+        if (this.state === 'ice_rain') {
+            this.stateTimer -= dt;
+            if (this.stateTimer <= 0) {
+                // Spawn ice feather projectiles from above
+                if (projectiles) {
+                    const count = 8;
+                    for (let i = 0; i < count; i++) {
+                        const spawnX = pc.x + (i - count / 2) * 40 + randRange(-15, 15);
+                        const spawnY = mc.y - 200;
+                        projectiles.push(new Projectile(
+                            spawnX, spawnY,
+                            randRange(-20, 20), randRange(150, 220),
+                            1, 'enemy', 60
+                        ));
+                    }
+                }
+                this.state = 'stunned';
+                this.stunnedTimer = 2;
+            }
+            return;
+        }
+
+        if (this.state === 'frost_wind') {
+            this.stateTimer -= dt;
+            this.windActive = true;
+            // Push player away
+            const angle = angleBetween(mc, pc);
+            const pushForce = 400 * dt;
+            player.x += Math.cos(angle) * pushForce;
+            player.y += Math.sin(angle) * pushForce;
+
+            if (this.stateTimer <= 0) {
+                this.windActive = false;
+                this.state = 'stunned';
+                this.stunnedTimer = 2;
+            }
+            return;
+        }
+
+        // Soar state - circle around player
+        this.wingSpread = 1;
+        const dist = vecDist(mc, pc);
+        const angle = angleBetween(mc, pc);
+        const orbitAngle = angle + Math.PI / 2;
+        if (dist > 180) {
+            this.x += Math.cos(angle) * this.speed * dt;
+            this.y += Math.sin(angle) * this.speed * dt;
+        } else if (dist < 120) {
+            this.x -= Math.cos(angle) * this.speed * 0.5 * dt;
+            this.y -= Math.sin(angle) * this.speed * 0.5 * dt;
+        }
+        this.x += Math.cos(orbitAngle) * this.speed * 0.6 * dt;
+        this.y += Math.sin(orbitAngle) * this.speed * 0.6 * dt;
+
+        // Attack timer
+        this.attackTimer -= dt;
+        if (this.attackTimer <= 0) {
+            this.attackTimer = this.attackCooldown;
+            this.attackCycle++;
+            if (this.attackCycle % 2 === 1) {
+                this.state = 'ice_rain';
+                this.stateTimer = 0.8;
+            } else {
+                this.state = 'frost_wind';
+                this.stateTimer = 1.5;
             }
         }
     }
-    draw(ctx,camera) {
-        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
-        if(this.dead){const t=this.deathProgress();ctx.save();ctx.globalAlpha=(1-t);ctx.fillStyle='#8CF';ctx.beginPath();ctx.arc(cx,cy,11*(1-t),0,Math.PI*2);ctx.fill();ctx.restore();return;}
-        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
-        // Body (black & white)
-        ctx.fillStyle='#222'; ctx.beginPath(); ctx.ellipse(cx,cy,10,12,0,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#FFF'; ctx.beginPath(); ctx.ellipse(cx,cy+2,7,9,0,0,Math.PI*2); ctx.fill();
-        // Beak
-        ctx.fillStyle='#F80'; ctx.beginPath(); ctx.moveTo(cx-2,cy-4); ctx.lineTo(cx,cy-8); ctx.lineTo(cx+2,cy-4); ctx.closePath(); ctx.fill();
-        // Eyes
-        ctx.fillStyle='#48F'; ctx.beginPath(); ctx.arc(cx-3,cy-6,2,0,Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx+3,cy-6,2,0,Math.PI*2); ctx.fill();
+
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        const flash = this.iFrames > 0 && Math.floor(this.iFrames * 20) % 2;
+
+        if (this.dead) {
+            const t = 1 - this.deathTimer / 0.4;
+            ctx.save();
+            // Eagle dissolves into ice crystals
+            for (let i = 0; i < 18; i++) {
+                const a = (Math.PI * 2 * i) / 18 + t * 2;
+                const dist = t * 110;
+                ctx.globalAlpha = (1 - t) * 0.8;
+                ctx.fillStyle = i % 3 === 0 ? '#ADE8FF' : i % 3 === 1 ? '#FFF' : '#78C8F0';
+                ctx.save();
+                ctx.translate(cx + Math.cos(a) * dist, cy + Math.sin(a) * dist);
+                ctx.rotate(a + t * 3);
+                const s = (1 - t) * (4 + i % 6);
+                ctx.fillRect(-s / 2, -s / 2, s, s);
+                ctx.restore();
+            }
+            // Central ice burst
+            ctx.globalAlpha = (1 - t) * 0.6;
+            ctx.fillStyle = '#E0F0FF';
+            ctx.beginPath();
+            ctx.arc(cx, cy, (1 - t) * 50 + t * 70, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            return;
+        }
+
+        ctx.save();
+        if (flash) ctx.globalAlpha = 0.4;
+
+        // Frost trail particles
+        for (const p of this.frostTrail) {
+            const pp = camera.worldToScreen(p.x, p.y);
+            ctx.globalAlpha = (p.life / p.maxLife) * 0.4;
+            ctx.fillStyle = '#ADE8FF';
+            ctx.beginPath();
+            ctx.arc(pp.x, pp.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = flash ? 0.4 : 1;
+
+        const wingFlap = Math.sin(this.wingAnim) * 0.4 * this.wingSpread;
+
+        // Wind visual effect
+        if (this.windActive) {
+            ctx.globalAlpha = 0.15;
+            ctx.strokeStyle = '#ADE8FF';
+            ctx.lineWidth = 3;
+            for (let i = 0; i < 8; i++) {
+                const wa = (Math.PI * 2 * i) / 8 + Date.now() / 200;
+                const wr = 50 + i * 15;
+                ctx.beginPath();
+                ctx.arc(cx, cy, wr, wa, wa + 0.8);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = flash ? 0.4 : 1;
+        }
+
+        // Wings (majestic, white with ice-blue tips)
+        for (let side = -1; side <= 1; side += 2) {
+            const wingY = cy + wingFlap * 25 * side;
+            // Outer wing (ice-blue tip)
+            ctx.fillStyle = '#78C8F0';
+            ctx.beginPath();
+            ctx.moveTo(cx + side * 10, cy);
+            ctx.quadraticCurveTo(cx + side * 45, wingY - 20, cx + side * 55, wingY + 5);
+            ctx.quadraticCurveTo(cx + side * 40, cy + 15, cx + side * 10, cy + 10);
+            ctx.closePath();
+            ctx.fill();
+            // Inner wing (white)
+            ctx.fillStyle = '#F0F4FF';
+            ctx.beginPath();
+            ctx.moveTo(cx + side * 5, cy - 5);
+            ctx.quadraticCurveTo(cx + side * 30, wingY - 15, cx + side * 42, wingY);
+            ctx.quadraticCurveTo(cx + side * 25, cy + 10, cx + side * 5, cy + 8);
+            ctx.closePath();
+            ctx.fill();
+            // Feather details
+            ctx.strokeStyle = '#B0D4E8';
+            ctx.lineWidth = 1;
+            for (let f = 0; f < 4; f++) {
+                const fx = cx + side * (15 + f * 10);
+                ctx.beginPath();
+                ctx.moveTo(fx, cy - 2);
+                ctx.lineTo(fx + side * 5, wingY + f * 2);
+                ctx.stroke();
+            }
+        }
+
+        // Body (white, streamlined)
+        const bodyGrad = ctx.createRadialGradient(cx, cy - 5, 3, cx, cy, 25);
+        bodyGrad.addColorStop(0, '#FFFFFF');
+        bodyGrad.addColorStop(0.7, '#E8EEF4');
+        bodyGrad.addColorStop(1, '#C8D4E0');
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 18, 25, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Head
+        ctx.fillStyle = '#F8FCFF';
+        ctx.beginPath();
+        ctx.arc(cx, cy - 25, 14, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Sharp yellow beak
+        ctx.fillStyle = '#E8B000';
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - 28);
+        ctx.lineTo(cx - 5, cy - 35);
+        ctx.lineTo(cx + 5, cy - 35);
+        ctx.closePath();
+        ctx.fill();
+        // Beak hook
+        ctx.fillStyle = '#CC9500';
+        ctx.beginPath();
+        ctx.moveTo(cx - 3, cy - 35);
+        ctx.lineTo(cx, cy - 40);
+        ctx.lineTo(cx + 3, cy - 35);
+        ctx.closePath();
+        ctx.fill();
+
+        // Cold blue eyes
+        ctx.fillStyle = '#2288CC';
+        ctx.beginPath();
+        ctx.arc(cx - 7, cy - 27, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(cx + 7, cy - 27, 4, 0, Math.PI * 2);
+        ctx.fill();
+        // Eye shine
+        ctx.fillStyle = '#AAE4FF';
+        ctx.beginPath();
+        ctx.arc(cx - 8, cy - 28, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(cx + 6, cy - 28, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Tail feathers
+        ctx.fillStyle = '#D0E0F0';
+        for (let i = -2; i <= 2; i++) {
+            ctx.beginPath();
+            ctx.moveTo(cx + i * 5, cy + 22);
+            ctx.lineTo(cx + i * 8, cy + 40);
+            ctx.lineTo(cx + i * 3, cy + 38);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // Stunned stars
+        if (this.state === 'stunned') {
+            ctx.globalAlpha = 0.8;
+            ctx.fillStyle = '#ADE8FF';
+            ctx.font = '12px monospace';
+            for (let i = 0; i < 5; i++) {
+                const sa = Date.now() / 250 + i * Math.PI * 2 / 5;
+                ctx.fillText('\u2744', cx + Math.cos(sa) * 42 - 5, cy - 40 + Math.sin(sa) * 7);
+            }
+        }
+
+        // HP bar
+        ctx.globalAlpha = 1;
+        const barW = 100;
+        const barX = cx - barW / 2;
+        const barY = pos.y - 30;
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('SCHNEE ADLER', cx, barY - 4);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#222';
+        ctx.beginPath(); ctx.roundRect(barX, barY, barW, 7, 3); ctx.fill();
+        const hpPct = this.hp / this.maxHp;
+        ctx.fillStyle = hpPct > 0.4 ? '#5AC8FA' : hpPct > 0.2 ? '#FA0' : '#F00';
+        ctx.beginPath(); ctx.roundRect(barX + 1, barY + 1, (barW - 2) * hpPct, 5, 2); ctx.fill();
+
         ctx.restore();
     }
 }
 
-// W8: Lava Ball (rolls toward player like bowling ball)
-class LavaBall extends Enemy {
-    constructor(x,y) {
-        super(x,y,24,24); this.hp=4; this.maxHp=4; this.speed=65; this.damage=2;
-        this.detectionRange=250; this.rollAngle=0;
+
+// ══════════════════════════════════════════════════════════════
+// BossFirePhoenix - FEUER PHOENIX (World 8)
+// ══════════════════════════════════════════════════════════════
+class BossFirePhoenix extends Enemy {
+    constructor(x, y) {
+        super(x, y, 100, 90);
+        this.hp = 70;
+        this.maxHp = 70;
+        this.speed = 40;
+        this.damage = 3;
+        this.phasesThroughWalls = true;
+        this.isBoss = true;
+        this.contactDamage = false;
+        this.phase = 1;
+
+        this.state = 'intro';
+        this.introTimer = 2;
+        this.stateTimer = 0;
+        this.stunnedTimer = 0;
+        this.attackCycle = 0;
+
+        this.attackTimer = 3;
+        this.attackCooldown = 3;
+
+        // Wing flicker
+        this.wingAnim = 0;
+
+        // Ember particles
+        this.embers = [];
+        for (let i = 0; i < 12; i++) {
+            this.embers.push({
+                ox: randRange(-45, 45),
+                oy: randRange(-40, 40),
+                phase: Math.random() * Math.PI * 2,
+                speed: randRange(1, 3),
+                size: randRange(2, 5)
+            });
+        }
+
+        // Flame tail particles
+        this.tailParticles = [];
     }
-    update(dt,world,player) {
-        this.baseUpdate(dt,world); if(this.dead) return;
-        this.rollAngle+=dt*8;
-        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
-        const dist=vecDist(mc,pc);
-        if(dist<this.detectionRange) {
-            const a=angleBetween(mc,pc);
-            this._moveWithCollision(Math.cos(a)*this.speed*dt,Math.sin(a)*this.speed*dt,world);
+
+    update(dt, world, player, enemies, projectiles) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+
+        this.wingAnim += dt * 6;
+
+        if (this.hp <= 35 && this.phase === 1) {
+            this.phase = 2;
+            this.attackCooldown = 2;
+            this.speed = 50;
+        }
+
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+
+        // Update tail particles
+        if (Math.random() < 0.5) {
+            this.tailParticles.push({
+                x: mc.x + randRange(-10, 10),
+                y: mc.y + 35 + randRange(-5, 5),
+                vx: randRange(-20, 20),
+                vy: randRange(20, 60),
+                life: randRange(0.3, 0.7),
+                maxLife: 0.7,
+                size: randRange(3, 7)
+            });
+        }
+        for (const p of this.tailParticles) {
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            p.vy -= 30 * dt;
+            p.life -= dt;
+        }
+        this.tailParticles = this.tailParticles.filter(p => p.life > 0);
+
+        if (this.state === 'intro') {
+            this.introTimer -= dt;
+            if (this.introTimer <= 0) { this.state = 'fly'; this.stateTimer = 2; }
+            return;
+        }
+
+        if (this.state === 'stunned') {
+            this.stunnedTimer -= dt;
+            if (this.stunnedTimer <= 0) { this.state = 'fly'; this.stateTimer = 2; }
+            return;
+        }
+
+        if (this.state === 'fireball') {
+            this.stateTimer -= dt;
+            if (this.stateTimer <= 0) {
+                // Shoot 3 fireballs toward player, Juri position, and Crocodile position
+                if (projectiles) {
+                    const targets = [
+                        { x: pc.x, y: pc.y },
+                        { x: pc.x + 50, y: pc.y },
+                        { x: pc.x - 50, y: pc.y }
+                    ];
+                    const multiplier = this.phase === 2 ? 2 : 1;
+                    for (let m = 0; m < multiplier; m++) {
+                        for (const tgt of targets) {
+                            const a = angleBetween(mc, tgt);
+                            const speed = 180 + m * 30;
+                            projectiles.push(new Projectile(
+                                mc.x, mc.y,
+                                Math.cos(a) * speed, Math.sin(a) * speed,
+                                2, 'enemy', 120
+                            ));
+                        }
+                    }
+                }
+                this.state = 'stunned';
+                this.stunnedTimer = 2;
+            }
+            return;
+        }
+
+        if (this.state === 'fire_wave') {
+            this.stateTimer -= dt;
+            if (this.stateTimer <= 0) {
+                // Ring of projectiles expanding outward
+                if (projectiles) {
+                    const count = 12;
+                    const multiplier = this.phase === 2 ? 2 : 1;
+                    for (let m = 0; m < multiplier; m++) {
+                        for (let i = 0; i < count; i++) {
+                            const a = (Math.PI * 2 * i) / count + m * (Math.PI / count);
+                            const speed = 160 + m * 40;
+                            projectiles.push(new Projectile(
+                                mc.x, mc.y,
+                                Math.cos(a) * speed, Math.sin(a) * speed,
+                                1, 'enemy', 80
+                            ));
+                        }
+                    }
+                }
+                this.state = 'stunned';
+                this.stunnedTimer = 2;
+            }
+            return;
+        }
+
+        // Fly state - circle and approach player
+        const dist = vecDist(mc, pc);
+        const angle = angleBetween(mc, pc);
+        const orbitAngle = angle + Math.PI / 2;
+        if (dist > 160) {
+            this.x += Math.cos(angle) * this.speed * dt;
+            this.y += Math.sin(angle) * this.speed * dt;
+        } else if (dist < 100) {
+            this.x -= Math.cos(angle) * this.speed * 0.4 * dt;
+            this.y -= Math.sin(angle) * this.speed * 0.4 * dt;
+        }
+        this.x += Math.cos(orbitAngle) * this.speed * 0.5 * dt;
+        this.y += Math.sin(orbitAngle) * this.speed * 0.5 * dt;
+
+        // Attack timer
+        this.attackTimer -= dt;
+        if (this.attackTimer <= 0) {
+            this.attackTimer = this.attackCooldown;
+            this.attackCycle++;
+            if (this.attackCycle % 2 === 1) {
+                this.state = 'fireball';
+                this.stateTimer = 0.7;
+            } else {
+                this.state = 'fire_wave';
+                this.stateTimer = 0.9;
+            }
         }
     }
-    draw(ctx,camera) {
-        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
-        if(this.dead){const t=this.deathProgress();ctx.save();ctx.globalAlpha=(1-t);ctx.fillStyle='#F80';ctx.beginPath();ctx.arc(cx,cy,12*(1-t),0,Math.PI*2);ctx.fill();ctx.restore();return;}
-        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
-        ctx.translate(cx,cy); ctx.rotate(this.rollAngle); ctx.translate(-cx,-cy);
-        const g=ctx.createRadialGradient(cx-3,cy-3,2,cx,cy,12);
-        g.addColorStop(0,'#FF0'); g.addColorStop(0.4,'#F80'); g.addColorStop(1,'#A00');
-        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,12,0,Math.PI*2); ctx.fill();
-        ctx.strokeStyle='#F60'; ctx.lineWidth=1.5;
-        ctx.beginPath(); ctx.moveTo(cx-6,cy-4); ctx.lineTo(cx+4,cy+6); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(cx+6,cy-6); ctx.lineTo(cx-2,cy+4); ctx.stroke();
+
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        const flash = this.iFrames > 0 && Math.floor(this.iFrames * 20) % 2;
+
+        if (this.dead) {
+            const t = 1 - this.deathTimer / 0.4;
+            ctx.save();
+            // Phoenix death: massive fire explosion then rebirth sparkles
+            for (let i = 0; i < 24; i++) {
+                const a = (Math.PI * 2 * i) / 24 + t * 4;
+                const dist = t * 120;
+                ctx.globalAlpha = (1 - t) * 0.9;
+                const hue = 20 + (i * 15) % 40;
+                ctx.fillStyle = `hsl(${hue}, 100%, ${50 + i * 2}%)`;
+                ctx.beginPath();
+                ctx.arc(cx + Math.cos(a) * dist, cy + Math.sin(a) * dist, (1 - t) * (6 + i % 8), 0, Math.PI * 2);
+                ctx.fill();
+            }
+            // Inner white-hot core
+            ctx.globalAlpha = (1 - t);
+            const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, (1 - t) * 60);
+            coreGrad.addColorStop(0, '#FFF');
+            coreGrad.addColorStop(0.4, '#FFD700');
+            coreGrad.addColorStop(1, '#FF4500');
+            ctx.fillStyle = coreGrad;
+            ctx.beginPath();
+            ctx.arc(cx, cy, (1 - t) * 60 + t * 40, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            return;
+        }
+
+        ctx.save();
+        if (flash) ctx.globalAlpha = 0.4;
+
+        // Tail fire particles (behind body)
+        for (const p of this.tailParticles) {
+            const pp = camera.worldToScreen(p.x, p.y);
+            const lifeRatio = p.life / p.maxLife;
+            ctx.globalAlpha = lifeRatio * 0.6;
+            const hue = 20 + (1 - lifeRatio) * 30;
+            ctx.fillStyle = `hsl(${hue}, 100%, ${50 + (1 - lifeRatio) * 20}%)`;
+            ctx.beginPath();
+            ctx.arc(pp.x, pp.y, p.size * lifeRatio, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = flash ? 0.4 : 1;
+
+        // Glow aura
+        ctx.globalAlpha = 0.1;
+        const auraGrad = ctx.createRadialGradient(cx, cy, 10, cx, cy, 70);
+        auraGrad.addColorStop(0, '#FF6600');
+        auraGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = auraGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 70, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = flash ? 0.4 : 1;
+
+        const wingFlap = Math.sin(this.wingAnim) * 0.5;
+
+        // Flame wings
+        for (let side = -1; side <= 1; side += 2) {
+            const wingY = cy + wingFlap * 20 * side;
+            // Outer wing (red-orange flame)
+            const wingGrad = ctx.createLinearGradient(cx, cy, cx + side * 55, wingY);
+            wingGrad.addColorStop(0, '#FF6600');
+            wingGrad.addColorStop(0.5, '#FF4400');
+            wingGrad.addColorStop(1, '#CC0000');
+            ctx.fillStyle = wingGrad;
+            ctx.beginPath();
+            ctx.moveTo(cx + side * 8, cy - 10);
+            ctx.quadraticCurveTo(cx + side * 40, wingY - 30, cx + side * 55, wingY - 5);
+            ctx.quadraticCurveTo(cx + side * 45, wingY + 15, cx + side * 8, cy + 15);
+            ctx.closePath();
+            ctx.fill();
+            // Inner wing (yellow-orange glow)
+            ctx.fillStyle = '#FFaa22';
+            ctx.globalAlpha = flash ? 0.3 : 0.7;
+            ctx.beginPath();
+            ctx.moveTo(cx + side * 5, cy - 5);
+            ctx.quadraticCurveTo(cx + side * 30, wingY - 18, cx + side * 40, wingY);
+            ctx.quadraticCurveTo(cx + side * 28, wingY + 10, cx + side * 5, cy + 10);
+            ctx.closePath();
+            ctx.fill();
+            ctx.globalAlpha = flash ? 0.4 : 1;
+
+            // Flame tips on wings
+            const tipX = cx + side * 55;
+            const tipY = wingY - 5;
+            for (let f = 0; f < 3; f++) {
+                const flicker = Math.sin(Date.now() / 80 + f * 2 + side) * 4;
+                ctx.fillStyle = f === 0 ? '#FF0' : '#F80';
+                ctx.globalAlpha = flash ? 0.3 : 0.6;
+                ctx.beginPath();
+                ctx.arc(tipX + side * (f * 5) + flicker, tipY - f * 3, 4 - f, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = flash ? 0.4 : 1;
+        }
+
+        // Body (orange/red/yellow gradient)
+        const bodyGrad = ctx.createRadialGradient(cx - 5, cy - 10, 3, cx, cy, 28);
+        bodyGrad.addColorStop(0, '#FFD700');
+        bodyGrad.addColorStop(0.4, '#FF8C00');
+        bodyGrad.addColorStop(0.8, '#FF4500');
+        bodyGrad.addColorStop(1, '#CC2200');
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 20, 28, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Head
+        const headGrad = ctx.createRadialGradient(cx, cy - 28, 2, cx, cy - 25, 15);
+        headGrad.addColorStop(0, '#FFD700');
+        headGrad.addColorStop(1, '#FF6600');
+        ctx.fillStyle = headGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy - 25, 13, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Head crest flames
+        for (let i = -2; i <= 2; i++) {
+            const flicker = Math.sin(Date.now() / 100 + i) * 3;
+            ctx.fillStyle = i === 0 ? '#FF0' : '#F80';
+            ctx.beginPath();
+            ctx.moveTo(cx + i * 5, cy - 35);
+            ctx.lineTo(cx + i * 3 + flicker, cy - 48 - Math.abs(i) * 3);
+            ctx.lineTo(cx + i * 7, cy - 35);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // Sharp beak
+        ctx.fillStyle = '#8B4513';
+        ctx.beginPath();
+        ctx.moveTo(cx - 4, cy - 30);
+        ctx.lineTo(cx, cy - 42);
+        ctx.lineTo(cx + 4, cy - 30);
+        ctx.closePath();
+        ctx.fill();
+
+        // Fierce red eyes
+        ctx.fillStyle = '#FF0000';
+        ctx.beginPath();
+        ctx.arc(cx - 7, cy - 27, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(cx + 7, cy - 27, 4, 0, Math.PI * 2);
+        ctx.fill();
+        // Eye glow
+        ctx.fillStyle = '#FF6';
+        ctx.beginPath();
+        ctx.arc(cx - 7, cy - 28, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(cx + 7, cy - 28, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Long fire tail
+        ctx.fillStyle = '#FF6600';
+        for (let i = 0; i < 5; i++) {
+            const flicker = Math.sin(Date.now() / 120 + i * 1.3) * (3 + i);
+            ctx.beginPath();
+            ctx.moveTo(cx + (i - 2) * 5, cy + 25);
+            ctx.lineTo(cx + (i - 2) * 7 + flicker, cy + 50 + i * 6);
+            ctx.lineTo(cx + (i - 2) * 3, cy + 25);
+            ctx.closePath();
+            ctx.fill();
+        }
+        // Inner tail glow
+        ctx.fillStyle = '#FFD700';
+        ctx.globalAlpha = flash ? 0.3 : 0.6;
+        for (let i = 0; i < 3; i++) {
+            const flicker = Math.sin(Date.now() / 90 + i * 2) * 3;
+            ctx.beginPath();
+            ctx.moveTo(cx + (i - 1) * 4, cy + 26);
+            ctx.lineTo(cx + (i - 1) * 4 + flicker, cy + 42 + i * 5);
+            ctx.lineTo(cx + (i - 1) * 2, cy + 26);
+            ctx.closePath();
+            ctx.fill();
+        }
+        ctx.globalAlpha = flash ? 0.4 : 1;
+
+        // Floating ember particles
+        const t = Date.now() / 1000;
+        for (const em of this.embers) {
+            const ex = cx + em.ox + Math.sin(t * em.speed + em.phase) * 8;
+            const ey = cy + em.oy - Math.abs(Math.sin(t * em.speed * 0.5 + em.phase)) * 15;
+            ctx.globalAlpha = flash ? 0.2 : 0.5;
+            ctx.fillStyle = Math.random() > 0.5 ? '#FF6' : '#F80';
+            ctx.beginPath();
+            ctx.arc(ex, ey, em.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Stunned stars
+        if (this.state === 'stunned') {
+            ctx.globalAlpha = 0.8;
+            ctx.fillStyle = '#FFD700';
+            ctx.font = '14px monospace';
+            for (let i = 0; i < 5; i++) {
+                const sa = Date.now() / 250 + i * Math.PI * 2 / 5;
+                ctx.fillText('\u2605', cx + Math.cos(sa) * 45 - 5, cy - 48 + Math.sin(sa) * 8);
+            }
+        }
+
+        // HP bar
+        ctx.globalAlpha = 1;
+        const barW = 105;
+        const barX = cx - barW / 2;
+        const barY = pos.y - 30;
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('FEUER PHOENIX', cx, barY - 4);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#222';
+        ctx.beginPath(); ctx.roundRect(barX, barY, barW, 7, 3); ctx.fill();
+        const hpPct = this.hp / this.maxHp;
+        ctx.fillStyle = hpPct > 0.4 ? '#F60' : hpPct > 0.2 ? '#FA0' : '#F00';
+        ctx.beginPath(); ctx.roundRect(barX + 1, barY + 1, (barW - 2) * hpPct, 5, 2); ctx.fill();
+
         ctx.restore();
     }
 }
+
