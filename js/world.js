@@ -413,39 +413,60 @@ function generateLevel(width, height, numRooms, seed) {
     // Place spawn in first room
     map[rooms[0].cy][rooms[0].cx] = S;
 
-    // Boss room: last room - ISOLATE it with walls, single boss door entry
-    const bossRoom = rooms[rooms.length - 1];
-    const bx1 = Math.max(1, bossRoom.x - 3);
-    const by1 = Math.max(1, bossRoom.y - 3);
-    const bx2 = Math.min(width - 2, bossRoom.x + bossRoom.w + 3);
-    const by2 = Math.min(height - 2, bossRoom.y + bossRoom.h + 3);
+    // ── Boss room: FIXED position at bottom-right, fully isolated ──
+    const bossW = 12, bossH = 10;
+    const bx1 = width - bossW - 2;
+    const by1 = height - bossH - 2;
+    const bx2 = width - 2;
+    const by2 = height - 2;
+    const bossCx = bx1 + Math.floor(bossW / 2);
+    const bossCy = by1 + Math.floor(bossH / 2);
 
-    // Wall off the boss room completely
-    for (let y = by1; y <= by2; y++) {
-        for (let x = bx1; x <= bx2; x++) {
-            if (y === by1 || y === by2 || x === bx1 || x === bx2) {
+    // Clear entire boss area + wall border (overwrite everything)
+    for (let y = by1 - 1; y <= by2 + 1; y++) {
+        for (let x = bx1 - 1; x <= bx2 + 1; x++) {
+            if (y < 0 || y >= height || x < 0 || x >= width) continue;
+            if (y <= by1 || y >= by2 || x <= bx1 || x >= bx2) {
                 map[y][x] = W;
             } else {
                 map[y][x] = F;
             }
         }
     }
-    // Add windows on boss room walls
-    addWindows(bx1 + 1, by1 + 1, bx2 - bx1 - 2, by2 - by1 - 2);
-    // Place boss spawn in center
-    map[bossRoom.cy][bossRoom.cx] = BS;
 
-    // Place boss door on the top wall of boss room
-    const doorX = bossRoom.cx;
+    // Windows on boss room walls
+    for (let x = bx1 + 3; x < bx2 - 2; x += 3) {
+        map[by1][x] = WN;
+        map[by2][x] = WN;
+    }
+    for (let y = by1 + 3; y < by2 - 2; y += 3) {
+        map[y][bx1] = WN;
+        map[y][bx2] = WN;
+    }
+
+    // Boss spawn in center
+    map[bossCy][bossCx] = BS;
+
+    // Boss door: single entry on the TOP wall
+    const doorX = bossCx;
     const doorY = by1;
     map[doorY][doorX] = B;
 
-    // Make sure there's a corridor FROM the pre-boss room TO the boss door
-    const preBoss = rooms[rooms.length - 2];
-    carveCorridor(preBoss.cx, preBoss.cy, doorX, doorY - 1);
-    // Ensure the tile above the door is floor (so player can reach it)
-    if (doorY > 1) map[doorY - 1][doorX] = F;
-    if (doorY > 2) map[doorY - 2][doorX] = F;
+    // Antechamber: small room above boss door
+    for (let y = doorY - 4; y < doorY; y++) {
+        for (let x = doorX - 3; x <= doorX + 3; x++) {
+            if (y >= 0 && x >= 0 && x < width) map[y][x] = F;
+        }
+    }
+
+    // Corridor from nearest regular room to antechamber
+    let nearestRoom = rooms[0];
+    let nearestDist = 99999;
+    for (const r of rooms) {
+        const d = Math.abs(r.cx - doorX) + Math.abs(r.cy - (doorY - 3));
+        if (d < nearestDist) { nearestDist = d; nearestRoom = r; }
+    }
+    carveCorridor(nearestRoom.cx, nearestRoom.cy, doorX, doorY - 3);
 
     return map;
 }

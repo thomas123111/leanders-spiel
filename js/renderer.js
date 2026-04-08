@@ -422,7 +422,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v1.8.1', cw - 8, ch - 6);
+        ctx.fillText('v1.9.0', cw - 8, ch - 6);
 
         ctx.restore();
     },
