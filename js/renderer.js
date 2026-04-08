@@ -83,8 +83,8 @@ const Renderer = {
             ctx.fillRect(kx + 2, ky - 2, 12, 4);
         }
 
-        // ── Boss door hint ──
-        if (game.hasKey && !game.world.bossDoorOpen) {
+        // ── Boss door hint + arrow ──
+        if (game.hasKey && !game.bossActive) {
             ctx.fillStyle = '#FFD700';
             ctx.font = '12px monospace';
             ctx.textAlign = 'center';
@@ -101,19 +101,27 @@ const Renderer = {
                 const angle = Math.atan2(doorWY - py, doorWX - px);
                 const dist = Math.sqrt((doorWX - px) ** 2 + (doorWY - py) ** 2);
 
-                if (dist > 150) {
-                    const arrowDist = 60;
+                if (dist > 100) {
+                    const arrowDist = 70;
                     const ax = ctx.canvas.width / 2 + Math.cos(angle) * arrowDist;
                     const ay = ctx.canvas.height / 2 + Math.sin(angle) * arrowDist;
                     ctx.save();
                     ctx.translate(ax, ay);
                     ctx.rotate(angle);
+                    // Glow
+                    ctx.globalAlpha = 0.2;
                     ctx.fillStyle = '#FFD700';
-                    ctx.globalAlpha = 0.6 + Math.sin(Date.now() / 300) * 0.2;
                     ctx.beginPath();
-                    ctx.moveTo(12, 0);
-                    ctx.lineTo(-4, -7);
-                    ctx.lineTo(-4, 7);
+                    ctx.arc(0, 0, 18, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Arrow
+                    ctx.globalAlpha = 0.7 + Math.sin(Date.now() / 200) * 0.25;
+                    ctx.fillStyle = '#FFD700';
+                    ctx.beginPath();
+                    ctx.moveTo(18, 0);
+                    ctx.lineTo(-6, -10);
+                    ctx.lineTo(-2, 0);
+                    ctx.lineTo(-6, 10);
                     ctx.closePath();
                     ctx.fill();
                     ctx.restore();
@@ -451,7 +459,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v2.0.0', cw - 8, ch - 6);
+        ctx.fillText('v2.0.1', cw - 8, ch - 6);
 
         ctx.restore();
     },
