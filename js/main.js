@@ -408,6 +408,7 @@ const Game = {
             if (Input.attackPressed || Input.mouse.pressed) {
                 const btn = Renderer.getClickedButton(Input.mouse.x, Input.mouse.y);
                 if (btn === 'WEITER') this._advanceToNextWorld();
+                else if (btn === 'STARTSEITE') this.state = 'TITLE';
             }
             Input.postUpdate();
             return;

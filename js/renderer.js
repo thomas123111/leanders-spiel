@@ -501,10 +501,14 @@ const Renderer = {
             ctx.fillText(r.desc, cx, cy + 12);
         }
 
-        // WEITER button
+        // Two buttons: WEITER + STARTSEITE
         const btnW = 180;
         const btnH = 45;
-        this._drawButton(ctx, cx - btnW / 2, cy + 50, btnW, btnH, 'WEITER');
+        const gap = 20;
+        const startX = cx - (btnW * 2 + gap) / 2;
+        const btnY = cy + 50;
+        this._drawButton(ctx, startX, btnY, btnW, btnH, 'WEITER');
+        this._drawButton(ctx, startX + btnW + gap, btnY, btnW, btnH, 'STARTSEITE');
 
         ctx.restore();
     },
