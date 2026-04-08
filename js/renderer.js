@@ -234,83 +234,223 @@ const Renderer = {
         }
     },
 
+    _buttons: [],
+
+    _drawButton(ctx, x, y, w, h, text) {
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, 10);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.beginPath();
+        ctx.roundRect(x + 3, y + 3, w - 6, h / 2 - 3, 8);
+        ctx.fill();
+        ctx.strokeStyle = '#B8960F';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, 10);
+        ctx.stroke();
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 18px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(text, x + w / 2, y + h / 2 + 6);
+        this._buttons.push({ x, y, w, h, id: text });
+    },
+
+    getClickedButton(mx, my) {
+        for (const b of this._buttons) {
+            if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) return b.id;
+        }
+        return null;
+    },
+
+    _drawMarkCharacter(ctx, x, y, scale) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(scale, scale);
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.beginPath();
+        ctx.ellipse(0, 50, 20, 7, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Legs
+        ctx.fillStyle = '#3366AA';
+        ctx.fillRect(-10, 20, 7, 14);
+        ctx.fillRect(3, 20, 7, 14);
+        ctx.fillStyle = '#553322';
+        ctx.fillRect(-12, 32, 10, 5);
+        ctx.fillRect(2, 32, 10, 5);
+        // Body
+        ctx.fillStyle = '#4499AA';
+        ctx.beginPath();
+        ctx.roundRect(-14, -5, 28, 26, 5);
+        ctx.fill();
+        // Belt
+        ctx.fillStyle = '#8B5E3C';
+        ctx.fillRect(-15, 14, 30, 5);
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(-3, 14, 6, 5);
+        ctx.fillStyle = '#AAA';
+        ctx.fillRect(-12, 12, 3, 6);
+        ctx.fillStyle = '#C44';
+        ctx.fillRect(9, 12, 3, 6);
+        // Arms
+        ctx.strokeStyle = '#FFBB77';
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-14, 2);
+        ctx.lineTo(-24, -12 + Math.sin(Date.now() / 300) * 5);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(14, 2);
+        ctx.lineTo(24, 10);
+        ctx.stroke();
+        // Bat
+        ctx.strokeStyle = '#C8A060';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(24, 10);
+        ctx.lineTo(32, -8);
+        ctx.stroke();
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(24, 10);
+        ctx.lineTo(26, 4);
+        ctx.stroke();
+        // Head
+        ctx.fillStyle = '#FFCC88';
+        ctx.beginPath();
+        ctx.arc(0, -16, 14, 0, Math.PI * 2);
+        ctx.fill();
+        // Hair
+        ctx.fillStyle = '#663300';
+        ctx.beginPath();
+        ctx.arc(0, -20, 14, Math.PI, 0);
+        ctx.fill();
+        ctx.fillStyle = '#773311';
+        for (let i = -3; i <= 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(i * 5, -30);
+            ctx.lineTo(i * 5 - 3, -22);
+            ctx.lineTo(i * 5 + 3, -22);
+            ctx.closePath();
+            ctx.fill();
+        }
+        // Goggles
+        ctx.fillStyle = '#334';
+        ctx.strokeStyle = '#888';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(-6, -16, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.arc(6, -16, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = 'rgba(100,200,255,0.5)';
+        ctx.beginPath(); ctx.arc(-6, -16, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(6, -16, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath(); ctx.arc(-5, -16, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(7, -16, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#666';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, -16, 12, Math.PI * 0.75, Math.PI * 0.25, true);
+        ctx.stroke();
+        // Smile
+        ctx.strokeStyle = '#884422';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(0, -10, 4, 0.2, Math.PI - 0.2);
+        ctx.stroke();
+        ctx.restore();
+    },
+
     drawTitleScreen(ctx) {
+        this._buttons = [];
         ctx.fillStyle = '#111';
         ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-
-        const cx = ctx.canvas.width / 2;
-        const cy = ctx.canvas.height / 2;
-
+        const cw = ctx.canvas.width;
+        const ch = ctx.canvas.height;
         ctx.save();
-        ctx.textAlign = 'center';
+
+        // Mark on the left
+        this._drawMarkCharacter(ctx, cw * 0.18, ch * 0.5, 2.5);
 
         // Title
+        const tx = cw * 0.58;
+        ctx.textAlign = 'center';
         ctx.fillStyle = '#4A9';
         ctx.font = 'bold 28px monospace';
-        ctx.fillText('Mark und die', cx, cy - 80);
+        ctx.fillText('Mark und die', tx, ch * 0.18);
         ctx.fillStyle = '#F88';
-        ctx.font = 'bold 24px monospace';
-        ctx.fillText('geklauten Erfindungen', cx, cy - 45);
+        ctx.font = 'bold 22px monospace';
+        ctx.fillText('geklauten Erfindungen', tx, ch * 0.28);
 
-        // World list
+        // Worlds
         const worlds = [
-            { name: 'Welt 1: Das bunte Geisterschloss', icon: '\uD83D\uDC7B', color: '#A6F' },
-            { name: 'Welt 2: Die Roboter-K\u00fcken', icon: '\uD83E\uDD16', color: '#F80' },
-            { name: 'Welt 3: Die Schleim-Arena', icon: '\uD83D\uDFE2', color: '#4D4' },
+            { name: 'Welt 1: Das bunte Geisterschloss', color: '#A6F' },
+            { name: 'Welt 2: Die Roboter-K\u00fcken', color: '#F80' },
+            { name: 'Welt 3: Die Schleim-Arena', color: '#4D4' },
         ];
         for (let i = 0; i < worlds.length; i++) {
             ctx.fillStyle = worlds[i].color;
             ctx.globalAlpha = 0.6 + Math.sin(Date.now() / 600 + i) * 0.2;
             ctx.font = '12px monospace';
-            ctx.fillText(worlds[i].icon + ' ' + worlds[i].name, cx, cy - 5 + i * 20);
+            ctx.fillText(worlds[i].name, tx, ch * 0.38 + i * 22);
         }
         ctx.globalAlpha = 1;
 
-        // Start/Continue prompt
-        const blink = Math.sin(Date.now() / 500) > 0;
         if (Game.currentWorld > 1) {
             ctx.fillStyle = '#4A9';
             ctx.font = '13px monospace';
-            ctx.fillText('Gespeicherter Fortschritt: Welt ' + Game.currentWorld, cx, cy + 62);
+            ctx.fillText('Fortschritt: Welt ' + Game.currentWorld, tx, ch * 0.56);
         }
-        if (blink) {
-            ctx.fillStyle = '#FFF';
-            ctx.font = '16px monospace';
-            const label = Game.currentWorld > 1 ? 'Fortfahren' : 'Starten';
-            ctx.fillText(Input.isMobile ? 'Tippen zum ' + label : 'Enter = ' + label, cx, cy + 82);
-        }
+
+        // Big yellow SPIELEN button
+        const btnW = 200;
+        const btnH = 50;
+        this._drawButton(ctx, tx - btnW / 2, ch * 0.65, btnW, btnH, 'SPIELEN');
 
         // Controls
         ctx.fillStyle = '#555';
-        ctx.font = '11px monospace';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
         if (!Input.isMobile) {
-            ctx.fillText('WASD = Bewegen | Maus = Zielen & Angriff | Leertaste = Ausweichen | Q = Waffe wechseln', cx, cy + 115);
+            ctx.fillText('WASD = Bewegen | Maus = Zielen | Leertaste = Ausweichen | Q = Waffe', tx, ch * 0.92);
         } else {
-            ctx.fillText('Links = Bewegen | Rechts = Zielen & Angreifen', cx, cy + 115);
+            ctx.fillText('Links = Bewegen | Rechts = Zielen & Angreifen', tx, ch * 0.92);
         }
-
         ctx.restore();
     },
 
     drawGameOver(ctx) {
-        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        this._buttons = [];
+        ctx.fillStyle = 'rgba(0,0,0,0.8)';
         ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-
+        const cx = ctx.canvas.width / 2;
+        const cy = ctx.canvas.height / 2;
         ctx.save();
         ctx.textAlign = 'center';
+
+        // GAME OVER
         ctx.fillStyle = '#F44';
-        ctx.font = 'bold 32px monospace';
-        ctx.fillText('GAME OVER', ctx.canvas.width / 2, ctx.canvas.height / 2 - 20);
-        ctx.fillStyle = '#AAA';
-        ctx.font = '14px monospace';
-        const worldNames = [null, 'Geisterschloss', 'Roboter-Fabrik', 'Schleim-Arena'];
-        ctx.fillText('Welt ' + Game.currentWorld + ': ' + worldNames[Game.currentWorld], ctx.canvas.width / 2, ctx.canvas.height / 2 + 8);
-        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 36px monospace';
+        ctx.fillText('GAME OVER', cx, cy - 55);
+
+        // Encouraging text
+        ctx.fillStyle = '#CCC';
         ctx.font = '16px monospace';
-        const blink = Math.sin(Date.now() / 500) > 0;
-        if (blink) {
-            ctx.fillText(Input.isMobile ? 'Tippen zum Neustarten' : 'Enter = Neustarten', ctx.canvas.width / 2, ctx.canvas.height / 2 + 40);
-        }
+        ctx.fillText('Nicht so schlimm.', cx, cy - 18);
+        ctx.fillText('Probiere es gleich noch mal aus!', cx, cy + 6);
+
+        // Two yellow buttons
+        const btnW = 180;
+        const btnH = 45;
+        const gap = 20;
+        const startX = cx - (btnW * 2 + gap) / 2;
+        const btnY = cy + 35;
+        this._drawButton(ctx, startX, btnY, btnW, btnH, 'NOCHMAL');
+        this._drawButton(ctx, startX + btnW + gap, btnY, btnW, btnH, 'STARTSEITE');
+
         ctx.restore();
     },
 

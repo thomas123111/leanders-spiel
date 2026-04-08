@@ -361,12 +361,17 @@ const Game = {
         Input.update(dt, playerScreenPos);
 
         if (this.state === 'TITLE') {
-            if (Input.attackPressed || Input._key('Enter') || Input._key('Space')) {
+            if (Input._key('Enter') || Input._key('Space')) {
                 Sound.resume();
-                if (this.currentWorld > 1) {
-                    this.startWorld(this.currentWorld);
-                } else {
-                    this.startNewGame();
+                if (this.currentWorld > 1) this.startWorld(this.currentWorld);
+                else this.startNewGame();
+            }
+            if (Input.attackPressed || Input.mouse.pressed) {
+                Sound.resume();
+                const btn = Renderer.getClickedButton(Input.mouse.x, Input.mouse.y);
+                if (btn === 'SPIELEN') {
+                    if (this.currentWorld > 1) this.startWorld(this.currentWorld);
+                    else this.startNewGame();
                 }
             }
             Input.postUpdate();
@@ -374,9 +379,13 @@ const Game = {
         }
 
         if (this.state === 'GAME_OVER') {
-            if (Input.attackPressed || Input._key('Enter') || Input._key('Space')) {
-                // Restart current world
+            if (Input._key('Enter') || Input._key('Space')) {
                 this.startWorld(this.currentWorld);
+            }
+            if (Input.attackPressed || Input.mouse.pressed) {
+                const btn = Renderer.getClickedButton(Input.mouse.x, Input.mouse.y);
+                if (btn === 'NOCHMAL') this.startWorld(this.currentWorld);
+                else if (btn === 'STARTSEITE') { this.state = 'TITLE'; }
             }
             Input.postUpdate();
             return;

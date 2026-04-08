@@ -62,12 +62,19 @@ const Input = {
     },
 
     _handleTouchStart(e) {
-        // Any touch counts as attackPressed (for menus/title screen)
         this.attackPressed = true;
 
         const rect = this.canvas.getBoundingClientRect();
         const scaleX = this.canvas.width / rect.width;
         const scaleY = this.canvas.height / rect.height;
+
+        // Set mouse position from first touch (for button click detection)
+        if (e.changedTouches.length > 0) {
+            const t0 = e.changedTouches[0];
+            this.mouse.x = (t0.clientX - rect.left) * scaleX;
+            this.mouse.y = (t0.clientY - rect.top) * scaleY;
+            this.mouse.pressed = true;
+        }
 
         for (const touch of e.changedTouches) {
             const x = (touch.clientX - rect.left) * scaleX;
