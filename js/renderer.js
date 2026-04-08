@@ -90,6 +90,35 @@ const Renderer = {
             ctx.textAlign = 'center';
             ctx.fillText('Schl\u00fcssel gefunden! Finde die Boss-T\u00fcr!', ctx.canvas.width / 2, 20);
             ctx.textAlign = 'left';
+
+            // Arrow pointing to boss door
+            if (game.world.bossDoorTiles.length > 0) {
+                const door = game.world.bossDoorTiles[0];
+                const doorWX = door.x * 32 + 16;
+                const doorWY = door.y * 32 + 16;
+                const px = player.x + player.w / 2;
+                const py = player.y + player.h / 2;
+                const angle = Math.atan2(doorWY - py, doorWX - px);
+                const dist = Math.sqrt((doorWX - px) ** 2 + (doorWY - py) ** 2);
+
+                if (dist > 150) {
+                    const arrowDist = 60;
+                    const ax = ctx.canvas.width / 2 + Math.cos(angle) * arrowDist;
+                    const ay = ctx.canvas.height / 2 + Math.sin(angle) * arrowDist;
+                    ctx.save();
+                    ctx.translate(ax, ay);
+                    ctx.rotate(angle);
+                    ctx.fillStyle = '#FFD700';
+                    ctx.globalAlpha = 0.6 + Math.sin(Date.now() / 300) * 0.2;
+                    ctx.beginPath();
+                    ctx.moveTo(12, 0);
+                    ctx.lineTo(-4, -7);
+                    ctx.lineTo(-4, 7);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                }
+            }
         }
 
         // ── Auto ability indicator ──
@@ -422,7 +451,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v1.9.0', cw - 8, ch - 6);
+        ctx.fillText('v2.0.0', cw - 8, ch - 6);
 
         ctx.restore();
     },

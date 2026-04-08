@@ -287,6 +287,31 @@ class KeyGhost extends Ghost {
         this.detectionRange = 250;
         this.isKeyGhost = true;
         this.droppedKey = false;
+        this.phasesThroughWalls = false; // key must not land in wall
+    }
+
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+
+        const dist = vecDist(
+            { x: this.centerX(), y: this.centerY() },
+            { x: player.x + player.w / 2, y: player.y + player.h / 2 }
+        );
+
+        this.chasing = dist < this.detectionRange;
+        if (this.chasing) {
+            this.alpha = lerp(this.alpha, 0.9, dt * 3);
+            const angle = angleBetween(
+                { x: this.centerX(), y: this.centerY() },
+                { x: player.x + player.w / 2, y: player.y + player.h / 2 }
+            );
+            const dx = Math.cos(angle) * this.speed * dt;
+            const dy = Math.sin(angle) * this.speed * dt;
+            this._moveWithCollision(dx, dy, world);
+        } else {
+            this.alpha = lerp(this.alpha, 0.5, dt * 2);
+        }
     }
 
     draw(ctx, camera) {

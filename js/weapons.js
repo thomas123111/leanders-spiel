@@ -193,19 +193,36 @@ class Projectile {
         this.vx = vx;
         this.vy = vy;
         this.damage = damage;
-        this.owner = owner; // 'player' or 'enemy'
+        this.owner = owner;
         this.knockback = knockback || 100;
         this.radius = 5;
         this.dead = false;
         this.lifetime = 3;
+        this.bouncesLeft = owner === 'player' ? 2 : 0;
     }
 
     update(dt, world) {
-        this.x += this.vx * dt;
-        this.y += this.vy * dt;
+        const newX = this.x + this.vx * dt;
+        const newY = this.y + this.vy * dt;
         this.lifetime -= dt;
-        if (this.lifetime <= 0) this.dead = true;
-        if (world.isWall(this.x, this.y)) this.dead = true;
+        if (this.lifetime <= 0) { this.dead = true; return; }
+
+        if (world.isWall(newX, newY)) {
+            if (this.bouncesLeft > 0) {
+                this.bouncesLeft--;
+                // Determine bounce direction
+                const wallX = world.isWall(newX, this.y);
+                const wallY = world.isWall(this.x, newY);
+                if (wallX) this.vx = -this.vx;
+                if (wallY) this.vy = -this.vy;
+                if (!wallX && !wallY) { this.vx = -this.vx; this.vy = -this.vy; }
+            } else {
+                this.dead = true;
+            }
+        } else {
+            this.x = newX;
+            this.y = newY;
+        }
     }
 
     draw(ctx, camera) {
