@@ -200,8 +200,37 @@ const Game = {
         this.camera.x = this.player.x - this.canvas.width / 2;
         this.camera.y = this.player.y - this.canvas.height / 2;
 
+        // Find valid floor positions for spawning (away from player)
+        this._floorTiles = [];
+        for (let y = 2; y < this.world.height - 2; y++) {
+            for (let x = 2; x < this.world.width - 2; x++) {
+                if (this.world.tiles[y][x] === TILE_FLOOR) {
+                    this._floorTiles.push({ x: x * 32 + 16, y: y * 32 + 16 });
+                }
+            }
+        }
+        // Shuffle
+        for (let i = this._floorTiles.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [this._floorTiles[i], this._floorTiles[j]] = [this._floorTiles[j], this._floorTiles[i]];
+        }
+
         // Spawn enemies and chests for this world
         this._spawnWorldContent(worldNum);
+    },
+
+    _getSpawnPos(minDist) {
+        minDist = minDist || 100;
+        const px = this.world.spawnPoint.x;
+        const py = this.world.spawnPoint.y;
+        for (let i = 0; i < this._floorTiles.length; i++) {
+            const t = this._floorTiles[i];
+            if (Math.abs(t.x - px) + Math.abs(t.y - py) > minDist) {
+                this._floorTiles.splice(i, 1);
+                return t;
+            }
+        }
+        return this._floorTiles.pop() || { x: 200, y: 200 };
     },
 
     _spawnWorldContent(worldNum) {
@@ -216,111 +245,44 @@ const Game = {
         }
     },
 
+    _spawnAt(EnemyClass, minDist) {
+        const p = this._getSpawnPos(minDist || 150);
+        return new EnemyClass(p.x, p.y);
+    },
+
+    _spawnChestAt() {
+        const p = this._getSpawnPos(80);
+        return new Chest(p.x - 12, p.y - 10);
+    },
+
     // ── World 1: Ghost Castle ──
     _spawnWorld1() {
-        // Ghosts
-        this.enemies.push(new Ghost(5 * 32 + 16, 3 * 32 + 16));
-        this.enemies.push(new Ghost(6 * 32 + 16, 5 * 32 + 16));
-        this.enemies.push(new Ghost(13 * 32 + 16, 6 * 32 + 16));
-        this.enemies.push(new Ghost(13 * 32 + 16, 9 * 32 + 16));
-        this.enemies.push(new Ghost(12 * 32 + 16, 10 * 32 + 16));
-        this.enemies.push(new Ghost(14 * 32 + 16, 11 * 32 + 16));
-        this.enemies.push(new Ghost(11 * 32 + 16, 12 * 32 + 16));
-        this.enemies.push(new Ghost(20 * 32 + 16, 11 * 32 + 16));
-        this.enemies.push(new Ghost(24 * 32 + 16, 13 * 32 + 16));
-        this.enemies.push(new KeyGhost(24 * 32 + 16, 19 * 32 + 16));
-        this.enemies.push(new Ghost(23 * 32 + 16, 18 * 32 + 16));
-        this.enemies.push(new Ghost(25 * 32 + 16, 20 * 32 + 16));
-        this.enemies.push(new Ghost(12 * 32 + 16, 18 * 32 + 16));
-        this.enemies.push(new Ghost(14 * 32 + 16, 19 * 32 + 16));
-
-        // Chests
-        this.chests.push(new Chest(6 * 32 + 4, 6 * 32 + 6));
-        this.chests.push(new Chest(15 * 32 + 4, 10 * 32 + 6));
-        this.chests.push(new Chest(24 * 32 + 4, 11 * 32 + 6));
-        this.chests.push(new Chest(13 * 32 + 4, 20 * 32 + 6));
-        this.chests.push(new Chest(12 * 32 + 4, 20 * 32 + 6));
+        for (let i = 0; i < 14; i++) this.enemies.push(this._spawnAt(Ghost));
+        this.enemies.push(this._spawnAt(KeyGhost, 300));
+        for (let i = 0; i < 6; i++) this.chests.push(this._spawnChestAt());
     },
 
     // ── World 2: Robot Chick Factory ──
     _spawnWorld2() {
-        // RoboChicks in factory rooms
-        this.enemies.push(new RoboChick(6 * 32 + 16, 5 * 32 + 16));
-        this.enemies.push(new RoboChick(8 * 32 + 16, 7 * 32 + 16));
-        this.enemies.push(new RoboChick(16 * 32 + 16, 5 * 32 + 16));
-        this.enemies.push(new RoboChick(20 * 32 + 16, 8 * 32 + 16));
-        this.enemies.push(new RoboChick(14 * 32 + 16, 12 * 32 + 16));
-        this.enemies.push(new RoboChick(18 * 32 + 16, 14 * 32 + 16));
-        // MiniRoboChicks
-        this.enemies.push(new MiniRoboChick(7 * 32 + 16, 4 * 32 + 16));
-        this.enemies.push(new MiniRoboChick(19 * 32 + 16, 6 * 32 + 16));
-        this.enemies.push(new MiniRoboChick(15 * 32 + 16, 13 * 32 + 16));
-        this.enemies.push(new MiniRoboChick(22 * 32 + 16, 10 * 32 + 16));
-        // Giant Egg (10 HP, drops key when destroyed)
-        this.enemies.push(new GiantEgg(26 * 32 + 16, 18 * 32 + 16));
-        this.enemies.push(new RoboChick(25 * 32 + 16, 17 * 32 + 16));
-        this.enemies.push(new MiniRoboChick(27 * 32 + 16, 19 * 32 + 16));
-
-        // Chests
-        this.chests.push(new Chest(5 * 32 + 4, 7 * 32 + 6));
-        this.chests.push(new Chest(17 * 32 + 4, 6 * 32 + 6));
-        this.chests.push(new Chest(22 * 32 + 4, 12 * 32 + 6));
-        this.chests.push(new Chest(14 * 32 + 4, 19 * 32 + 6));
-        this.chests.push(new Chest(10 * 32 + 4, 15 * 32 + 6));
+        for (let i = 0; i < 8; i++) this.enemies.push(this._spawnAt(RoboChick));
+        for (let i = 0; i < 5; i++) this.enemies.push(this._spawnAt(MiniRoboChick));
+        this.enemies.push(this._spawnAt(GiantEgg, 300));
+        for (let i = 0; i < 6; i++) this.chests.push(this._spawnChestAt());
     },
 
     // ── World 3: Slime Arena ──
     _spawnWorld3() {
-        // Slimes throughout the caves
-        this.enemies.push(new Slime(6 * 32 + 16, 5 * 32 + 16));
-        this.enemies.push(new Slime(8 * 32 + 16, 8 * 32 + 16));
-        this.enemies.push(new Slime(14 * 32 + 16, 6 * 32 + 16));
-        this.enemies.push(new Slime(18 * 32 + 16, 5 * 32 + 16));
-        this.enemies.push(new Slime(12 * 32 + 16, 12 * 32 + 16));
-        this.enemies.push(new Slime(16 * 32 + 16, 14 * 32 + 16));
-        this.enemies.push(new Slime(20 * 32 + 16, 10 * 32 + 16));
-        this.enemies.push(new Slime(24 * 32 + 16, 8 * 32 + 16));
-        this.enemies.push(new Slime(10 * 32 + 16, 16 * 32 + 16));
-        this.enemies.push(new Slime(22 * 32 + 16, 14 * 32 + 16));
-        // Key ghost
-        this.enemies.push(new KeyGhost(24 * 32 + 16, 18 * 32 + 16));
-        this.enemies.push(new Slime(23 * 32 + 16, 17 * 32 + 16));
-        this.enemies.push(new Slime(25 * 32 + 16, 19 * 32 + 16));
-
-        // Chests
-        this.chests.push(new Chest(7 * 32 + 4, 6 * 32 + 6));
-        this.chests.push(new Chest(15 * 32 + 4, 7 * 32 + 6));
-        this.chests.push(new Chest(21 * 32 + 4, 9 * 32 + 6));
-        this.chests.push(new Chest(11 * 32 + 4, 14 * 32 + 6));
-        this.chests.push(new Chest(17 * 32 + 4, 16 * 32 + 6));
+        for (let i = 0; i < 14; i++) this.enemies.push(this._spawnAt(Slime));
+        this.enemies.push(this._spawnAt(KeyGhost, 300));
+        for (let i = 0; i < 6; i++) this.chests.push(this._spawnChestAt());
     },
 
     // ── World 4: Dark Knight Castle ──
     _spawnWorld4() {
-        // Shadow Knights
-        this.enemies.push(new ShadowKnight(8 * 32 + 16, 6 * 32 + 16));
-        this.enemies.push(new ShadowKnight(14 * 32 + 16, 8 * 32 + 16));
-        this.enemies.push(new ShadowKnight(20 * 32 + 16, 5 * 32 + 16));
-        this.enemies.push(new ShadowKnight(10 * 32 + 16, 14 * 32 + 16));
-        this.enemies.push(new ShadowKnight(18 * 32 + 16, 16 * 32 + 16));
-        this.enemies.push(new ShadowKnight(25 * 32 + 16, 12 * 32 + 16));
-        // Giant Bats
-        this.enemies.push(new GiantBat(6 * 32 + 16, 4 * 32 + 16));
-        this.enemies.push(new GiantBat(16 * 32 + 16, 6 * 32 + 16));
-        this.enemies.push(new GiantBat(22 * 32 + 16, 9 * 32 + 16));
-        this.enemies.push(new GiantBat(12 * 32 + 16, 12 * 32 + 16));
-        this.enemies.push(new GiantBat(28 * 32 + 16, 14 * 32 + 16));
-        // Key Knight
-        this.enemies.push(new KeyKnight(26 * 32 + 16, 18 * 32 + 16));
-        this.enemies.push(new ShadowKnight(25 * 32 + 16, 17 * 32 + 16));
-        this.enemies.push(new GiantBat(27 * 32 + 16, 19 * 32 + 16));
-
-        // Chests
-        this.chests.push(new Chest(7 * 32 + 4, 5 * 32 + 6));
-        this.chests.push(new Chest(15 * 32 + 4, 9 * 32 + 6));
-        this.chests.push(new Chest(23 * 32 + 4, 7 * 32 + 6));
-        this.chests.push(new Chest(11 * 32 + 4, 16 * 32 + 6));
-        this.chests.push(new Chest(20 * 32 + 4, 18 * 32 + 6));
+        for (let i = 0; i < 8; i++) this.enemies.push(this._spawnAt(ShadowKnight));
+        for (let i = 0; i < 6; i++) this.enemies.push(this._spawnAt(GiantBat));
+        this.enemies.push(this._spawnAt(KeyKnight, 300));
+        for (let i = 0; i < 6; i++) this.chests.push(this._spawnChestAt());
     },
 
     _spawnBoss() {

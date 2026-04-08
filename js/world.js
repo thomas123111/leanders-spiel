@@ -108,8 +108,9 @@ class World {
             // Blue-gray industrial, no cycling
             this.bgHue = 200;
         } else if (this.theme === 'cave') {
-            // Greenish with slight pulse
             this.bgHue = 120 + Math.sin(this.colorTimer * 0.5) * 10;
+        } else if (this.theme === 'dark') {
+            this.bgHue = 30 + Math.sin(this.colorTimer * 2) * 5;
         }
     }
 
@@ -128,6 +129,8 @@ class World {
                     this._drawFactory(ctx, t, pos, x, y);
                 } else if (this.theme === 'cave') {
                     this._drawCave(ctx, t, pos, x, y);
+                } else if (this.theme === 'dark') {
+                    this._drawDark(ctx, t, pos, x, y);
                 } else {
                     this._drawCastle(ctx, t, pos, x, y);
                 }
@@ -267,6 +270,46 @@ class World {
         }
     }
 
+    _drawDark(ctx, t, pos, x, y) {
+        if (t === TILE_WALL) {
+            ctx.fillStyle = '#2A2020';
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            ctx.strokeStyle = '#221818';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(pos.x + 0.5, pos.y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+        } else if (t === TILE_FLOOR || t === TILE_DOOR) {
+            ctx.fillStyle = '#3A3535';
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            ctx.strokeStyle = '#332E2E';
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(pos.x + 0.5, pos.y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+        } else if (t === TILE_BOSS_DOOR) {
+            this._drawBossDoor(ctx, pos);
+        } else if (t === TILE_WINDOW) {
+            ctx.fillStyle = '#2A2020';
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            // Torch bracket
+            ctx.fillStyle = '#555';
+            ctx.fillRect(pos.x + 13, pos.y + 8, 6, 12);
+            // Flame
+            ctx.fillStyle = '#F80';
+            ctx.beginPath();
+            ctx.arc(pos.x + 16, pos.y + 6, 5 + Math.sin(Date.now() / 100 + x) * 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#FF0';
+            ctx.beginPath();
+            ctx.arc(pos.x + 16, pos.y + 5, 3, 0, Math.PI * 2);
+            ctx.fill();
+            // Glow
+            ctx.globalAlpha = 0.08 + Math.sin(Date.now() / 150 + x) * 0.03;
+            ctx.fillStyle = '#F80';
+            ctx.beginPath();
+            ctx.arc(pos.x + 16, pos.y + 8, 20, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+    }
+
     _drawBossDoor(ctx, pos) {
         ctx.fillStyle = '#8B0000';
         ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
@@ -280,147 +323,126 @@ class World {
     }
 }
 
-// ── Level Data for World 1: Ghost Castle ──
+// ── Procedural Level Generator ──
+// Generates large, explorable maps with rooms, corridors, and special areas
 
-const WORLD1_LEVEL = (function() {
+function generateLevel(width, height, numRooms, seed) {
     const W = TILE_WALL, F = TILE_FLOOR, D = TILE_DOOR, B = TILE_BOSS_DOOR;
     const S = TILE_SPAWN, BS = TILE_BOSS_SPAWN, WN = TILE_WINDOW;
 
-    // 30x30 castle layout
-    return [
-        // Row 0-1: Top wall
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        // Row 2-7: Entrance hall (bottom-left area)
-        [W,W,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,F,S,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,WN,F,F,F,F,F,F,D,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,F,F,F,F,F,F,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,F,F,F,F,F,F,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        // Row 8-14: Main corridor + side rooms
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,WN,F,F,F,F,F,F,F,D,F,F,F,F,F,F,F,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,W,W,W,W,W,W,W,F,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,W,W,W,W,W,W,W,F,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,WN,F,W,W,W,W,W],
-        // Row 15-19: Lower corridor to Key Ghost room + treasure room
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,W,W,W,W,W,W,F,F,F,F,F,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,W,W,W,W,W,WN,F,F,F,F,F,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,W,W,W,W,W,W,F,F,F,F,F,W,W,W],
-        // Row 20-24: Boss antechamber + corridor
-        [W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,D,F,F,F,F,F,F,F,F,F,F,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,W,W,W,W,W,W,F,F,F,F,F,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        // Row 23-28: Boss room
-        [W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,WN,F,F,F,F,F,F,F,F,F,WN,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,F,F,F,F,BS,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,WN,F,F,F,F,F,F,F,F,F,WN,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-    ];
-})();
+    // Simple seeded random
+    let s = seed || 42;
+    function rand() { s = (s * 16807 + 0) % 2147483647; return (s - 1) / 2147483646; }
+    function randI(min, max) { return Math.floor(rand() * (max - min + 1)) + min; }
 
-// ── Level Data for World 2: Roboter-Küken Factory ──
+    // Start with all walls
+    const map = [];
+    for (let y = 0; y < height; y++) {
+        map[y] = [];
+        for (let x = 0; x < width; x++) map[y][x] = W;
+    }
 
-const WORLD2_LEVEL = (function() {
-    const W = TILE_WALL, F = TILE_FLOOR, D = TILE_DOOR, B = TILE_BOSS_DOOR;
-    const S = TILE_SPAWN, BS = TILE_BOSS_SPAWN, WN = TILE_WINDOW;
+    // Carve a room
+    function carveRoom(rx, ry, rw, rh) {
+        for (let y = ry; y < ry + rh && y < height - 1; y++) {
+            for (let x = rx; x < rx + rw && x < width - 1; x++) {
+                if (x > 0 && y > 0) map[y][x] = F;
+            }
+        }
+    }
 
-    // 35x30 factory layout
-    return [
-        // Row 0: Top wall
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        // Row 1
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        // Row 2-6: Entry room (top-left)
-        [W,W,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,WN,F,F,S,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,F,F,F,F,F,F,F,D,F,F,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,WN,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        // Row 7-8: Conveyor belt corridor
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        // Row 9-16: Assembly room (large open area)
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,WN,F,F,F,F,F,F,F,F,F,F,F,F,F,WN,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,WN,F,F,F,F,F,F,F,F,F,F,F,F,F,WN,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,D,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        // Row 17-20: Side storage rooms + corridor
-        [W,W,W,W,W,W,F,F,F,F,F,W,W,W,W,W,F,F,F,W,W,W,W,W,F,F,F,F,F,W,W,W,W,W,W],
-        [W,W,W,W,W,WN,F,F,F,F,F,D,F,F,F,F,F,F,F,F,F,F,F,D,F,F,F,F,F,WN,W,W,W,W],
-        [W,W,W,W,W,W,F,F,F,F,F,W,W,W,W,W,F,F,F,W,W,W,W,W,F,F,F,F,F,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        // Row 21-22: Boss antechamber corridor
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,B,B,B,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        // Row 23-28: Boss arena (large 10x10 open space)
-        [W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,WN,F,F,F,F,F,F,F,F,F,F,F,WN,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,BS,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,WN,F,F,F,F,F,F,F,F,F,F,F,WN,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W],
-        // Row 29: Bottom wall
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-    ];
-})();
+    // Add windows to room walls
+    function addWindows(rx, ry, rw, rh) {
+        // Top and bottom walls
+        for (let x = rx + 2; x < rx + rw - 2; x += randI(3, 5)) {
+            if (ry > 0 && map[ry - 1] && map[ry - 1][x] === W) map[ry - 1][x] = WN;
+            if (ry + rh < height && map[ry + rh] && map[ry + rh][x] === W) map[ry + rh][x] = WN;
+        }
+        // Left and right walls
+        for (let y = ry + 2; y < ry + rh - 2; y += randI(3, 5)) {
+            if (rx > 0 && map[y][rx - 1] === W) map[y][rx - 1] = WN;
+            if (rx + rw < width && map[y][rx + rw] === W) map[y][rx + rw] = WN;
+        }
+    }
 
-// ── Level Data for World 3: Schleim-Arena ──
+    // Carve corridor between two points
+    function carveCorridor(x1, y1, x2, y2) {
+        let x = x1, y = y1;
+        while (x !== x2) {
+            if (x > 0 && x < width - 1 && y > 0 && y < height - 1) {
+                map[y][x] = F;
+                if (y + 1 < height - 1) map[y + 1][x] = F;
+            }
+            x += x < x2 ? 1 : -1;
+        }
+        while (y !== y2) {
+            if (x > 0 && x < width - 1 && y > 0 && y < height - 1) {
+                map[y][x] = F;
+                if (x + 1 < width - 1) map[y][x + 1] = F;
+            }
+            y += y < y2 ? 1 : -1;
+        }
+    }
 
-const WORLD3_LEVEL = (function() {
-    const W = TILE_WALL, F = TILE_FLOOR, D = TILE_DOOR, B = TILE_BOSS_DOOR;
-    const S = TILE_SPAWN, BS = TILE_BOSS_SPAWN, WN = TILE_WINDOW;
+    // Generate rooms
+    const rooms = [];
+    for (let i = 0; i < numRooms; i++) {
+        const rw = randI(5, 10);
+        const rh = randI(5, 8);
+        const rx = randI(2, width - rw - 2);
+        const ry = randI(2, height - rh - 2);
+        carveRoom(rx, ry, rw, rh);
+        addWindows(rx, ry, rw, rh);
+        rooms.push({ x: rx, y: ry, w: rw, h: rh, cx: rx + Math.floor(rw / 2), cy: ry + Math.floor(rh / 2) });
+    }
 
-    // 32x28 cave/arena layout
-    return [
-        // Row 0-1: Top wall
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        // Row 2-5: Cave entrance (organic shape)
-        [W,W,W,W,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,F,F,F,S,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,F,F,F,F,F,F,D,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,F,F,F,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        // Row 6-8: Narrow tunnel
-        [W,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        // Row 9-13: First arena room (rounded)
-        [W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,WN,F,F,F,F,F,F,F,D,F,F,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W,W],
-        // Row 14-15: Connecting corridor
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,W,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,W,W,W,W,W,W,W,W,W,W,W],
-        // Row 16-19: Second arena + treasure alcoves
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,WN,F,F,F,F,F,F,F,F,F,WN,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,F,F,W,W,W,W,W,W,W],
-        // Row 20: Treasure alcoves branching off
-        [W,W,WN,F,F,F,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,W,W,W,W,F,F,WN,W],
-        [W,W,W,F,F,F,D,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,W,W,W,W,D,F,F,W,W],
-        [W,W,WN,F,F,F,W,W,W,W,W,W,W,W,W,W,W,W,W,B,W,W,W,W,W,W,W,W,F,F,WN,W],
-        // Row 23-26: Boss pit (large circular-ish)
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,W,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,WN,F,F,F,BS,F,F,F,WN,W,W,W,W,W,W,W,W],
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,F,F,F,F,F,F,F,W,W,W,W,W,W,W,W,W],
-        // Row 27: Bottom wall
-        [W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W,W],
-    ];
-})();
+    // Sort rooms by position for corridor connection
+    rooms.sort((a, b) => a.cx + a.cy - b.cx - b.cy);
+
+    // Connect rooms with corridors
+    for (let i = 0; i < rooms.length - 1; i++) {
+        carveCorridor(rooms[i].cx, rooms[i].cy, rooms[i + 1].cx, rooms[i + 1].cy);
+    }
+    // Extra corridors for loops
+    for (let i = 0; i < Math.floor(rooms.length / 3); i++) {
+        const a = randI(0, rooms.length - 1);
+        const b = randI(0, rooms.length - 1);
+        if (a !== b) carveCorridor(rooms[a].cx, rooms[a].cy, rooms[b].cx, rooms[b].cy);
+    }
+
+    // Place spawn in first room
+    map[rooms[0].cy][rooms[0].cx] = S;
+
+    // Boss room: last room, make it bigger
+    const bossRoom = rooms[rooms.length - 1];
+    carveRoom(bossRoom.x - 2, bossRoom.y - 2, bossRoom.w + 4, bossRoom.h + 4);
+    map[bossRoom.cy][bossRoom.cx] = BS;
+
+    // Place boss door: find wall between second-to-last corridor and boss room
+    let doorPlaced = false;
+    const preBoss = rooms[rooms.length - 2];
+    // Walk from preBoss to bossRoom and find a wall to place door
+    let dx = preBoss.cx, dy = preBoss.cy;
+    while (dx !== bossRoom.cx || dy !== bossRoom.cy) {
+        if (dx !== bossRoom.cx) dx += dx < bossRoom.cx ? 1 : -1;
+        else dy += dy < bossRoom.cy ? 1 : -1;
+        if (!doorPlaced && map[dy] && map[dy][dx] === W) {
+            map[dy][dx] = B;
+            doorPlaced = true;
+        }
+    }
+    if (!doorPlaced) {
+        // Fallback: place door at boss room entrance
+        const doorY = Math.max(1, bossRoom.y - 2);
+        if (map[doorY]) map[doorY][bossRoom.cx] = B;
+    }
+
+    return map;
+}
+
+// ── Level Data ──
+
+const WORLD1_LEVEL = generateLevel(50, 45, 12, 101);
+const WORLD2_LEVEL = generateLevel(55, 45, 14, 202);
+const WORLD3_LEVEL = generateLevel(50, 42, 13, 303);
+const WORLD4_LEVEL = generateLevel(55, 50, 15, 404);
