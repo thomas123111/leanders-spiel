@@ -905,12 +905,12 @@ class RoboChick extends Enemy {
         ctx.fillRect(cx - 8, cy + 17 + lk, 6, 3);
         ctx.fillRect(cx + 2, cy + 17 - lk, 6, 3);
 
-        // Body
-        ctx.fillStyle = '#888';
+        // Body (white robot chicken)
+        ctx.fillStyle = '#EEE';
         ctx.beginPath();
         ctx.ellipse(cx, cy, 14, 12, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = '#999';
+        ctx.fillStyle = '#FFF';
         ctx.beginPath();
         ctx.ellipse(cx - 3, cy - 4, 6, 5, 0, 0, Math.PI * 2);
         ctx.fill();
@@ -1043,11 +1043,11 @@ class MiniRoboChick extends Enemy {
         }
 
         // Ball body
-        ctx.fillStyle = this.rollState === 'charging' ? '#FA0' : '#777';
+        ctx.fillStyle = this.rollState === 'charging' ? '#FA0' : '#EEE';
         ctx.beginPath();
         ctx.arc(cx, cy, 9, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = '#999';
+        ctx.fillStyle = '#FFF';
         ctx.beginPath();
         ctx.arc(cx - 2, cy - 2, 4, 0, Math.PI * 2);
         ctx.fill();
@@ -1423,23 +1423,24 @@ class Slime extends Enemy {
 class BossSlime extends Enemy {
     constructor(x, y) {
         super(x, y, 100, 80);
-        this.hp = 60;
-        this.maxHp = 60;
-        this.speed = 25;
-        this.damage = 2;
+        this.hp = 35;
+        this.maxHp = 35;
+        this.speed = 18;
+        this.damage = 1;
         this.isBoss = true;
         this.contactDamage = true;
         this.phase = 1;
         this.squish = 0;
+        this.pauseTimer = 0;
 
         this.state = 'intro';
         this.introTimer = 2;
-        this.jumpTimer = 5;
-        this.jumpCooldown = 5;
-        this.jumpState = 'none'; // none, rising, falling
+        this.jumpTimer = 6;
+        this.jumpCooldown = 6;
+        this.jumpState = 'none';
         this.jumpProgress = 0;
-        this.splitAt40 = false;
-        this.splitAt20 = false;
+        this.splitAt25 = false;
+        this.splitAt10 = false;
         this.stunnedTimer = 0;
     }
 
@@ -1447,10 +1448,10 @@ class BossSlime extends Enemy {
         this.baseUpdate(dt, world);
         if (this.dead) return;
 
-        if (this.hp <= 30 && this.phase === 1) {
+        if (this.hp <= 18 && this.phase === 1) {
             this.phase = 2;
-            this.speed = 40;
-            this.jumpCooldown = 3;
+            this.speed = 25;
+            this.jumpCooldown = 4;
         }
 
         const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
@@ -1468,18 +1469,26 @@ class BossSlime extends Enemy {
             return;
         }
 
-        // Split spawns
-        if (this.hp <= 40 && !this.splitAt40 && enemies) {
-            this.splitAt40 = true;
-            for (let i = 0; i < 3; i++) {
-                const a = (Math.PI * 2 * i) / 3;
+        // Pause mechanic - stops sometimes (gives player time to attack)
+        this.pauseTimer -= dt;
+        if (this.pauseTimer > 0) return;
+        if (this.state === 'chase' && Math.random() < 0.003) {
+            this.pauseTimer = 1.5;
+            return;
+        }
+
+        // Split spawns (less frequent, lower thresholds)
+        if (this.hp <= 25 && !this.splitAt25 && enemies) {
+            this.splitAt25 = true;
+            for (let i = 0; i < 2; i++) {
+                const a = (Math.PI * 2 * i) / 2;
                 enemies.push(new Slime(mc.x + Math.cos(a) * 60, mc.y + Math.sin(a) * 60));
             }
         }
-        if (this.hp <= 20 && !this.splitAt20 && enemies) {
-            this.splitAt20 = true;
-            for (let i = 0; i < 3; i++) {
-                const a = (Math.PI * 2 * i) / 3 + 0.5;
+        if (this.hp <= 10 && !this.splitAt10 && enemies) {
+            this.splitAt10 = true;
+            for (let i = 0; i < 2; i++) {
+                const a = (Math.PI * 2 * i) / 2 + 0.5;
                 enemies.push(new Slime(mc.x + Math.cos(a) * 60, mc.y + Math.sin(a) * 60));
             }
         }
@@ -1662,6 +1671,551 @@ class BossSlime extends Enemy {
         ctx.beginPath(); ctx.roundRect(barX, barY, barW, 7, 3); ctx.fill();
         const hpPct = this.hp / this.maxHp;
         ctx.fillStyle = hpPct > 0.4 ? '#4D4' : hpPct > 0.2 ? '#FF0' : '#F00';
+        ctx.beginPath(); ctx.roundRect(barX + 1, barY + 1, (barW - 2) * hpPct, 5, 2); ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+// ── Giant Egg (World 2 key mechanic - replaces KeyGhost) ──
+class GiantEgg extends Enemy {
+    constructor(x, y) {
+        super(x, y, 36, 40);
+        this.hp = 10;
+        this.maxHp = 10;
+        this.speed = 0;
+        this.damage = 0;
+        this.contactDamage = false;
+        this.isKeyGhost = true; // uses same key drop logic
+        this.droppedKey = false;
+        this.wobble = 0;
+        this.crackLevel = 0;
+    }
+
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        this.crackLevel = 1 - (this.hp / this.maxHp);
+        this.wobble = this.iFrames > 0 ? Math.sin(Date.now() / 30) * 5 : Math.sin(Date.now() / 800) * 1;
+    }
+
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        const flash = this.isFlashing();
+
+        if (this.dead) {
+            const t = this.deathProgress();
+            ctx.save();
+            // Shell fragments
+            for (let i = 0; i < 8; i++) {
+                const a = (Math.PI * 2 * i) / 8 + t;
+                ctx.globalAlpha = (1 - t) * 0.8;
+                ctx.fillStyle = '#FFEEDD';
+                ctx.beginPath();
+                ctx.arc(cx + Math.cos(a) * t * 40, cy + Math.sin(a) * t * 40, 6 * (1 - t), 0, Math.PI * 2);
+                ctx.fill();
+            }
+            // Golden key appears
+            ctx.globalAlpha = t;
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(cx - 6, cy - 4, 12, 5);
+            ctx.beginPath();
+            ctx.arc(cx - 4, cy - 4, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            return;
+        }
+
+        ctx.save();
+        if (flash) ctx.globalAlpha = 0.4;
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + 18, 16, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Egg body (wobbles)
+        ctx.translate(cx, cy);
+        ctx.rotate(this.wobble * Math.PI / 180);
+        ctx.translate(-cx, -cy);
+
+        // Egg shape
+        const grad = ctx.createRadialGradient(cx - 4, cy - 8, 3, cx, cy, 20);
+        grad.addColorStop(0, '#FFFFF0');
+        grad.addColorStop(0.5, '#FFEEDD');
+        grad.addColorStop(1, '#DDC8AA');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 16, 20, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Cracks (increase with damage)
+        if (this.crackLevel > 0) {
+            ctx.strokeStyle = '#886644';
+            ctx.lineWidth = 1.5;
+            const numCracks = Math.floor(this.crackLevel * 6) + 1;
+            for (let i = 0; i < numCracks; i++) {
+                const startA = (Math.PI * 2 * i) / numCracks - 0.5;
+                ctx.beginPath();
+                ctx.moveTo(cx + Math.cos(startA) * 8, cy + Math.sin(startA) * 10);
+                ctx.lineTo(cx + Math.cos(startA + 0.3) * 14, cy + Math.sin(startA + 0.2) * 16);
+                ctx.lineTo(cx + Math.cos(startA + 0.5) * 10, cy + Math.sin(startA + 0.6) * 14);
+                ctx.stroke();
+            }
+        }
+
+        // Glow (golden, pulses)
+        ctx.globalAlpha = 0.15 + Math.sin(Date.now() / 400) * 0.08;
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 22, 26, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        // HP indicator
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.hp + '/' + this.maxHp, cx, pos.y - 6);
+
+        ctx.restore();
+    }
+}
+
+// ══════════════════════════════════════════
+// ── World 4: Dunkle Ritterburg Enemies ──
+// ══════════════════════════════════════════
+
+// ── Shadow Crocodile Knight ──
+class ShadowKnight extends Enemy {
+    constructor(x, y) {
+        super(x, y, 28, 28);
+        this.hp = 8;
+        this.maxHp = 8;
+        this.speed = 50;
+        this.damage = 2;
+        this.detectionRange = 180;
+        this.attackTimer = 0;
+        this.attackCooldown = 1.5;
+        this.slashing = false;
+        this.slashTimer = 0;
+        this.slashAngle = 0;
+    }
+
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+        const dist = vecDist(mc, pc);
+
+        if (this.slashing) {
+            this.slashTimer -= dt;
+            if (this.slashTimer <= 0) this.slashing = false;
+            return;
+        }
+
+        if (dist < this.detectionRange) {
+            const angle = angleBetween(mc, pc);
+            this.slashAngle = angle;
+            const dx = Math.cos(angle) * this.speed * dt;
+            const dy = Math.sin(angle) * this.speed * dt;
+            this._moveWithCollision(dx, dy, world);
+
+            this.attackTimer -= dt;
+            if (this.attackTimer <= 0 && dist < 45) {
+                this.slashing = true;
+                this.slashTimer = 0.3;
+                this.attackTimer = this.attackCooldown;
+                // Check hit
+                if (dist < 50) {
+                    player.takeDamage(this.damage, angle, 180);
+                }
+            }
+        }
+    }
+
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        const flash = this.isFlashing();
+
+        if (this.dead) {
+            const t = this.deathProgress();
+            ctx.save();
+            ctx.globalAlpha = (1 - t) * 0.6;
+            ctx.fillStyle = '#333';
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, 14 + t * 10, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            return;
+        }
+
+        ctx.save();
+        if (flash) ctx.globalAlpha = 0.4;
+
+        // Shadow body (dark crocodile)
+        ctx.fillStyle = '#2A3A2A';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 13, 11, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Snout
+        ctx.fillStyle = '#1E2E1E';
+        const snoutAngle = this.slashAngle;
+        ctx.beginPath();
+        ctx.ellipse(
+            cx + Math.cos(snoutAngle) * 10, cy + Math.sin(snoutAngle) * 8,
+            8, 5, snoutAngle, 0, Math.PI * 2
+        );
+        ctx.fill();
+        // Eyes (red glowing)
+        ctx.fillStyle = '#F44';
+        const ea1 = snoutAngle - 0.5;
+        const ea2 = snoutAngle + 0.5;
+        ctx.beginPath(); ctx.arc(cx + Math.cos(ea1) * 7, cy + Math.sin(ea1) * 5, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + Math.cos(ea2) * 7, cy + Math.sin(ea2) * 5, 3, 0, Math.PI * 2); ctx.fill();
+        // Sword
+        ctx.strokeStyle = '#AAA';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        const swordLen = this.slashing ? 28 : 20;
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(snoutAngle) * 12, cy + Math.sin(snoutAngle) * 10);
+        ctx.lineTo(cx + Math.cos(snoutAngle) * (12 + swordLen), cy + Math.sin(snoutAngle) * (10 + swordLen * 0.7));
+        ctx.stroke();
+        // Sword guard
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 2;
+        const gx = cx + Math.cos(snoutAngle) * 14;
+        const gy = cy + Math.sin(snoutAngle) * 11;
+        ctx.beginPath();
+        ctx.moveTo(gx + Math.cos(snoutAngle + Math.PI/2) * 4, gy + Math.sin(snoutAngle + Math.PI/2) * 4);
+        ctx.lineTo(gx + Math.cos(snoutAngle - Math.PI/2) * 4, gy + Math.sin(snoutAngle - Math.PI/2) * 4);
+        ctx.stroke();
+
+        // Slash arc
+        if (this.slashing) {
+            ctx.globalAlpha = 0.4;
+            ctx.strokeStyle = '#FFF';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 30, snoutAngle - 0.6, snoutAngle + 0.6);
+            ctx.stroke();
+        }
+
+        ctx.restore();
+    }
+}
+
+// ── Giant Bat ──
+class GiantBat extends Enemy {
+    constructor(x, y) {
+        super(x, y, 24, 20);
+        this.hp = 5;
+        this.maxHp = 5;
+        this.speed = 100;
+        this.damage = 1;
+        this.phasesThroughWalls = true;
+        this.detectionRange = 220;
+        this.wingAnim = 0;
+    }
+
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        this.wingAnim += dt * 8;
+
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+        const dist = vecDist(mc, pc);
+
+        if (dist < this.detectionRange) {
+            const angle = angleBetween(mc, pc);
+            this.x += Math.cos(angle) * this.speed * dt;
+            this.y += Math.sin(angle) * this.speed * dt;
+        } else {
+            // Idle circle
+            this.x += Math.sin(Date.now() / 600) * 20 * dt;
+            this.y += Math.cos(Date.now() / 500) * 15 * dt;
+        }
+    }
+
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        const flash = this.isFlashing();
+
+        if (this.dead) {
+            const t = this.deathProgress();
+            ctx.save();
+            ctx.globalAlpha = (1 - t) * 0.7;
+            ctx.fillStyle = '#422';
+            ctx.beginPath();
+            ctx.arc(cx, cy, 10 * (1 - t), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            return;
+        }
+
+        ctx.save();
+        if (flash) ctx.globalAlpha = 0.4;
+
+        const wingSpread = Math.sin(this.wingAnim) * 12;
+        // Wings
+        ctx.fillStyle = '#3A2233';
+        ctx.beginPath();
+        ctx.ellipse(cx - 14 - wingSpread * 0.5, cy - 2, 12 + wingSpread * 0.3, 6, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(cx + 14 + wingSpread * 0.5, cy - 2, 12 + wingSpread * 0.3, 6, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        // Body
+        ctx.fillStyle = '#4A2A3A';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 8, 7, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Eyes (yellow)
+        ctx.fillStyle = '#FF0';
+        ctx.beginPath(); ctx.arc(cx - 3, cy - 2, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + 3, cy - 2, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.arc(cx - 3, cy - 1.5, 1, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + 3, cy - 1.5, 1, 0, Math.PI * 2); ctx.fill();
+        // Fangs
+        ctx.fillStyle = '#FFF';
+        ctx.fillRect(cx - 2, cy + 3, 1.5, 3);
+        ctx.fillRect(cx + 0.5, cy + 3, 1.5, 3);
+
+        ctx.restore();
+    }
+}
+
+// ── Key Knight (World 4 key holder) ──
+class KeyKnight extends ShadowKnight {
+    constructor(x, y) {
+        super(x, y);
+        this.hp = 16;
+        this.maxHp = 16;
+        this.speed = 40;
+        this.isKeyGhost = true;
+        this.droppedKey = false;
+        this.detectionRange = 220;
+    }
+
+    draw(ctx, camera) {
+        super.draw(ctx, camera);
+        if (this.dead) return;
+        // Golden glow + key icon
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        ctx.save();
+        ctx.globalAlpha = 0.2 + Math.sin(Date.now() / 400) * 0.1;
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 20, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        // Key above head
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(cx - 4, pos.y - 10, 8, 4);
+        ctx.beginPath();
+        ctx.arc(cx - 2, pos.y - 10, 4, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// ── Boss: Knight Bat (World 4) ──
+class BossKnightBat extends Enemy {
+    constructor(x, y) {
+        super(x, y, 90, 80);
+        this.hp = 55;
+        this.maxHp = 55;
+        this.speed = 45;
+        this.damage = 3;
+        this.phasesThroughWalls = true;
+        this.isBoss = true;
+        this.contactDamage = false;
+
+        this.state = 'intro';
+        this.introTimer = 2;
+        this.swoopTimer = 3;
+        this.swoopCooldown = 3;
+        this.swooping = false;
+        this.swoopDir = { x: 0, y: 0 };
+        this.swoopProgress = 0;
+        this.stunnedTimer = 0;
+        this.wingAnim = 0;
+        this.spawnTimer = 15;
+        this.phase = 1;
+    }
+
+    update(dt, world, player, enemies, particles) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        this.wingAnim += dt * 5;
+
+        if (this.hp <= 28 && this.phase === 1) {
+            this.phase = 2;
+            this.speed = 60;
+            this.swoopCooldown = 2;
+        }
+
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+
+        if (this.state === 'intro') {
+            this.introTimer -= dt;
+            if (this.introTimer <= 0) this.state = 'fly';
+            return;
+        }
+        if (this.state === 'stunned') {
+            this.stunnedTimer -= dt;
+            if (this.stunnedTimer <= 0) this.state = 'fly';
+            return;
+        }
+        if (this.state === 'swoop') {
+            this.swoopProgress += dt;
+            this.x += this.swoopDir.x * 300 * dt;
+            this.y += this.swoopDir.y * 300 * dt;
+            // Check hit
+            const dist = vecDist(mc, pc);
+            if (dist < 60) {
+                player.takeDamage(this.damage, angleBetween(mc, pc), 250);
+            }
+            if (this.swoopProgress > 0.8) {
+                this.state = 'stunned';
+                this.stunnedTimer = 1.8;
+            }
+            return;
+        }
+
+        // Fly state - circle and approach
+        const angle = angleBetween(mc, pc);
+        this.x += Math.cos(angle) * this.speed * dt + Math.sin(Date.now() / 400) * 30 * dt;
+        this.y += Math.sin(angle) * this.speed * dt + Math.cos(Date.now() / 350) * 20 * dt;
+
+        // Spawn bats
+        this.spawnTimer -= dt;
+        if (this.spawnTimer <= 0 && enemies) {
+            this.spawnTimer = this.phase === 1 ? 15 : 10;
+            for (let i = 0; i < 2; i++) {
+                const a = Math.random() * Math.PI * 2;
+                enemies.push(new GiantBat(mc.x + Math.cos(a) * 50, mc.y + Math.sin(a) * 50));
+            }
+        }
+
+        // Swoop attack
+        this.swoopTimer -= dt;
+        if (this.swoopTimer <= 0) {
+            this.state = 'swoop';
+            this.swoopDir = vecNormalize(vecSub(pc, mc));
+            this.swoopProgress = 0;
+            this.swoopTimer = this.swoopCooldown;
+        }
+    }
+
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        const flash = this.isFlashing();
+
+        if (this.dead) {
+            const t = this.deathProgress();
+            ctx.save();
+            for (let i = 0; i < 10; i++) {
+                ctx.globalAlpha = (1 - t) * 0.7;
+                const a = (Math.PI * 2 * i) / 10 + t * 2;
+                ctx.fillStyle = i % 2 ? '#633' : '#FFD700';
+                ctx.beginPath();
+                ctx.arc(cx + Math.cos(a) * t * 60, cy + Math.sin(a) * t * 60, (1 - t) * 8, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+            return;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = flash ? 0.3 : 0.9;
+
+        const wingSpread = Math.sin(this.wingAnim) * 20;
+        // Wings
+        ctx.fillStyle = '#2A1525';
+        ctx.beginPath();
+        ctx.ellipse(cx - 40 - wingSpread, cy - 5, 30 + wingSpread * 0.5, 18, -0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(cx + 40 + wingSpread, cy - 5, 30 + wingSpread * 0.5, 18, 0.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Body (dark armored)
+        ctx.fillStyle = '#3A2030';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 30, 25, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Armor plates
+        ctx.fillStyle = '#555';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy - 5, 20, 15, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Giant sword (always visible, points forward during swoop)
+        const swordAngle = this.state === 'swoop' ? Math.atan2(this.swoopDir.y, this.swoopDir.x) : Math.sin(Date.now() / 500) * 0.3;
+        ctx.strokeStyle = '#CCC';
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(cx, cy + 10);
+        ctx.lineTo(cx + Math.cos(swordAngle) * 50, cy + 10 + Math.sin(swordAngle) * 40);
+        ctx.stroke();
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(cx - 8, cy + 10);
+        ctx.lineTo(cx + 8, cy + 10);
+        ctx.stroke();
+
+        // Eyes (red, menacing)
+        ctx.fillStyle = '#F00';
+        ctx.beginPath(); ctx.arc(cx - 10, cy - 10, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + 10, cy - 10, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#800';
+        ctx.beginPath(); ctx.arc(cx - 10, cy - 9, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + 10, cy - 9, 3, 0, Math.PI * 2); ctx.fill();
+
+        // Stunned stars
+        if (this.state === 'stunned') {
+            ctx.globalAlpha = 0.8;
+            ctx.fillStyle = '#FF0';
+            ctx.font = '12px monospace';
+            for (let i = 0; i < 4; i++) {
+                const sa = Date.now() / 250 + i * Math.PI / 2;
+                ctx.fillText('\u2605', cx + Math.cos(sa) * 35 - 4, pos.y - 10 + Math.sin(sa) * 6);
+            }
+        }
+
+        // HP bar
+        ctx.globalAlpha = 1;
+        const barW = 90;
+        const barX = cx - barW / 2;
+        const barY = pos.y - 25;
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('RITTER-FLEDERMAUS', cx, barY - 4);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#222';
+        ctx.beginPath(); ctx.roundRect(barX, barY, barW, 7, 3); ctx.fill();
+        const hpPct = this.hp / this.maxHp;
+        ctx.fillStyle = hpPct > 0.4 ? '#A4F' : hpPct > 0.2 ? '#FA0' : '#F00';
         ctx.beginPath(); ctx.roundRect(barX + 1, barY + 1, (barW - 2) * hpPct, 5, 2); ctx.fill();
 
         ctx.restore();

@@ -23,9 +23,8 @@ const Game = {
     unlockedRanged: false,
     unlockedAuto: false,
     unlockedCrown: false,
-
-    // Hitstop (freeze frames on impact)
-    hitstopTimer: 0,
+    unlockedTripleShot: false,
+    maxWorldUnlocked: 1,
 
     // Screen transition
     fadeAlpha: 0,
@@ -69,9 +68,11 @@ const Game = {
         try {
             localStorage.setItem('mark_save', JSON.stringify({
                 world: this.currentWorld,
+                maxWorld: this.maxWorldUnlocked,
                 ranged: this.unlockedRanged,
                 auto: this.unlockedAuto,
-                crown: this.unlockedCrown
+                crown: this.unlockedCrown,
+                triple: this.unlockedTripleShot
             }));
         } catch (e) {}
     },
@@ -81,9 +82,11 @@ const Game = {
             const data = JSON.parse(localStorage.getItem('mark_save'));
             if (data) {
                 this.currentWorld = data.world || 1;
+                this.maxWorldUnlocked = data.maxWorld || data.world || 1;
                 this.unlockedRanged = !!data.ranged;
                 this.unlockedAuto = !!data.auto;
                 this.unlockedCrown = !!data.crown;
+                this.unlockedTripleShot = !!data.triple;
             }
         } catch (e) {}
     },
@@ -136,6 +139,8 @@ const Game = {
         this.unlockedRanged = false;
         this.unlockedAuto = false;
         this.unlockedCrown = false;
+        this.unlockedTripleShot = false;
+        this.maxWorldUnlocked = 1;
         this.clearSave();
         this.startWorld(1);
     },
@@ -156,8 +161,8 @@ const Game = {
 
         // Load world
         this.world = new World();
-        const levels = [null, WORLD1_LEVEL, WORLD2_LEVEL, WORLD3_LEVEL];
-        const themes = [null, 'castle', 'factory', 'cave'];
+        const levels = [null, WORLD1_LEVEL, WORLD2_LEVEL, WORLD3_LEVEL, WORLD4_LEVEL];
+        const themes = [null, 'castle', 'factory', 'cave', 'dark'];
         this.world.load(levels[worldNum]);
         this.world.theme = themes[worldNum];
 
@@ -168,6 +173,9 @@ const Game = {
         if (this.unlockedRanged || worldNum >= 2) {
             this.unlockedRanged = true;
             this.player.rangedWeapon = new BaseballLauncher();
+            if (this.unlockedTripleShot) {
+                this.player.rangedWeapon.tripleShot = true;
+            }
             if (worldNum >= 2) {
                 this.player.activeWeapon = this.player.rangedWeapon;
             }
@@ -203,6 +211,8 @@ const Game = {
             this._spawnWorld2();
         } else if (worldNum === 3) {
             this._spawnWorld3();
+        } else if (worldNum === 4) {
+            this._spawnWorld4();
         }
     },
 
@@ -246,8 +256,8 @@ const Game = {
         this.enemies.push(new MiniRoboChick(19 * 32 + 16, 6 * 32 + 16));
         this.enemies.push(new MiniRoboChick(15 * 32 + 16, 13 * 32 + 16));
         this.enemies.push(new MiniRoboChick(22 * 32 + 16, 10 * 32 + 16));
-        // Key ghost (same mechanic, different look could be a RoboChick variant)
-        this.enemies.push(new KeyGhost(26 * 32 + 16, 18 * 32 + 16));
+        // Giant Egg (10 HP, drops key when destroyed)
+        this.enemies.push(new GiantEgg(26 * 32 + 16, 18 * 32 + 16));
         this.enemies.push(new RoboChick(25 * 32 + 16, 17 * 32 + 16));
         this.enemies.push(new MiniRoboChick(27 * 32 + 16, 19 * 32 + 16));
 
@@ -285,6 +295,34 @@ const Game = {
         this.chests.push(new Chest(17 * 32 + 4, 16 * 32 + 6));
     },
 
+    // ── World 4: Dark Knight Castle ──
+    _spawnWorld4() {
+        // Shadow Knights
+        this.enemies.push(new ShadowKnight(8 * 32 + 16, 6 * 32 + 16));
+        this.enemies.push(new ShadowKnight(14 * 32 + 16, 8 * 32 + 16));
+        this.enemies.push(new ShadowKnight(20 * 32 + 16, 5 * 32 + 16));
+        this.enemies.push(new ShadowKnight(10 * 32 + 16, 14 * 32 + 16));
+        this.enemies.push(new ShadowKnight(18 * 32 + 16, 16 * 32 + 16));
+        this.enemies.push(new ShadowKnight(25 * 32 + 16, 12 * 32 + 16));
+        // Giant Bats
+        this.enemies.push(new GiantBat(6 * 32 + 16, 4 * 32 + 16));
+        this.enemies.push(new GiantBat(16 * 32 + 16, 6 * 32 + 16));
+        this.enemies.push(new GiantBat(22 * 32 + 16, 9 * 32 + 16));
+        this.enemies.push(new GiantBat(12 * 32 + 16, 12 * 32 + 16));
+        this.enemies.push(new GiantBat(28 * 32 + 16, 14 * 32 + 16));
+        // Key Knight
+        this.enemies.push(new KeyKnight(26 * 32 + 16, 18 * 32 + 16));
+        this.enemies.push(new ShadowKnight(25 * 32 + 16, 17 * 32 + 16));
+        this.enemies.push(new GiantBat(27 * 32 + 16, 19 * 32 + 16));
+
+        // Chests
+        this.chests.push(new Chest(7 * 32 + 4, 5 * 32 + 6));
+        this.chests.push(new Chest(15 * 32 + 4, 9 * 32 + 6));
+        this.chests.push(new Chest(23 * 32 + 4, 7 * 32 + 6));
+        this.chests.push(new Chest(11 * 32 + 4, 16 * 32 + 6));
+        this.chests.push(new Chest(20 * 32 + 4, 18 * 32 + 6));
+    },
+
     _spawnBoss() {
         this.bossActive = true;
         this.state = 'BOSS_INTRO';
@@ -298,6 +336,8 @@ const Game = {
             boss = new BossGhostChick(this.world.bossSpawn.x, this.world.bossSpawn.y);
         } else if (this.currentWorld === 3) {
             boss = new BossSlime(this.world.bossSpawn.x, this.world.bossSpawn.y);
+        } else if (this.currentWorld === 4) {
+            boss = new BossKnightBat(this.world.bossSpawn.x, this.world.bossSpawn.y);
         }
         this.enemies.push(boss);
 
@@ -312,26 +352,26 @@ const Game = {
         this.camera.shake(8, 0.5);
         this.vibrate(400);
 
+        this.maxWorldUnlocked = Math.max(this.maxWorldUnlocked, this.currentWorld + 1);
+        Sound.worldClear();
+        this.state = 'WORLD_CLEAR';
+        this.worldClearTimer = 60; // wait for button click
+
         if (this.currentWorld === 1) {
             this.unlockedRanged = true;
-            this.state = 'WORLD_CLEAR';
-            this.worldClearTimer = 4;
-            Sound.worldClear();
         } else if (this.currentWorld === 2) {
             this.unlockedAuto = true;
-            this.state = 'WORLD_CLEAR';
-            this.worldClearTimer = 4;
-            Sound.worldClear();
         } else if (this.currentWorld === 3) {
             this.unlockedCrown = true;
+        } else if (this.currentWorld === 4) {
+            this.unlockedTripleShot = true;
             this.state = 'WIN';
-            Sound.worldClear();
         }
         this.save();
     },
 
     _advanceToNextWorld() {
-        if (this.currentWorld < 3) {
+        if (this.currentWorld < 4) {
             this.startWorld(this.currentWorld + 1);
         }
     },
@@ -367,15 +407,19 @@ const Game = {
         if (this.state === 'TITLE') {
             if (Input._key('Enter') || Input._key('Space')) {
                 Sound.resume();
-                if (this.currentWorld > 1) this.startWorld(this.currentWorld);
-                else this.startNewGame();
+                this.startWorld(this.maxWorldUnlocked);
             }
             if (Input.attackPressed || Input.mouse.pressed) {
                 Sound.resume();
                 const btn = Renderer.getClickedButton(Input.mouse.x, Input.mouse.y);
-                if (btn === 'SPIELEN') {
-                    if (this.currentWorld > 1) this.startWorld(this.currentWorld);
-                    else this.startNewGame();
+                // World select buttons
+                const worldNames = ['Welt 1: Geisterschloss', 'Welt 2: Roboter-K\u00fcken', 'Welt 3: Schleim-Arena', 'Welt 4: Ritterburg'];
+                for (let i = 0; i < worldNames.length; i++) {
+                    if (btn === worldNames[i]) {
+                        this.startWorld(i + 1);
+                    }
+                }
+                if (false) { // old SPIELEN button removed
                 }
             }
             Input.postUpdate();
@@ -396,9 +440,12 @@ const Game = {
         }
 
         if (this.state === 'WORLD_CLEAR') {
-            this.worldClearTimer -= dt;
-            if (this.worldClearTimer <= 0 || Input.attackPressed || Input._key('Enter')) {
+            if (Input._key('Enter') || Input._key('Space')) {
                 this._advanceToNextWorld();
+            }
+            if (Input.attackPressed || Input.mouse.pressed) {
+                const btn = Renderer.getClickedButton(Input.mouse.x, Input.mouse.y);
+                if (btn === 'WEITER') this._advanceToNextWorld();
             }
             Input.postUpdate();
             return;

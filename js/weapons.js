@@ -127,6 +127,7 @@ class BaseballLauncher {
         this.cooldownTimer = 0;
         this.projectileSpeed = 350;
         this.knockback = 120;
+        this.tripleShot = false;
     }
 
     canAttack() {
@@ -138,14 +139,27 @@ class BaseballLauncher {
         this.cooldownTimer = this.cooldown;
         const cx = playerPos.x + playerPos.w / 2;
         const cy = playerPos.y + playerPos.h / 2;
-        projectiles.push(new Projectile(
-            cx, cy,
-            Math.cos(angle) * this.projectileSpeed,
-            Math.sin(angle) * this.projectileSpeed,
-            this.damage,
-            'player',
-            this.knockback
-        ));
+
+        if (this.tripleShot) {
+            // 3 balls in a spread pattern
+            const spread = 0.2; // ~11 degrees
+            for (let i = -1; i <= 1; i++) {
+                const a = angle + i * spread;
+                projectiles.push(new Projectile(
+                    cx, cy,
+                    Math.cos(a) * this.projectileSpeed,
+                    Math.sin(a) * this.projectileSpeed,
+                    this.damage, 'player', this.knockback
+                ));
+            }
+        } else {
+            projectiles.push(new Projectile(
+                cx, cy,
+                Math.cos(angle) * this.projectileSpeed,
+                Math.sin(angle) * this.projectileSpeed,
+                this.damage, 'player', this.knockback
+            ));
+        }
         return true;
     }
 

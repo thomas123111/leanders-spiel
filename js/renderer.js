@@ -65,8 +65,8 @@ const Renderer = {
         }
 
         // ── World indicator ──
-        const worldNames = [null, 'Geisterschloss', 'Roboter-Fabrik', 'Schleim-Arena'];
-        const worldColors = [null, '#A6F', '#F80', '#4D4'];
+        const worldNames = [null, 'Geisterschloss', 'Roboter-Fabrik', 'Schleim-Arena', 'Ritterburg'];
+        const worldColors = [null, '#A6F', '#F80', '#4D4', '#C66'];
         ctx.fillStyle = worldColors[game.currentWorld];
         ctx.font = 'bold 11px monospace';
         ctx.textAlign = 'right';
@@ -374,28 +374,33 @@ const Renderer = {
 
         // Worlds
         const worlds = [
-            { name: 'Welt 1: Das bunte Geisterschloss', color: '#A6F' },
-            { name: 'Welt 2: Die Roboter-K\u00fcken', color: '#F80' },
-            { name: 'Welt 3: Die Schleim-Arena', color: '#4D4' },
+            { name: 'Welt 1: Geisterschloss', color: '#A6F' },
+            { name: 'Welt 2: Roboter-K\u00fcken', color: '#F80' },
+            { name: 'Welt 3: Schleim-Arena', color: '#4D4' },
+            { name: 'Welt 4: Ritterburg', color: '#C66' },
         ];
+
+        // World select buttons
+        const btnW = 160;
+        const btnH = 32;
+        const startY = ch * 0.36;
         for (let i = 0; i < worlds.length; i++) {
-            ctx.fillStyle = worlds[i].color;
-            ctx.globalAlpha = 0.6 + Math.sin(Date.now() / 600 + i) * 0.2;
-            ctx.font = '12px monospace';
-            ctx.fillText(worlds[i].name, tx, ch * 0.38 + i * 22);
+            const unlocked = i + 1 <= Game.maxWorldUnlocked;
+            const bx = tx - btnW / 2;
+            const by = startY + i * 40;
+            if (unlocked) {
+                this._drawButton(ctx, bx, by, btnW, btnH, worlds[i].name);
+            } else {
+                ctx.fillStyle = '#333';
+                ctx.beginPath();
+                ctx.roundRect(bx, by, btnW, btnH, 8);
+                ctx.fill();
+                ctx.fillStyle = '#666';
+                ctx.font = '12px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('\uD83D\uDD12 ' + worlds[i].name, tx, by + btnH / 2 + 4);
+            }
         }
-        ctx.globalAlpha = 1;
-
-        if (Game.currentWorld > 1) {
-            ctx.fillStyle = '#4A9';
-            ctx.font = '13px monospace';
-            ctx.fillText('Fortschritt: Welt ' + Game.currentWorld, tx, ch * 0.56);
-        }
-
-        // Big yellow SPIELEN button
-        const btnW = 200;
-        const btnH = 50;
-        this._drawButton(ctx, tx - btnW / 2, ch * 0.65, btnW, btnH, 'SPIELEN');
 
         // Controls
         ctx.fillStyle = '#555';
@@ -442,7 +447,8 @@ const Renderer = {
     },
 
     drawWorldClearScreen(ctx, worldNum) {
-        ctx.fillStyle = 'rgba(0,0,0,0.75)';
+        this._buttons = [];
+        ctx.fillStyle = 'rgba(0,0,0,0.8)';
         ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
         const cx = ctx.canvas.width / 2;
@@ -453,35 +459,39 @@ const Renderer = {
 
         ctx.fillStyle = '#FFD700';
         ctx.font = 'bold 28px monospace';
-        ctx.fillText('WELT ' + worldNum + ' GESCHAFFT!', cx, cy - 40);
+        ctx.fillText('WELT ' + worldNum + ' GESCHAFFT!', cx, cy - 60);
 
-        // Reward
+        // Reward box
+        ctx.fillStyle = 'rgba(255,215,0,0.1)';
+        ctx.beginPath();
+        ctx.roundRect(cx - 180, cy - 40, 360, 70, 10);
+        ctx.fill();
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(cx - 180, cy - 40, 360, 70, 10);
+        ctx.stroke();
+
         ctx.fillStyle = '#FFF';
-        ctx.font = '16px monospace';
-        if (worldNum === 1) {
-            ctx.fillText('Belohnung: Baseball-Werfer!', cx, cy + 5);
+        ctx.font = 'bold 18px monospace';
+        const rewards = {
+            1: { title: 'BASEBALL-WERFER erhalten!', desc: 'Schie\u00dfe Baseb\u00e4lle auf Gegner! [Q] zum Wechseln', color: '#FFF' },
+            2: { title: 'AUTO-F\u00c4HIGKEIT erhalten!', desc: '[E] dr\u00fccken: 15 Sekunden durch W\u00e4nde fahren!', color: '#0FF' },
+            3: { title: 'GOLDENE KRONE erhalten!', desc: '5 Sekunden Schutzschild zu Beginn jedes Levels!', color: '#FFD700' },
+        };
+        const r = rewards[worldNum];
+        if (r) {
+            ctx.fillStyle = r.color;
+            ctx.fillText(r.title, cx, cy - 12);
             ctx.fillStyle = '#AAA';
-            ctx.font = '12px monospace';
-            ctx.fillText('Du kannst jetzt Baseballs auf Gegner schie\u00dfen! [Q] zum Wechseln', cx, cy + 28);
-        } else if (worldNum === 2) {
-            ctx.fillText('Belohnung: Auto-F\u00e4higkeit!', cx, cy + 5);
-            ctx.fillStyle = '#0FF';
-            ctx.font = '12px monospace';
-            ctx.fillText('[E] dr\u00fccken: 15 Sekunden durch W\u00e4nde fahren!', cx, cy + 28);
-        }
-
-        // Next world preview
-        ctx.fillStyle = '#4A9';
-        ctx.font = '14px monospace';
-        const nextName = worldNum === 1 ? 'Weiter zu: Die Roboter-K\u00fcken' : 'Weiter zu: Die Schleim-Arena';
-        ctx.fillText(nextName, cx, cy + 60);
-
-        const blink = Math.sin(Date.now() / 400) > 0;
-        if (blink) {
-            ctx.fillStyle = '#FFF';
             ctx.font = '13px monospace';
-            ctx.fillText(Input.isMobile ? 'Tippen zum Fortfahren' : 'Enter = Weiter', cx, cy + 90);
+            ctx.fillText(r.desc, cx, cy + 12);
         }
+
+        // WEITER button
+        const btnW = 180;
+        const btnH = 45;
+        this._drawButton(ctx, cx - btnW / 2, cy + 50, btnW, btnH, 'WEITER');
 
         ctx.restore();
     },
