@@ -65,8 +65,8 @@ const Renderer = {
         }
 
         // ── World indicator ──
-        const worldNames = [null, 'Geisterschloss', 'Roboter-Fabrik', 'Schleim-Arena', 'Ritterburg'];
-        const worldColors = [null, '#A6F', '#F80', '#4D4', '#C66'];
+        const worldNames = [null, 'Geisterschloss', 'Maschinen-Hof', 'Schleim-Arena', 'Schatten-Burg', 'Pilz-Wald', 'M\u00fccken-Sumpf', 'Antarktis', 'Vulkan-Insel'];
+        const worldColors = [null, '#A6F', '#F80', '#4D4', '#C66', '#A84', '#8A4', '#8CF', '#F84'];
         ctx.fillStyle = worldColors[game.currentWorld];
         ctx.font = 'bold 11px monospace';
         ctx.textAlign = 'right';
@@ -172,14 +172,34 @@ const Renderer = {
             this._drawMobileControls(ctx);
         }
 
-        // ── Boss intro ──
+        // ── Boss intro with unique names ──
         if (game.state === 'BOSS_INTRO') {
-            ctx.fillStyle = 'rgba(0,0,0,0.5)';
-            ctx.fillRect(0, ctx.canvas.height / 2 - 30, ctx.canvas.width, 60);
-            ctx.fillStyle = '#0F0';
-            ctx.font = 'bold 24px monospace';
+            const bossNames = {
+                1: { name: 'K\u00d6NIG GEIST', color: '#A6F' },
+                2: { name: 'RIESEN K\u00dcKEN', color: '#F80' },
+                3: { name: 'K\u00d6NIG SCHLEIM', color: '#4D4' },
+                4: { name: 'SCHATTEN FLEDERMAUS', color: '#C66' },
+                5: { name: 'RIESEN PILZ', color: '#A84' },
+                6: { name: 'RIESEN M\u00dcCKE', color: '#8A4' },
+                7: { name: 'SCHNEE ADLER', color: '#8CF' },
+                8: { name: 'FEUER PH\u00d6NIX', color: '#F84' },
+            };
+            const boss = bossNames[game.currentWorld] || { name: 'BOSS', color: '#F00' };
+            ctx.fillStyle = 'rgba(0,0,0,0.7)';
+            ctx.fillRect(0, ctx.canvas.height / 2 - 40, ctx.canvas.width, 80);
+            // Boss name with glow
             ctx.textAlign = 'center';
-            ctx.fillText('👻 RIESEN-GEIST 👻', ctx.canvas.width / 2, ctx.canvas.height / 2 + 8);
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = boss.color;
+            ctx.font = 'bold 36px monospace';
+            ctx.fillText(boss.name, ctx.canvas.width / 2 + 2, ctx.canvas.height / 2 + 12);
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = boss.color;
+            ctx.font = 'bold 32px monospace';
+            ctx.fillText(boss.name, ctx.canvas.width / 2, ctx.canvas.height / 2 + 10);
+            ctx.fillStyle = '#FFF';
+            ctx.font = '14px monospace';
+            ctx.fillText('Mach dich bereit!', ctx.canvas.width / 2, ctx.canvas.height / 2 + 30);
             ctx.textAlign = 'left';
         }
 
@@ -415,7 +435,11 @@ const Renderer = {
             { name: 'Welt 1: Geisterschloss', color: '#A6F' },
             { name: 'Welt 2: Roboter-K\u00fcken', color: '#F80' },
             { name: 'Welt 3: Schleim-Arena', color: '#4D4' },
-            { name: 'Welt 4: Ritterburg', color: '#C66' },
+            { name: 'Welt 4: Schatten-Burg', color: '#C66' },
+            { name: 'Welt 5: Pilz-Wald', color: '#A84' },
+            { name: 'Welt 6: M\u00fccken-Sumpf', color: '#8A4' },
+            { name: 'Welt 7: Antarktis', color: '#8CF' },
+            { name: 'Welt 8: Vulkan-Insel', color: '#F84' },
         ];
 
         // World select buttons (big, easy to tap)
@@ -459,7 +483,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v2.0.2', cw - 8, ch - 6);
+        ctx.fillText('v3.0.0', cw - 8, ch - 6);
 
         ctx.restore();
     },
@@ -525,9 +549,13 @@ const Renderer = {
         ctx.fillStyle = '#FFF';
         ctx.font = 'bold 18px monospace';
         const rewards = {
-            1: { title: 'BASEBALL-WERFER erhalten!', desc: 'Schie\u00dfe Baseb\u00e4lle auf Gegner! [Q] zum Wechseln', color: '#FFF' },
-            2: { title: 'AUTO-F\u00c4HIGKEIT erhalten!', desc: '[E] dr\u00fccken: 15 Sekunden durch W\u00e4nde fahren!', color: '#0FF' },
-            3: { title: 'GOLDENE KRONE erhalten!', desc: '5 Sekunden Schutzschild zu Beginn jedes Levels!', color: '#FFD700' },
+            1: { title: 'K\u00d6NIG GEIST besiegt!', desc: 'Weiter zum Maschinen-Hof!', color: '#A6F' },
+            2: { title: 'BASEBALL-WERFER erhalten!', desc: '3-fach Gift-B\u00e4lle! Fernkampf freigeschaltet!', color: '#4F4' },
+            3: { title: 'AUTO-F\u00c4HIGKEIT erhalten!', desc: '[E] dr\u00fccken: 15 Sekunden durch W\u00e4nde fahren!', color: '#0FF' },
+            4: { title: 'GOLDENE KRONE erhalten!', desc: '5 Sekunden Schutzschild zu Beginn jedes Levels!', color: '#FFD700' },
+            5: { title: 'RIESEN PILZ besiegt!', desc: 'Der M\u00fccken-Sumpf wartet...', color: '#A84' },
+            6: { title: 'RIESEN M\u00dcCKE besiegt!', desc: 'Ab in die Antarktis! Juri schlie\u00dft sich an!', color: '#8A4' },
+            7: { title: 'SCHNEE ADLER besiegt!', desc: 'Das Schatten-Krokodil k\u00e4mpft jetzt f\u00fcr euch!', color: '#8CF' },
         };
         const r = rewards[worldNum];
         if (r) {

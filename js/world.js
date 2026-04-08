@@ -97,21 +97,22 @@ class World {
     }
 
     update(dt) {
+        // Fast color cycling in ALL worlds (never black/brown)
         this.colorTimer += dt;
-        if (this.theme === 'castle') {
-            // Color cycling for ghost castle
-            if (this.colorTimer > 8) {
-                this.colorTimer = 0;
-                this.bgHue = (this.bgHue + randInt(30, 60)) % 360;
-            }
-        } else if (this.theme === 'factory') {
-            // Blue-gray industrial, no cycling
-            this.bgHue = 200;
-        } else if (this.theme === 'cave') {
-            this.bgHue = 120 + Math.sin(this.colorTimer * 0.5) * 10;
-        } else if (this.theme === 'dark') {
-            this.bgHue = 30 + Math.sin(this.colorTimer * 2) * 5;
-        }
+        this.bgHue = (this.bgHue + dt * 80) % 360;
+        if (this.bgHue > 15 && this.bgHue < 45) this.bgHue = 45;
+    }
+
+    getThemeDraw() {
+        const t = this.theme;
+        if (t === 'factory') return '_drawFactory';
+        if (t === 'cave') return '_drawCave';
+        if (t === 'dark') return '_drawDark';
+        if (t === 'mushroom') return '_drawMushroom';
+        if (t === 'swamp') return '_drawSwamp';
+        if (t === 'ice') return '_drawIce';
+        if (t === 'volcano') return '_drawVolcano';
+        return '_drawCastle';
     }
 
     draw(ctx, camera) {
@@ -125,15 +126,7 @@ class World {
                 const t = this.tiles[y][x];
                 const pos = camera.worldToScreen(x * TILE_SIZE, y * TILE_SIZE);
 
-                if (this.theme === 'factory') {
-                    this._drawFactory(ctx, t, pos, x, y);
-                } else if (this.theme === 'cave') {
-                    this._drawCave(ctx, t, pos, x, y);
-                } else if (this.theme === 'dark') {
-                    this._drawDark(ctx, t, pos, x, y);
-                } else {
-                    this._drawCastle(ctx, t, pos, x, y);
-                }
+                this[this.getThemeDraw()](ctx, t, pos, x, y);
             }
         }
     }
@@ -267,6 +260,116 @@ class World {
             ctx.lineTo(pos.x + 8, pos.y + 14);
             ctx.lineTo(pos.x + 12, pos.y + 26);
             ctx.fill();
+        }
+    }
+
+    _drawMushroom(ctx, t, pos, x, y) {
+        if (t === TILE_WALL) {
+            ctx.fillStyle = `hsl(${this.bgHue}, 30%, 22%)`;
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            // Moss dots
+            ctx.fillStyle = `hsl(${(this.bgHue + 60) % 360}, 50%, 35%)`;
+            if ((x + y) % 3 === 0) ctx.fillRect(pos.x + 8, pos.y + 12, 4, 4);
+        } else if (t === TILE_FLOOR || t === TILE_DOOR) {
+            ctx.fillStyle = `hsl(${this.bgHue}, 20%, 35%)`;
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            ctx.strokeStyle = `hsl(${this.bgHue}, 15%, 30%)`;
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+        } else if (t === TILE_BOSS_DOOR) {
+            this._drawBossDoor(ctx, pos);
+        } else if (t === TILE_WINDOW) {
+            ctx.fillStyle = `hsl(${this.bgHue}, 30%, 22%)`;
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            // Small mushroom
+            ctx.fillStyle = `hsl(${(this.bgHue + 120) % 360}, 70%, 50%)`;
+            ctx.beginPath();
+            ctx.arc(pos.x + 16, pos.y + 12, 8, Math.PI, 0);
+            ctx.fill();
+            ctx.fillStyle = '#DDD';
+            ctx.fillRect(pos.x + 14, pos.y + 12, 4, 10);
+        }
+    }
+
+    _drawSwamp(ctx, t, pos, x, y) {
+        if (t === TILE_WALL) {
+            ctx.fillStyle = `hsl(${this.bgHue}, 25%, 20%)`;
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+        } else if (t === TILE_FLOOR || t === TILE_DOOR) {
+            ctx.fillStyle = `hsl(${this.bgHue}, 30%, 32%)`;
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            // Water ripples
+            if ((x + y * 3) % 5 === 0) {
+                ctx.strokeStyle = `hsla(${this.bgHue}, 40%, 50%, 0.3)`;
+                ctx.lineWidth = 0.5;
+                ctx.beginPath();
+                ctx.arc(pos.x + 16, pos.y + 16, 6 + Math.sin(Date.now() / 500 + x) * 3, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        } else if (t === TILE_BOSS_DOOR) { this._drawBossDoor(ctx, pos);
+        } else if (t === TILE_WINDOW) {
+            ctx.fillStyle = `hsl(${this.bgHue}, 25%, 20%)`;
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            ctx.fillStyle = `hsl(${this.bgHue}, 60%, 45%)`;
+            ctx.beginPath();
+            ctx.ellipse(pos.x + 16, pos.y + 20, 10, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    _drawIce(ctx, t, pos, x, y) {
+        if (t === TILE_WALL) {
+            ctx.fillStyle = `hsl(${this.bgHue}, 15%, 55%)`;
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+            ctx.fillRect(pos.x + 4, pos.y + 4, 12, 8);
+        } else if (t === TILE_FLOOR || t === TILE_DOOR) {
+            ctx.fillStyle = `hsl(${this.bgHue}, 10%, 70%)`;
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            ctx.strokeStyle = `hsl(${this.bgHue}, 15%, 65%)`;
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+        } else if (t === TILE_BOSS_DOOR) { this._drawBossDoor(ctx, pos);
+        } else if (t === TILE_WINDOW) {
+            ctx.fillStyle = `hsl(${this.bgHue}, 15%, 55%)`;
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            // Icicle
+            ctx.fillStyle = '#ADF';
+            ctx.beginPath();
+            ctx.moveTo(pos.x + 10, pos.y + 8);
+            ctx.lineTo(pos.x + 16, pos.y + 26);
+            ctx.lineTo(pos.x + 22, pos.y + 8);
+            ctx.fill();
+        }
+    }
+
+    _drawVolcano(ctx, t, pos, x, y) {
+        if (t === TILE_WALL) {
+            ctx.fillStyle = `hsl(${this.bgHue}, 30%, 20%)`;
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            // Lava cracks
+            if ((x * 7 + y * 3) % 8 === 0) {
+                ctx.strokeStyle = `hsl(${(this.bgHue + 30) % 360}, 80%, 50%)`;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(pos.x + 6, pos.y + 10);
+                ctx.lineTo(pos.x + 20, pos.y + 22);
+                ctx.stroke();
+            }
+        } else if (t === TILE_FLOOR || t === TILE_DOOR) {
+            ctx.fillStyle = `hsl(${this.bgHue}, 20%, 30%)`;
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+        } else if (t === TILE_BOSS_DOOR) { this._drawBossDoor(ctx, pos);
+        } else if (t === TILE_WINDOW) {
+            ctx.fillStyle = `hsl(${this.bgHue}, 30%, 20%)`;
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            // Lava pool
+            ctx.fillStyle = `hsl(${(this.bgHue + 20) % 360}, 90%, 50%)`;
+            ctx.globalAlpha = 0.6 + Math.sin(Date.now() / 200 + x) * 0.2;
+            ctx.beginPath();
+            ctx.ellipse(pos.x + 16, pos.y + 16, 8, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
         }
     }
 
@@ -489,3 +592,7 @@ const WORLD1_LEVEL = generateLevel(50, 45, 12, 101);
 const WORLD2_LEVEL = generateLevel(55, 45, 14, 202);
 const WORLD3_LEVEL = generateLevel(50, 42, 13, 303);
 const WORLD4_LEVEL = generateLevel(55, 50, 15, 404);
+const WORLD5_LEVEL = generateLevel(52, 48, 14, 505);
+const WORLD6_LEVEL = generateLevel(55, 45, 13, 606);
+const WORLD7_LEVEL = generateLevel(50, 50, 15, 707);
+const WORLD8_LEVEL = generateLevel(55, 52, 16, 808);

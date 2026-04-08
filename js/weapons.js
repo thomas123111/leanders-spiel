@@ -126,6 +126,7 @@ class BaseballLauncher {
         this.cooldown = 0.3;
         this.cooldownTimer = 0;
         this.projectileSpeed = 350;
+        this.poison = false;
         this.knockback = 120;
         this.tripleShot = false;
     }
@@ -140,22 +141,23 @@ class BaseballLauncher {
         const cx = playerPos.x + playerPos.w / 2;
         const cy = playerPos.y + playerPos.h / 2;
 
-        if (this.tripleShot) {
-            // 3 balls in a spread pattern
-            const spread = 0.2; // ~11 degrees
-            for (let i = -1; i <= 1; i++) {
-                const a = angle + i * spread;
-                projectiles.push(new Projectile(
-                    cx, cy,
-                    Math.cos(a) * this.projectileSpeed,
-                    Math.sin(a) * this.projectileSpeed,
-                    this.damage, 'player', this.knockback
-                ));
-            }
-        } else {
-            projectiles.push(new Projectile(
+        const self = this;
+        function spawnBall(a) {
+            const p = new Projectile(
                 cx, cy,
-                Math.cos(angle) * this.projectileSpeed,
+                Math.cos(a) * self.projectileSpeed,
+                Math.sin(a) * self.projectileSpeed,
+                self.damage, 'player', self.knockback
+            );
+            if (self.poison) p.poison = true;
+            projectiles.push(p);
+        }
+
+        if (this.tripleShot) {
+            const spread = 0.2;
+            for (let i = -1; i <= 1; i++) spawnBall(angle + i * spread);
+        } else {
+            spawnBall(angle);
                 Math.sin(angle) * this.projectileSpeed,
                 this.damage, 'player', this.knockback
             ));
@@ -228,14 +230,23 @@ class Projectile {
     draw(ctx, camera) {
         const pos = camera.worldToScreen(this.x, this.y);
         ctx.save();
-        ctx.fillStyle = this.owner === 'player' ? '#FFF' : '#FF4444';
+        const isPoison = this.owner === 'player' && this.poison;
+        ctx.fillStyle = isPoison ? '#4F4' : (this.owner === 'player' ? '#FFF' : '#FF4444');
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, this.radius, 0, Math.PI * 2);
         ctx.fill();
+        if (isPoison) {
+            // Poison glow
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = '#0F0';
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, this.radius + 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
 
         if (this.owner === 'player') {
-            // Baseball stitching
-            ctx.strokeStyle = '#F44';
+            ctx.strokeStyle = isPoison ? '#0A0' : '#F44';
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.arc(pos.x - 1, pos.y, 3, -0.5, 0.5);

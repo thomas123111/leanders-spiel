@@ -161,8 +161,10 @@ const Game = {
 
         // Load world
         this.world = new World();
-        const levels = [null, WORLD1_LEVEL, WORLD2_LEVEL, WORLD3_LEVEL, WORLD4_LEVEL];
-        const themes = [null, 'castle', 'factory', 'cave', 'dark'];
+        const levels = [null, WORLD1_LEVEL, WORLD2_LEVEL, WORLD3_LEVEL, WORLD4_LEVEL,
+            WORLD5_LEVEL, WORLD6_LEVEL, WORLD7_LEVEL, WORLD8_LEVEL];
+        const themes = [null, 'castle', 'factory', 'cave', 'dark',
+            'mushroom', 'swamp', 'ice', 'volcano'];
         this.world.load(levels[worldNum]);
         this.world.theme = themes[worldNum];
 
@@ -170,13 +172,13 @@ const Game = {
         this.player = new Player(this.world.spawnPoint.x, this.world.spawnPoint.y);
 
         // Apply unlocked abilities
-        if (this.unlockedRanged || worldNum >= 2) {
+        // W1-2: bat only. W3+: baseball werfer with 3x gift balls
+        if (this.unlockedRanged || worldNum >= 3) {
             this.unlockedRanged = true;
             this.player.rangedWeapon = new BaseballLauncher();
-            if (this.unlockedTripleShot) {
-                this.player.rangedWeapon.tripleShot = true;
-            }
-            if (worldNum >= 2) {
+            this.player.rangedWeapon.tripleShot = true; // always 3x from W3
+            this.player.rangedWeapon.poison = true; // gift balls
+            if (worldNum >= 3) {
                 this.player.activeWeapon = this.player.rangedWeapon;
             }
         }
@@ -242,6 +244,8 @@ const Game = {
             this._spawnWorld3();
         } else if (worldNum === 4) {
             this._spawnWorld4();
+        } else if (worldNum >= 5) {
+            this._spawnGenericWorld(worldNum);
         }
     },
 
@@ -285,6 +289,24 @@ const Game = {
         for (let i = 0; i < 6; i++) this.chests.push(this._spawnChestAt());
     },
 
+    // Worlds 5-8 use mixed enemy types with increasing difficulty
+    _spawnGenericWorld(worldNum) {
+        const enemyCount = 10 + worldNum * 2;
+        // Mix of enemy types based on world
+        const types = [];
+        if (worldNum >= 5) types.push(Ghost, Slime, GiantBat);
+        if (worldNum >= 6) types.push(RoboChick, ShadowKnight);
+        if (worldNum >= 7) types.push(MiniRoboChick, GiantBat);
+        if (worldNum >= 8) types.push(ShadowKnight, RoboChick);
+
+        for (let i = 0; i < enemyCount; i++) {
+            const Type = types[Math.floor(Math.random() * types.length)];
+            this.enemies.push(this._spawnAt(Type));
+        }
+        this.enemies.push(this._spawnAt(KeyGhost, 300));
+        for (let i = 0; i < 7; i++) this.chests.push(this._spawnChestAt());
+    },
+
     _spawnBoss() {
         this.bossActive = true;
         this.state = 'BOSS_INTRO';
@@ -300,6 +322,18 @@ const Game = {
             boss = new BossSlime(this.world.bossSpawn.x, this.world.bossSpawn.y);
         } else if (this.currentWorld === 4) {
             boss = new BossKnightBat(this.world.bossSpawn.x, this.world.bossSpawn.y);
+        } else if (this.currentWorld === 5) {
+            boss = new BossSlime(this.world.bossSpawn.x, this.world.bossSpawn.y);
+            boss.hp = 45; boss.maxHp = 45; boss.speed = 30;
+        } else if (this.currentWorld === 6) {
+            boss = new BossGhostChick(this.world.bossSpawn.x, this.world.bossSpawn.y);
+            boss.hp = 55; boss.maxHp = 55;
+        } else if (this.currentWorld === 7) {
+            boss = new BossKnightBat(this.world.bossSpawn.x, this.world.bossSpawn.y);
+            boss.hp = 60; boss.maxHp = 60; boss.speed = 55;
+        } else if (this.currentWorld === 8) {
+            boss = new BossGhost(this.world.bossSpawn.x, this.world.bossSpawn.y);
+            boss.hp = 70; boss.maxHp = 70; boss.speed = 50;
         }
         this.enemies.push(boss);
 
@@ -320,20 +354,21 @@ const Game = {
         this.worldClearTimer = 60; // wait for button click
 
         if (this.currentWorld === 1) {
-            this.unlockedRanged = true;
+            // Progress only
         } else if (this.currentWorld === 2) {
-            this.unlockedAuto = true;
+            this.unlockedRanged = true; // baseball werfer with 3x gift balls
         } else if (this.currentWorld === 3) {
-            this.unlockedCrown = true;
+            this.unlockedAuto = true;
         } else if (this.currentWorld === 4) {
-            this.unlockedTripleShot = true;
+            this.unlockedCrown = true;
+        } else if (this.currentWorld >= 8) {
             this.state = 'WIN';
         }
         this.save();
     },
 
     _advanceToNextWorld() {
-        if (this.currentWorld < 4) {
+        if (this.currentWorld < 8) {
             this.startWorld(this.currentWorld + 1);
         }
     },
@@ -375,7 +410,7 @@ const Game = {
                 Sound.resume();
                 const btn = Renderer.getClickedButton(Input.mouse.x, Input.mouse.y);
                 if (btn) {
-                    const worldNames = ['Welt 1: Geisterschloss', 'Welt 2: Roboter-K\u00fcken', 'Welt 3: Schleim-Arena', 'Welt 4: Ritterburg'];
+                    const worldNames = ['Welt 1: Geisterschloss', 'Welt 2: Maschinen-Hof', 'Welt 3: Schleim-Arena', 'Welt 4: Schatten-Burg', 'Welt 5: Pilz-Wald', 'Welt 6: M\u00fccken-Sumpf', 'Welt 7: Antarktis', 'Welt 8: Vulkan-Insel'];
                     for (let i = 0; i < worldNames.length; i++) {
                         if (btn === worldNames[i] && i + 1 <= this.maxWorldUnlocked) {
                             this.startWorld(i + 1);

@@ -739,7 +739,7 @@ class BossGhost extends Enemy {
         ctx.fillStyle = '#FFF';
         ctx.font = 'bold 10px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('RIESEN-GEIST', bcx, barY - 4);
+        ctx.fillText('K\u00d6NIG GEIST', bcx, barY - 4);
         ctx.textAlign = 'left';
 
         // Bar background
@@ -1317,7 +1317,7 @@ class BossGhostChick extends Enemy {
         ctx.fillStyle = '#FFF';
         ctx.font = 'bold 9px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('GEISTER-KÜKEN', bpos.x + this.w / 2, barY - 4);
+        ctx.fillText('RIESEN K\u00dcKEN', bpos.x + this.w / 2, barY - 4);
         ctx.textAlign = 'left';
         ctx.fillStyle = '#222';
         ctx.beginPath(); ctx.roundRect(barX, barY, barW, 7, 3); ctx.fill();
@@ -1690,7 +1690,7 @@ class BossSlime extends Enemy {
         ctx.fillStyle = '#FFF';
         ctx.font = 'bold 9px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('SCHLEIM-KÖNIG', bpos.x + this.w / 2, barY - 4);
+        ctx.fillText('K\u00d6NIG SCHLEIM', bpos.x + this.w / 2, barY - 4);
         ctx.textAlign = 'left';
         ctx.fillStyle = '#222';
         ctx.beginPath(); ctx.roundRect(barX, barY, barW, 7, 3); ctx.fill();
@@ -2235,7 +2235,7 @@ class BossKnightBat extends Enemy {
         ctx.fillStyle = '#FFF';
         ctx.font = 'bold 9px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('RITTER-FLEDERMAUS', cx, barY - 4);
+        ctx.fillText('SCHATTEN FLEDERMAUS', cx, barY - 4);
         ctx.textAlign = 'left';
         ctx.fillStyle = '#222';
         ctx.beginPath(); ctx.roundRect(barX, barY, barW, 7, 3); ctx.fill();
