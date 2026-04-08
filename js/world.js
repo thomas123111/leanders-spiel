@@ -468,6 +468,18 @@ function generateLevel(width, height, numRooms, seed) {
     }
     carveCorridor(nearestRoom.cx, nearestRoom.cy, doorX, doorY - 3);
 
+    // Re-enforce boss door and spawn (corridor may have overwritten them)
+    map[doorY][doorX] = B;
+    map[bossCy][bossCx] = BS;
+    // Re-enforce boss room walls (corridor may have broken through)
+    for (let y = by1; y <= by2; y++) {
+        for (let x = bx1; x <= bx2; x++) {
+            if (y === by1 || y === by2 || x === bx1 || x === bx2) {
+                if (map[y][x] !== B) map[y][x] = W;
+            }
+        }
+    }
+
     return map;
 }
 
