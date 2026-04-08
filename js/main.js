@@ -355,17 +355,13 @@ const Game = {
         } else if (this.currentWorld === 4) {
             boss = new BossKnightBat(this.world.bossSpawn.x, this.world.bossSpawn.y);
         } else if (this.currentWorld === 5) {
-            boss = new BossSlime(this.world.bossSpawn.x, this.world.bossSpawn.y);
-            boss.hp = 45; boss.maxHp = 45; boss.speed = 30;
+            boss = new BossMushroomGiant(this.world.bossSpawn.x, this.world.bossSpawn.y);
         } else if (this.currentWorld === 6) {
-            boss = new BossGhostChick(this.world.bossSpawn.x, this.world.bossSpawn.y);
-            boss.hp = 55; boss.maxHp = 55;
+            boss = new BossMosquito(this.world.bossSpawn.x, this.world.bossSpawn.y);
         } else if (this.currentWorld === 7) {
-            boss = new BossKnightBat(this.world.bossSpawn.x, this.world.bossSpawn.y);
-            boss.hp = 60; boss.maxHp = 60; boss.speed = 55;
+            boss = new BossSnowEagle(this.world.bossSpawn.x, this.world.bossSpawn.y);
         } else if (this.currentWorld === 8) {
-            boss = new BossGhost(this.world.bossSpawn.x, this.world.bossSpawn.y);
-            boss.hp = 70; boss.maxHp = 70; boss.speed = 50;
+            boss = new BossFirePhoenix(this.world.bossSpawn.x, this.world.bossSpawn.y);
         }
         this.enemies.push(boss);
 

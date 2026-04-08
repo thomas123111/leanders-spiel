@@ -2644,3 +2644,244 @@ class ShadowCrocodile {
         ctx.restore();
     }
 }
+
+// ══════════════════════════════════════════
+// ── World 5-8 Unique Bosses ──
+// ══════════════════════════════════════════
+
+class BossMushroomGiant extends Enemy {
+    constructor(x,y) {
+        super(x,y,90,100); this.hp=50; this.maxHp=50; this.speed=20;
+        this.damage=2; this.isBoss=true; this.contactDamage=false;
+        this.state='intro'; this.introTimer=2; this.stunnedTimer=0;
+        this.sporeTimer=3; this.vineTimer=6; this.phase=1;
+    }
+    update(dt,world,player,enemies,particles) {
+        this.baseUpdate(dt,world); if(this.dead) return;
+        if(this.hp<=25&&this.phase===1){this.phase=2;this.speed=30;}
+        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
+        if(this.state==='intro'){this.introTimer-=dt;if(this.introTimer<=0)this.state='chase';return;}
+        if(this.state==='stunned'){this.stunnedTimer-=dt;if(this.stunnedTimer<=0)this.state='chase';return;}
+        const a=angleBetween(mc,pc);
+        this._moveWithCollision(Math.cos(a)*this.speed*dt,Math.sin(a)*this.speed*dt,world);
+        this.sporeTimer-=dt;
+        if(this.sporeTimer<=0){
+            this.sporeTimer=this.phase===1?3:2;
+            const n=this.phase===1?6:10;
+            for(let i=0;i<n;i++){const sa=(Math.PI*2*i)/n;
+                if(typeof Game!=='undefined')Game.projectiles.push(new Projectile(mc.x,mc.y,Math.cos(sa)*120,Math.sin(sa)*120,1,'enemy',60));
+            }
+            this.state='stunned';this.stunnedTimer=2;
+        }
+        this.vineTimer-=dt;
+        if(this.vineTimer<=0){
+            this.vineTimer=this.phase===1?6:4;
+            const dist=vecDist(mc,pc);
+            if(dist<150)player.takeDamage(2,a,200);
+            if(particles)for(let i=0;i<6;i++)particles.push(new Particle(mc.x+Math.cos(a)*i*20,mc.y+Math.sin(a)*i*20,0,-30,'#0A0',0.5));
+        }
+    }
+    draw(ctx,camera) {
+        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
+        if(this.dead){const t=this.deathProgress();ctx.save();for(let i=0;i<10;i++){ctx.globalAlpha=(1-t)*0.7;const a=(Math.PI*2*i)/10+t;ctx.fillStyle=i%2?'#F44':'#A84';ctx.beginPath();ctx.arc(cx+Math.cos(a)*t*60,cy+Math.sin(a)*t*60,(1-t)*8,0,Math.PI*2);ctx.fill();}ctx.restore();return;}
+        ctx.save();if(this.isFlashing())ctx.globalAlpha=0.4;
+        // Stem
+        ctx.fillStyle='#DDB88C';ctx.fillRect(cx-15,cy,30,45);
+        // Cap (red dome with white spots)
+        ctx.fillStyle='#CC3333';ctx.beginPath();ctx.ellipse(cx,cy,42,30,0,Math.PI,0);ctx.fill();
+        ctx.fillStyle='#FFF';
+        ctx.beginPath();ctx.arc(cx-15,cy-15,6,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(cx+12,cy-20,5,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(cx+5,cy-8,4,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(cx-20,cy-5,3,0,Math.PI*2);ctx.fill();
+        // Face
+        ctx.fillStyle='#000';
+        ctx.beginPath();ctx.arc(cx-10,cy+15,4,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(cx+10,cy+15,4,0,Math.PI*2);ctx.fill();
+        ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy+25,8,0.2,Math.PI-0.2);ctx.stroke();
+        // Stunned
+        if(this.state==='stunned'){ctx.globalAlpha=0.7;ctx.fillStyle='#FF0';ctx.font='12px monospace';for(let i=0;i<3;i++){const sa=Date.now()/300+i*2;ctx.fillText('\u2605',cx+Math.cos(sa)*30,pos.y-10+Math.sin(sa)*6);}}
+        // HP bar
+        ctx.globalAlpha=1;ctx.fillStyle='#FFF';ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.fillText('RIESEN PILZ',cx,pos.y-15);ctx.textAlign='left';
+        ctx.fillStyle='#222';ctx.beginPath();ctx.roundRect(cx-45,pos.y-10,90,7,3);ctx.fill();
+        ctx.fillStyle=this.hp>20?'#A84':'#F00';ctx.beginPath();ctx.roundRect(cx-44,pos.y-9,88*(this.hp/this.maxHp),5,2);ctx.fill();
+        ctx.restore();
+    }
+}
+
+class BossMosquito extends Enemy {
+    constructor(x,y) {
+        super(x,y,80,60); this.hp=55; this.maxHp=55; this.speed=60;
+        this.damage=2; this.isBoss=true; this.contactDamage=false; this.phasesThroughWalls=true;
+        this.state='intro'; this.introTimer=2; this.stunnedTimer=0;
+        this.spinTimer=3; this.swoopDir={x:0,y:0}; this.swoopProgress=0;
+        this.wingAnim=0; this.spawnTimer=12;
+    }
+    update(dt,world,player,enemies,particles) {
+        this.baseUpdate(dt,world); if(this.dead) return; this.wingAnim+=dt*10;
+        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
+        if(this.state==='intro'){this.introTimer-=dt;if(this.introTimer<=0)this.state='fly';return;}
+        if(this.state==='stunned'){this.stunnedTimer-=dt;if(this.stunnedTimer<=0)this.state='fly';return;}
+        if(this.state==='spin'){
+            this.swoopProgress+=dt;this.x+=this.swoopDir.x*250*dt;this.y+=this.swoopDir.y*250*dt;
+            if(vecDist(mc,pc)<50)player.takeDamage(2,angleBetween(mc,pc),200);
+            if(this.swoopProgress>1){this.state='stunned';this.stunnedTimer=2;}return;
+        }
+        const a=angleBetween(mc,pc);
+        this.x+=Math.cos(a)*this.speed*dt+Math.sin(Date.now()/300)*20*dt;
+        this.y+=Math.sin(a)*this.speed*dt+Math.cos(Date.now()/250)*15*dt;
+        this.spinTimer-=dt;
+        if(this.spinTimer<=0){this.spinTimer=3;this.state='spin';this.swoopDir=vecNormalize(vecSub(pc,mc));this.swoopProgress=0;}
+        this.spawnTimer-=dt;
+        if(this.spawnTimer<=0&&enemies){this.spawnTimer=12;for(let i=0;i<2;i++){const sa=Math.random()*Math.PI*2;enemies.push(new GiantBat(mc.x+Math.cos(sa)*50,mc.y+Math.sin(sa)*50));}}
+    }
+    draw(ctx,camera) {
+        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
+        if(this.dead){const t=this.deathProgress();ctx.save();ctx.globalAlpha=(1-t);ctx.fillStyle='#8A4';ctx.beginPath();ctx.arc(cx,cy,30*(1-t),0,Math.PI*2);ctx.fill();ctx.restore();return;}
+        ctx.save();if(this.isFlashing())ctx.globalAlpha=0.4;
+        const ws=Math.sin(this.wingAnim)*15;
+        // Wings
+        ctx.fillStyle='rgba(200,220,255,0.4)';
+        ctx.beginPath();ctx.ellipse(cx-25-ws,cy-5,20+ws*0.5,12,-0.2,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.ellipse(cx+25+ws,cy-5,20+ws*0.5,12,0.2,0,Math.PI*2);ctx.fill();
+        // Body (striped)
+        ctx.fillStyle='#554';ctx.beginPath();ctx.ellipse(cx,cy,20,14,0,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#443';for(let i=-1;i<=1;i++)ctx.fillRect(cx-18,cy+i*6-2,36,3);
+        // Proboscis (needle)
+        ctx.strokeStyle='#666';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx,cy+14);ctx.lineTo(cx,cy+35);ctx.stroke();
+        // Eyes (compound, red)
+        ctx.fillStyle='#F44';ctx.beginPath();ctx.arc(cx-8,cy-8,7,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(cx+8,cy-8,7,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#800';ctx.beginPath();ctx.arc(cx-8,cy-7,3,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(cx+8,cy-7,3,0,Math.PI*2);ctx.fill();
+        if(this.state==='stunned'){ctx.globalAlpha=0.7;ctx.fillStyle='#FF0';ctx.font='12px monospace';for(let i=0;i<3;i++){const sa=Date.now()/300+i*2;ctx.fillText('\u2605',cx+Math.cos(sa)*30,pos.y-10+Math.sin(sa)*6);}}
+        ctx.globalAlpha=1;ctx.fillStyle='#FFF';ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.fillText('RIESEN M\u00dcCKE',cx,pos.y-15);ctx.textAlign='left';
+        ctx.fillStyle='#222';ctx.beginPath();ctx.roundRect(cx-40,pos.y-10,80,7,3);ctx.fill();
+        ctx.fillStyle=this.hp>25?'#8A4':'#F00';ctx.beginPath();ctx.roundRect(cx-39,pos.y-9,78*(this.hp/this.maxHp),5,2);ctx.fill();
+        ctx.restore();
+    }
+}
+
+class BossSnowEagle extends Enemy {
+    constructor(x,y) {
+        super(x,y,100,80); this.hp=60; this.maxHp=60; this.speed=45;
+        this.damage=2; this.isBoss=true; this.contactDamage=false; this.phasesThroughWalls=true;
+        this.state='intro'; this.introTimer=2; this.stunnedTimer=0;
+        this.iceTimer=4; this.windTimer=7; this.wingAnim=0;
+    }
+    update(dt,world,player,enemies,particles) {
+        this.baseUpdate(dt,world); if(this.dead) return; this.wingAnim+=dt*4;
+        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
+        if(this.state==='intro'){this.introTimer-=dt;if(this.introTimer<=0)this.state='fly';return;}
+        if(this.state==='stunned'){this.stunnedTimer-=dt;if(this.stunnedTimer<=0)this.state='fly';return;}
+        const a=angleBetween(mc,pc);
+        this.x+=Math.cos(a)*this.speed*dt+Math.sin(Date.now()/500)*25*dt;
+        this.y+=Math.sin(a)*this.speed*dt+Math.cos(Date.now()/400)*20*dt;
+        this.iceTimer-=dt;
+        if(this.iceTimer<=0){
+            this.iceTimer=4;
+            for(let i=0;i<8;i++){const ix=mc.x-100+i*30;
+                if(typeof Game!=='undefined')Game.projectiles.push(new Projectile(ix,mc.y-200,0,180,1,'enemy',40));
+            }
+            this.state='stunned';this.stunnedTimer=2;
+        }
+        this.windTimer-=dt;
+        if(this.windTimer<=0){
+            this.windTimer=7;const dist=vecDist(mc,pc);
+            if(dist<200){const wa=angleBetween(mc,pc);player.takeDamage(0,wa,400);}
+            if(particles)for(let i=0;i<8;i++)particles.push(new Particle(mc.x,mc.y,Math.cos(a)*200+randRange(-40,40),Math.sin(a)*200+randRange(-40,40),'#ADF',0.6));
+        }
+    }
+    draw(ctx,camera) {
+        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
+        if(this.dead){const t=this.deathProgress();ctx.save();for(let i=0;i<12;i++){ctx.globalAlpha=(1-t);const a=(Math.PI*2*i)/12+t*2;ctx.fillStyle=i%2?'#ADF':'#FFF';ctx.beginPath();ctx.arc(cx+Math.cos(a)*t*70,cy+Math.sin(a)*t*70,(1-t)*8,0,Math.PI*2);ctx.fill();}ctx.restore();return;}
+        ctx.save();if(this.isFlashing())ctx.globalAlpha=0.4;
+        const ws=Math.sin(this.wingAnim)*20;
+        // Wings (white with ice-blue tips)
+        ctx.fillStyle='#EEF';ctx.beginPath();ctx.ellipse(cx-35-ws,cy,25+ws*0.5,16,-0.15,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.ellipse(cx+35+ws,cy,25+ws*0.5,16,0.15,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#8CF';
+        ctx.beginPath();ctx.ellipse(cx-50-ws,cy-2,10,8,-0.2,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.ellipse(cx+50+ws,cy-2,10,8,0.2,0,Math.PI*2);ctx.fill();
+        // Body
+        ctx.fillStyle='#FFF';ctx.beginPath();ctx.ellipse(cx,cy,22,16,0,0,Math.PI*2);ctx.fill();
+        // Head
+        ctx.fillStyle='#FFF';ctx.beginPath();ctx.arc(cx,cy-18,12,0,Math.PI*2);ctx.fill();
+        // Beak
+        ctx.fillStyle='#FA0';ctx.beginPath();ctx.moveTo(cx,cy-16);ctx.lineTo(cx+10,cy-12);ctx.lineTo(cx,cy-8);ctx.closePath();ctx.fill();
+        // Eyes (cold blue)
+        ctx.fillStyle='#48F';ctx.beginPath();ctx.arc(cx-4,cy-20,4,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#003';ctx.beginPath();ctx.arc(cx-4,cy-19,2,0,Math.PI*2);ctx.fill();
+        if(this.state==='stunned'){ctx.globalAlpha=0.7;ctx.fillStyle='#FF0';ctx.font='12px monospace';for(let i=0;i<4;i++){const sa=Date.now()/250+i*Math.PI/2;ctx.fillText('\u2605',cx+Math.cos(sa)*35,pos.y-25+Math.sin(sa)*6);}}
+        ctx.globalAlpha=1;ctx.fillStyle='#FFF';ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.fillText('SCHNEE ADLER',cx,pos.y-30);ctx.textAlign='left';
+        ctx.fillStyle='#222';ctx.beginPath();ctx.roundRect(cx-45,pos.y-25,90,7,3);ctx.fill();
+        ctx.fillStyle=this.hp>25?'#8CF':'#F00';ctx.beginPath();ctx.roundRect(cx-44,pos.y-24,88*(this.hp/this.maxHp),5,2);ctx.fill();
+        ctx.restore();
+    }
+}
+
+class BossFirePhoenix extends Enemy {
+    constructor(x,y) {
+        super(x,y,100,90); this.hp=70; this.maxHp=70; this.speed=40;
+        this.damage=3; this.isBoss=true; this.contactDamage=false; this.phasesThroughWalls=true;
+        this.state='intro'; this.introTimer=2; this.stunnedTimer=0;
+        this.fireTimer=3; this.waveTimer=6; this.wingAnim=0; this.phase=1;
+    }
+    update(dt,world,player,enemies,particles) {
+        this.baseUpdate(dt,world); if(this.dead) return; this.wingAnim+=dt*6;
+        if(this.hp<=35&&this.phase===1){this.phase=2;this.speed=55;}
+        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
+        if(this.state==='intro'){this.introTimer-=dt;if(this.introTimer<=0)this.state='fly';return;}
+        if(this.state==='stunned'){this.stunnedTimer-=dt;if(this.stunnedTimer<=0)this.state='fly';return;}
+        const a=angleBetween(mc,pc);
+        this.x+=Math.cos(a)*this.speed*dt+Math.sin(Date.now()/400)*30*dt;
+        this.y+=Math.sin(a)*this.speed*dt+Math.cos(Date.now()/350)*25*dt;
+        if(particles&&Math.random()<0.3)particles.push(new Particle(mc.x+randRange(-20,20),mc.y+randRange(-10,20),randRange(-15,15),-40,'#F80',0.4));
+        this.fireTimer-=dt;
+        if(this.fireTimer<=0){
+            this.fireTimer=this.phase===1?3:1.5;
+            const targets=[pc,{x:pc.x+50,y:pc.y},{x:pc.x-50,y:pc.y}];
+            for(const t of targets){const ta=angleBetween(mc,t);
+                if(typeof Game!=='undefined')Game.projectiles.push(new Projectile(mc.x,mc.y,Math.cos(ta)*200,Math.sin(ta)*200,2,'enemy',80));
+            }
+        }
+        this.waveTimer-=dt;
+        if(this.waveTimer<=0){
+            this.waveTimer=this.phase===1?6:3;
+            const n=12;for(let i=0;i<n;i++){const wa=(Math.PI*2*i)/n;
+                if(typeof Game!=='undefined')Game.projectiles.push(new Projectile(mc.x,mc.y,Math.cos(wa)*150,Math.sin(wa)*150,1,'enemy',60));
+            }
+            this.state='stunned';this.stunnedTimer=2;
+        }
+    }
+    draw(ctx,camera) {
+        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
+        if(this.dead){const t=this.deathProgress();ctx.save();for(let i=0;i<16;i++){ctx.globalAlpha=(1-t);const a=(Math.PI*2*i)/16+t*3;ctx.fillStyle=`hsl(${i*20},90%,55%)`;ctx.beginPath();ctx.arc(cx+Math.cos(a)*t*80,cy+Math.sin(a)*t*80,(1-t)*10,0,Math.PI*2);ctx.fill();}ctx.restore();return;}
+        ctx.save();if(this.isFlashing())ctx.globalAlpha=0.4;
+        const ws=Math.sin(this.wingAnim)*18;
+        // Fire wings
+        const wGrad=ctx.createRadialGradient(cx,cy,10,cx,cy,50);
+        wGrad.addColorStop(0,'#FF0');wGrad.addColorStop(0.5,'#F80');wGrad.addColorStop(1,'rgba(255,0,0,0.3)');
+        ctx.fillStyle=wGrad;
+        ctx.beginPath();ctx.ellipse(cx-35-ws,cy,28+ws*0.5,18,-0.2,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.ellipse(cx+35+ws,cy,28+ws*0.5,18,0.2,0,Math.PI*2);ctx.fill();
+        // Body
+        const bGrad=ctx.createRadialGradient(cx-5,cy-10,5,cx,cy,30);
+        bGrad.addColorStop(0,'#FF0');bGrad.addColorStop(0.4,'#F80');bGrad.addColorStop(1,'#C00');
+        ctx.fillStyle=bGrad;ctx.beginPath();ctx.ellipse(cx,cy,25,18,0,0,Math.PI*2);ctx.fill();
+        // Head
+        ctx.fillStyle='#FA0';ctx.beginPath();ctx.arc(cx,cy-22,12,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#FF0';ctx.beginPath();ctx.arc(cx,cy-24,8,Math.PI,0);ctx.fill();
+        // Beak
+        ctx.fillStyle='#F60';ctx.beginPath();ctx.moveTo(cx+8,cy-22);ctx.lineTo(cx+18,cy-18);ctx.lineTo(cx+8,cy-16);ctx.closePath();ctx.fill();
+        // Eyes (fierce red)
+        ctx.fillStyle='#F00';ctx.beginPath();ctx.arc(cx-3,cy-24,3.5,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#800';ctx.beginPath();ctx.arc(cx-3,cy-23,1.5,0,Math.PI*2);ctx.fill();
+        // Fire tail
+        ctx.fillStyle='#F80';for(let i=0;i<5;i++){const tx=cx-10-i*8,ty=cy+15+Math.sin(Date.now()/100+i)*5;
+            ctx.beginPath();ctx.arc(tx,ty,6-i,0,Math.PI*2);ctx.fill();}
+        if(this.state==='stunned'){ctx.globalAlpha=0.7;ctx.fillStyle='#FF0';ctx.font='14px monospace';for(let i=0;i<4;i++){const sa=Date.now()/250+i*Math.PI/2;ctx.fillText('\u2605',cx+Math.cos(sa)*40,pos.y-30+Math.sin(sa)*6);}}
+        ctx.globalAlpha=1;ctx.fillStyle='#FFF';ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.fillText('FEUER PH\u00d6NIX',cx,pos.y-35);ctx.textAlign='left';
+        ctx.fillStyle='#222';ctx.beginPath();ctx.roundRect(cx-45,pos.y-30,90,7,3);ctx.fill();
+        ctx.fillStyle=this.hp>30?'#F84':'#F00';ctx.beginPath();ctx.roundRect(cx-44,pos.y-29,88*(this.hp/this.maxHp),5,2);ctx.fill();
+        ctx.restore();
+    }
+}
