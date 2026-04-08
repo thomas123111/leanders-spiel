@@ -260,8 +260,14 @@ const Game = {
             this._spawnWorld3();
         } else if (worldNum === 4) {
             this._spawnWorld4();
-        } else if (worldNum >= 5) {
-            this._spawnGenericWorld(worldNum);
+        } else if (worldNum === 5) {
+            this._spawnWorld5();
+        } else if (worldNum === 6) {
+            this._spawnWorld6();
+        } else if (worldNum === 7) {
+            this._spawnWorld7();
+        } else if (worldNum === 8) {
+            this._spawnWorld8();
         }
     },
 
@@ -291,50 +297,62 @@ const Game = {
         return new Chest(p.x - 12, p.y - 10);
     },
 
-    // ── World 1: Ghost Castle ──
+    // ── World 1: Geisterschloss (VIELE Geister!) ──
     _spawnWorld1() {
-        for (let i = 0; i < 14; i++) this.enemies.push(this._spawnAt(Ghost));
+        for (let i = 0; i < 25; i++) this.enemies.push(this._spawnAt(Ghost));
         this.enemies.push(this._spawnAt(KeyGhost, 300));
         for (let i = 0; i < 6; i++) this.chests.push(this._spawnChestAt());
     },
 
-    // ── World 2: Robot Chick Factory ──
+    // ── World 2: Maschinen-Hof (RoboChicks + Drohnen) ──
     _spawnWorld2() {
-        for (let i = 0; i < 8; i++) this.enemies.push(this._spawnAt(RoboChick));
-        for (let i = 0; i < 5; i++) this.enemies.push(this._spawnAt(MiniRoboChick));
+        for (let i = 0; i < 6; i++) this.enemies.push(this._spawnAt(RoboChick));
+        for (let i = 0; i < 4; i++) this.enemies.push(this._spawnAt(MiniRoboChick));
+        for (let i = 0; i < 5; i++) this.enemies.push(this._spawnAt(Drone));
         this.enemies.push(this._spawnAt(GiantEgg, 300));
         for (let i = 0; i < 6; i++) this.chests.push(this._spawnChestAt());
     },
 
-    // ── World 3: Slime Arena ──
+    // ── World 3: Schleim-Arena (Schleim-Bälle) ──
     _spawnWorld3() {
-        for (let i = 0; i < 14; i++) this.enemies.push(this._spawnAt(Slime));
+        for (let i = 0; i < 16; i++) this.enemies.push(this._spawnAt(Slime));
         this.enemies.push(this._spawnAt(KeyGhost, 300));
         for (let i = 0; i < 6; i++) this.chests.push(this._spawnChestAt());
     },
 
-    // ── World 4: Dark Knight Castle ──
+    // ── World 4: Schatten-Burg (Schatten-Ritter + Fledermäuse) ──
     _spawnWorld4() {
-        for (let i = 0; i < 8; i++) this.enemies.push(this._spawnAt(ShadowKnight));
+        for (let i = 0; i < 10; i++) this.enemies.push(this._spawnAt(ShadowKnight));
         for (let i = 0; i < 6; i++) this.enemies.push(this._spawnAt(GiantBat));
         this.enemies.push(this._spawnAt(KeyKnight, 300));
         for (let i = 0; i < 6; i++) this.chests.push(this._spawnChestAt());
     },
 
-    // Worlds 5-8 use mixed enemy types with increasing difficulty
-    _spawnGenericWorld(worldNum) {
-        const enemyCount = 10 + worldNum * 2;
-        // Mix of enemy types based on world
-        const types = [];
-        if (worldNum >= 5) types.push(Ghost, Slime, GiantBat);
-        if (worldNum >= 6) types.push(RoboChick, ShadowKnight);
-        if (worldNum >= 7) types.push(MiniRoboChick, GiantBat);
-        if (worldNum >= 8) types.push(ShadowKnight, RoboChick);
+    // ── World 5: Pilz-Wald (Wandelnde Pilze mit Giftwolken) ──
+    _spawnWorld5() {
+        for (let i = 0; i < 18; i++) this.enemies.push(this._spawnAt(WalkingMushroom));
+        this.enemies.push(this._spawnAt(KeyGhost, 300));
+        for (let i = 0; i < 7; i++) this.chests.push(this._spawnChestAt());
+    },
 
-        for (let i = 0; i < enemyCount; i++) {
-            const Type = types[Math.floor(Math.random() * types.length)];
-            this.enemies.push(this._spawnAt(Type));
-        }
+    // ── World 6: Mücken-Sumpf (Sumpf-Mücken + Krokodil-Kind für Schlüssel) ──
+    _spawnWorld6() {
+        for (let i = 0; i < 20; i++) this.enemies.push(this._spawnAt(SwampMosquito));
+        this.enemies.push(this._spawnAt(CrocodileKid, 300)); // replaces KeyGhost
+        for (let i = 0; i < 7; i++) this.chests.push(this._spawnChestAt());
+    },
+
+    // ── World 7: Antarktis (Eisstrahl-Pinguine) ──
+    _spawnWorld7() {
+        for (let i = 0; i < 16; i++) this.enemies.push(this._spawnAt(IcePenguin));
+        for (let i = 0; i < 4; i++) this.enemies.push(this._spawnAt(GiantBat));
+        this.enemies.push(this._spawnAt(KeyGhost, 300));
+        for (let i = 0; i < 7; i++) this.chests.push(this._spawnChestAt());
+    },
+
+    // ── World 8: Vulkan-Insel (Lava-Kugeln) ──
+    _spawnWorld8() {
+        for (let i = 0; i < 20; i++) this.enemies.push(this._spawnAt(LavaBall));
         this.enemies.push(this._spawnAt(KeyGhost, 300));
         for (let i = 0; i < 7; i++) this.chests.push(this._spawnChestAt());
     },

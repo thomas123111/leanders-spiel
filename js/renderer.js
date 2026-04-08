@@ -484,7 +484,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v4.1.1', cw - 8, ch - 6);
+        ctx.fillText('v4.2.0', cw - 8, ch - 6);
 
         ctx.restore();
     },

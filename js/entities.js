@@ -2885,3 +2885,210 @@ class BossFirePhoenix extends Enemy {
         ctx.restore();
     }
 }
+
+// ══════════════════════════════════════════
+// ── World-Specific Enemies (GDD accurate) ──
+// ══════════════════════════════════════════
+
+// W2: Drone (flies, throws wrenches)
+class Drone extends Enemy {
+    constructor(x,y) {
+        super(x,y,20,16); this.hp=3; this.maxHp=3; this.speed=70; this.damage=1;
+        this.phasesThroughWalls=true; this.detectionRange=200;
+        this.shootTimer=0; this.shootCooldown=2; this.wingAnim=0;
+    }
+    update(dt,world,player,enemies,projectiles) {
+        this.baseUpdate(dt,world); if(this.dead) return; this.wingAnim+=dt*12;
+        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
+        const dist=vecDist(mc,pc);
+        if(dist<this.detectionRange) {
+            const a=angleBetween(mc,pc);
+            this.x+=Math.cos(a)*this.speed*dt; this.y+=Math.sin(a)*this.speed*dt;
+            this.shootTimer-=dt;
+            if(this.shootTimer<=0&&typeof Game!=='undefined') {
+                this.shootTimer=this.shootCooldown;
+                Game.projectiles.push(new Projectile(mc.x,mc.y,Math.cos(a)*140,Math.sin(a)*140,1,'enemy',50));
+            }
+        } else { this.x+=Math.sin(Date.now()/800)*20*dt; this.y+=Math.cos(Date.now()/600)*15*dt; }
+    }
+    draw(ctx,camera) {
+        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
+        if(this.dead){const t=this.deathProgress();ctx.save();ctx.globalAlpha=(1-t);ctx.fillStyle='#888';ctx.beginPath();ctx.arc(cx,cy,8*(1-t),0,Math.PI*2);ctx.fill();ctx.restore();return;}
+        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
+        const ws=Math.sin(this.wingAnim)*4;
+        ctx.fillStyle='#BBB'; ctx.beginPath(); ctx.ellipse(cx,cy,10,6,0,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='rgba(200,200,255,0.4)';
+        ctx.beginPath(); ctx.ellipse(cx-8,cy-4-ws,6,3,0,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(cx+8,cy-4+ws,6,3,0,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#F00'; ctx.beginPath(); ctx.arc(cx,cy,2,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+}
+
+// W5: Walking Mushroom (poison cloud on proximity)
+class WalkingMushroom extends Enemy {
+    constructor(x,y) {
+        super(x,y,22,24); this.hp=5; this.maxHp=5; this.speed=30; this.damage=1;
+        this.detectionRange=120; this.cloudTimer=0; this.cloudCooldown=3;
+    }
+    update(dt,world,player) {
+        this.baseUpdate(dt,world); if(this.dead) return;
+        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
+        const dist=vecDist(mc,pc);
+        if(dist<this.detectionRange) {
+            const a=angleBetween(mc,pc);
+            this._moveWithCollision(Math.cos(a)*this.speed*dt,Math.sin(a)*this.speed*dt,world);
+            this.cloudTimer-=dt;
+            if(this.cloudTimer<=0&&dist<50) {
+                this.cloudTimer=this.cloudCooldown;
+                player.takeDamage(1, a, 80);
+            }
+        }
+    }
+    draw(ctx,camera) {
+        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
+        if(this.dead){const t=this.deathProgress();ctx.save();ctx.globalAlpha=(1-t);ctx.fillStyle='#A84';ctx.beginPath();ctx.arc(cx,cy,11*(1-t),0,Math.PI*2);ctx.fill();ctx.restore();return;}
+        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
+        ctx.fillStyle='#DDB88C'; ctx.fillRect(cx-4,cy+2,8,12);
+        ctx.fillStyle='#CC6644'; ctx.beginPath(); ctx.ellipse(cx,cy,12,8,0,Math.PI,0); ctx.fill();
+        ctx.fillStyle='#FFF'; ctx.beginPath(); ctx.arc(cx-4,cy-3,3,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx+5,cy-1,2,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(cx-3,cy+4,2,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx+3,cy+4,2,0,Math.PI*2); ctx.fill();
+        if(this.cloudTimer>this.cloudCooldown-0.5){ctx.globalAlpha=0.3;ctx.fillStyle='#A0F';ctx.beginPath();ctx.arc(cx,cy,20,0,Math.PI*2);ctx.fill();}
+        ctx.restore();
+    }
+}
+
+// W6: Swamp Mosquito (fast, dive attack)
+class SwampMosquito extends Enemy {
+    constructor(x,y) {
+        super(x,y,18,14); this.hp=3; this.maxHp=3; this.speed=90; this.damage=1;
+        this.phasesThroughWalls=true; this.detectionRange=200; this.wingAnim=0;
+        this.diving=false; this.diveDir={x:0,y:0}; this.diveTimer=0;
+    }
+    update(dt,world,player) {
+        this.baseUpdate(dt,world); if(this.dead) return; this.wingAnim+=dt*15;
+        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
+        const dist=vecDist(mc,pc);
+        if(this.diving) {
+            this.x+=this.diveDir.x*180*dt; this.y+=this.diveDir.y*180*dt;
+            this.diveTimer-=dt;
+            if(dist<25) player.takeDamage(1,angleBetween(mc,pc),100);
+            if(this.diveTimer<=0) this.diving=false;
+            return;
+        }
+        if(dist<this.detectionRange) {
+            const a=angleBetween(mc,pc);
+            this.x+=Math.cos(a)*this.speed*0.3*dt+Math.sin(Date.now()/200)*30*dt;
+            this.y+=Math.sin(a)*this.speed*0.3*dt+Math.cos(Date.now()/180)*25*dt;
+            if(dist<80&&Math.random()<0.01) {
+                this.diving=true; this.diveDir=vecNormalize(vecSub(pc,mc)); this.diveTimer=0.5;
+            }
+        }
+    }
+    draw(ctx,camera) {
+        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
+        if(this.dead){const t=this.deathProgress();ctx.save();ctx.globalAlpha=(1-t);ctx.fillStyle='#8A4';ctx.beginPath();ctx.arc(cx,cy,7*(1-t),0,Math.PI*2);ctx.fill();ctx.restore();return;}
+        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
+        const ws=Math.sin(this.wingAnim)*5;
+        ctx.fillStyle='rgba(180,200,180,0.4)';
+        ctx.beginPath();ctx.ellipse(cx-7,cy-3-ws,5,3,0,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.ellipse(cx+7,cy-3+ws,5,3,0,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#665'; ctx.beginPath(); ctx.ellipse(cx,cy,7,5,0,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='#554'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(cx,cy+5); ctx.lineTo(cx,cy+12); ctx.stroke();
+        ctx.fillStyle='#F44'; ctx.beginPath(); ctx.arc(cx,cy-3,2,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+}
+
+// W6: Crocodile Kid (gives key when helped/defeated)
+class CrocodileKid extends Enemy {
+    constructor(x,y) {
+        super(x,y,24,20); this.hp=6; this.maxHp=6; this.speed=0; this.damage=0;
+        this.contactDamage=false; this.isKeyGhost=true; this.droppedKey=false;
+    }
+    update(dt,world,player) { this.baseUpdate(dt,world); }
+    draw(ctx,camera) {
+        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
+        if(this.dead){const t=this.deathProgress();ctx.save();ctx.globalAlpha=(1-t);ctx.fillStyle='#FFD700';ctx.beginPath();ctx.arc(cx,cy,12*(1-t),0,Math.PI*2);ctx.fill();ctx.restore();return;}
+        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
+        ctx.fillStyle='#5A5'; ctx.beginPath(); ctx.ellipse(cx,cy,11,8,0,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#6B6'; ctx.beginPath(); ctx.ellipse(cx+6,cy-2,6,4,0.3,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#FFF'; ctx.beginPath(); ctx.arc(cx-2,cy-3,2,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx+3,cy-3,2,0,Math.PI*2); ctx.fill();
+        // Key icon above
+        ctx.globalAlpha=0.3+Math.sin(Date.now()/400)*0.15;
+        ctx.fillStyle='#FFD700'; ctx.beginPath(); ctx.arc(cx,pos.y-8,6,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+}
+
+// W7: Ice Penguin (shoots ice beam that slows)
+class IcePenguin extends Enemy {
+    constructor(x,y) {
+        super(x,y,22,24); this.hp=6; this.maxHp=6; this.speed=35; this.damage=1;
+        this.detectionRange=180; this.shootTimer=0; this.shootCooldown=2.5;
+    }
+    update(dt,world,player,enemies,projectiles) {
+        this.baseUpdate(dt,world); if(this.dead) return;
+        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
+        const dist=vecDist(mc,pc);
+        if(dist<this.detectionRange) {
+            const a=angleBetween(mc,pc);
+            this._moveWithCollision(Math.cos(a)*this.speed*dt,Math.sin(a)*this.speed*dt,world);
+            this.shootTimer-=dt;
+            if(this.shootTimer<=0&&typeof Game!=='undefined') {
+                this.shootTimer=this.shootCooldown;
+                const p=new Projectile(mc.x,mc.y,Math.cos(a)*120,Math.sin(a)*120,1,'enemy',30);
+                p.isIce=true;
+                Game.projectiles.push(p);
+            }
+        }
+    }
+    draw(ctx,camera) {
+        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
+        if(this.dead){const t=this.deathProgress();ctx.save();ctx.globalAlpha=(1-t);ctx.fillStyle='#8CF';ctx.beginPath();ctx.arc(cx,cy,11*(1-t),0,Math.PI*2);ctx.fill();ctx.restore();return;}
+        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
+        // Body (black & white)
+        ctx.fillStyle='#222'; ctx.beginPath(); ctx.ellipse(cx,cy,10,12,0,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#FFF'; ctx.beginPath(); ctx.ellipse(cx,cy+2,7,9,0,0,Math.PI*2); ctx.fill();
+        // Beak
+        ctx.fillStyle='#F80'; ctx.beginPath(); ctx.moveTo(cx-2,cy-4); ctx.lineTo(cx,cy-8); ctx.lineTo(cx+2,cy-4); ctx.closePath(); ctx.fill();
+        // Eyes
+        ctx.fillStyle='#48F'; ctx.beginPath(); ctx.arc(cx-3,cy-6,2,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx+3,cy-6,2,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+}
+
+// W8: Lava Ball (rolls toward player like bowling ball)
+class LavaBall extends Enemy {
+    constructor(x,y) {
+        super(x,y,24,24); this.hp=4; this.maxHp=4; this.speed=65; this.damage=2;
+        this.detectionRange=250; this.rollAngle=0;
+    }
+    update(dt,world,player) {
+        this.baseUpdate(dt,world); if(this.dead) return;
+        this.rollAngle+=dt*8;
+        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
+        const dist=vecDist(mc,pc);
+        if(dist<this.detectionRange) {
+            const a=angleBetween(mc,pc);
+            this._moveWithCollision(Math.cos(a)*this.speed*dt,Math.sin(a)*this.speed*dt,world);
+        }
+    }
+    draw(ctx,camera) {
+        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
+        if(this.dead){const t=this.deathProgress();ctx.save();ctx.globalAlpha=(1-t);ctx.fillStyle='#F80';ctx.beginPath();ctx.arc(cx,cy,12*(1-t),0,Math.PI*2);ctx.fill();ctx.restore();return;}
+        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
+        ctx.translate(cx,cy); ctx.rotate(this.rollAngle); ctx.translate(-cx,-cy);
+        const g=ctx.createRadialGradient(cx-3,cy-3,2,cx,cy,12);
+        g.addColorStop(0,'#FF0'); g.addColorStop(0.4,'#F80'); g.addColorStop(1,'#A00');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,12,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='#F60'; ctx.lineWidth=1.5;
+        ctx.beginPath(); ctx.moveTo(cx-6,cy-4); ctx.lineTo(cx+4,cy+6); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx+6,cy-6); ctx.lineTo(cx-2,cy+4); ctx.stroke();
+        ctx.restore();
+    }
+}
