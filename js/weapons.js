@@ -158,9 +158,6 @@ class BaseballLauncher {
             for (let i = -1; i <= 1; i++) spawnBall(angle + i * spread);
         } else {
             spawnBall(angle);
-                Math.sin(angle) * this.projectileSpeed,
-                this.damage, 'player', this.knockback
-            ));
         }
         return true;
     }
