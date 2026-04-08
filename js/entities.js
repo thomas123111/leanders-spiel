@@ -844,9 +844,9 @@ class RoboChick extends Enemy {
                 { x: this.centerX(), y: this.centerY() },
                 { x: player.x + player.w / 2, y: player.y + player.h / 2 }
             );
-            this.x += Math.cos(angle) * this.speed * dt * 0.5;
-            this.y += Math.sin(angle) * this.speed * dt * 0.5;
-            this._moveWithCollision(0, 0, world);
+            const dx = Math.cos(angle) * this.speed * dt * 0.5;
+            const dy = Math.sin(angle) * this.speed * dt * 0.5;
+            this._moveWithCollision(dx, dy, world);
             this.legAnim += dt * 4;
 
             // Shoot
@@ -978,9 +978,9 @@ class MiniRoboChick extends Enemy {
         if (this.rollState === 'idle') {
             if (dist < this.detectionRange) {
                 const angle = angleBetween(mc, pc);
-                this.x += Math.cos(angle) * this.speed * 0.4 * dt;
-                this.y += Math.sin(angle) * this.speed * 0.4 * dt;
-                this._moveWithCollision(0, 0, world);
+                const dx = Math.cos(angle) * this.speed * 0.4 * dt;
+                const dy = Math.sin(angle) * this.speed * 0.4 * dt;
+                this._moveWithCollision(dx, dy, world);
                 if (dist < 80) {
                     this.rollState = 'charging';
                     this.rollTimer = 0.5;
@@ -995,9 +995,7 @@ class MiniRoboChick extends Enemy {
             }
         } else if (this.rollState === 'rolling') {
             this.spinAngle += dt * 20;
-            this.x += this.rollDir.x * 200 * dt;
-            this.y += this.rollDir.y * 200 * dt;
-            this._moveWithCollision(0, 0, world);
+            this._moveWithCollision(this.rollDir.x * 200 * dt, this.rollDir.y * 200 * dt, world);
             this.rollTimer -= dt;
             if (this.rollTimer <= 0) {
                 this.rollState = 'cooldown';
@@ -1335,9 +1333,9 @@ class Slime extends Enemy {
                 { x: this.centerX(), y: this.centerY() },
                 { x: player.x + player.w / 2, y: player.y + player.h / 2 }
             );
-            this.x += Math.cos(angle) * this.speed * dt;
-            this.y += Math.sin(angle) * this.speed * dt;
-            this._moveWithCollision(0, 0, world);
+            const dx = Math.cos(angle) * this.speed * dt;
+            const dy = Math.sin(angle) * this.speed * dt;
+            this._moveWithCollision(dx, dy, world);
             this.squish = Math.sin(Date.now() / 150) * 3;
         } else {
             this.squish = Math.sin(Date.now() / 400) * 1.5;
@@ -1488,9 +1486,9 @@ class BossSlime extends Enemy {
 
         if (this.state === 'chase') {
             const angle = angleBetween(mc, pc);
-            this.x += Math.cos(angle) * this.speed * dt;
-            this.y += Math.sin(angle) * this.speed * dt;
-            this._moveWithCollision(0, 0, world);
+            const dx = Math.cos(angle) * this.speed * dt;
+            const dy = Math.sin(angle) * this.speed * dt;
+            this._moveWithCollision(dx, dy, world);
             this.squish = Math.sin(Date.now() / 200) * 4;
 
             this.jumpTimer -= dt;
@@ -1507,15 +1505,23 @@ class BossSlime extends Enemy {
             if (this.jumpState === 'rising' && this.jumpProgress > 0.6) {
                 this.jumpState = 'falling';
                 this.jumpProgress = 0;
-                // Move to player pos
-                this.x = pc.x - this.w / 2;
-                this.y = pc.y - this.h / 2;
+                // Move toward player but clamp to world bounds
+                let targetX = pc.x - this.w / 2;
+                let targetY = pc.y - this.h / 2;
+                targetX = clamp(targetX, TILE_SIZE * 2, world.pixelWidth - this.w - TILE_SIZE * 2);
+                targetY = clamp(targetY, TILE_SIZE * 2, world.pixelHeight - this.h - TILE_SIZE * 2);
+                // Don't land inside walls - find nearest open spot
+                if (!world.isWall(targetX + this.w / 2, targetY + this.h / 2)) {
+                    this.x = targetX;
+                    this.y = targetY;
+                }
+                // else stay where we are
             }
             if (this.jumpState === 'falling' && this.jumpProgress > 0.3) {
-                // Impact!
-                const dist = vecDist(mc, pc);
+                const newMc = { x: this.centerX(), y: this.centerY() };
+                const dist = vecDist(newMc, pc);
                 if (dist < 120) {
-                    player.takeDamage(2, angleBetween(mc, pc), 250);
+                    player.takeDamage(2, angleBetween(newMc, pc), 250);
                 }
                 if (particles) {
                     for (let i = 0; i < 8; i++) {
