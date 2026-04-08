@@ -165,8 +165,12 @@ const Game = {
         this.player = new Player(this.world.spawnPoint.x, this.world.spawnPoint.y);
 
         // Apply unlocked abilities
-        if (this.unlockedRanged) {
+        if (this.unlockedRanged || worldNum >= 2) {
+            this.unlockedRanged = true;
             this.player.rangedWeapon = new BaseballLauncher();
+            if (worldNum >= 2) {
+                this.player.activeWeapon = this.player.rangedWeapon;
+            }
         }
         if (this.unlockedAuto) {
             this.player.hasAuto = true;
