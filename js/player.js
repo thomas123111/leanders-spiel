@@ -279,112 +279,82 @@ class Player {
         ctx.ellipse(cx, cy + this.h / 2 + 1, 10, 4, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // ── Body (torso) ──
+        // ── Body (torso - blue t-shirt) ──
         const bodyColor = this.hasPowerUp('attack') ? '#E85555' : (this.hasPowerUp('speed') ? '#5588EE' : '#4499AA');
         ctx.fillStyle = bodyColor;
         ctx.beginPath();
         ctx.roundRect(cx - 9, cy - 4 + walkBob, 18, 14, 3);
         ctx.fill();
 
-        // ── Tool belt ──
-        ctx.fillStyle = '#8B5E3C';
-        ctx.fillRect(cx - 10, cy + 6 + walkBob, 20, 3);
-        // Belt buckle
-        ctx.fillStyle = '#FFD700';
-        ctx.fillRect(cx - 2, cy + 6 + walkBob, 4, 3);
-        // Tools on belt
-        ctx.fillStyle = '#AAA';
-        ctx.fillRect(cx - 8, cy + 4 + walkBob, 2, 4); // wrench
-        ctx.fillStyle = '#C44';
-        ctx.fillRect(cx + 6, cy + 4 + walkBob, 2, 4); // screwdriver
-
         // ── Legs (simple, animated) ──
         const legSwing = (Input.direction.x !== 0 || Input.direction.y !== 0)
             ? Math.sin(Date.now() / 100) * 3 : 0;
         ctx.fillStyle = '#3366AA';
-        // Left leg
         ctx.fillRect(cx - 6, cy + 9 + walkBob, 4, 6);
-        ctx.fillRect(cx - 6 - legSwing * 0.3, cy + 13 + walkBob, 5, 3);
-        // Right leg
         ctx.fillRect(cx + 2, cy + 9 + walkBob, 4, 6);
-        ctx.fillRect(cx + 2 + legSwing * 0.3, cy + 13 + walkBob, 5, 3);
         // Shoes
         ctx.fillStyle = '#553322';
         ctx.fillRect(cx - 7 - legSwing * 0.3, cy + 14 + walkBob, 6, 3);
         ctx.fillRect(cx + 1 + legSwing * 0.3, cy + 14 + walkBob, 6, 3);
 
         // ── Head ──
-        ctx.fillStyle = '#FFCC88'; // skin
+        ctx.fillStyle = '#FFCC88';
         ctx.beginPath();
         ctx.arc(cx, cy - 6 + walkBob, 9, 0, Math.PI * 2);
         ctx.fill();
 
-        // ── Hair (messy inventor hair) ──
+        // ── Hair (short brown, visible below cap) ──
         ctx.fillStyle = '#663300';
+        ctx.fillRect(cx - 9, cy - 4 + walkBob, 3, 4);
+        ctx.fillRect(cx + 6, cy - 4 + walkBob, 3, 4);
         ctx.beginPath();
-        ctx.arc(cx, cy - 9 + walkBob, 9, Math.PI, 0);
+        ctx.arc(cx, cy - 6 + walkBob, 9, Math.PI * 0.85, Math.PI * 0.15, true);
         ctx.fill();
-        // Spiky hair tufts
-        ctx.fillStyle = '#773311';
-        for (let i = -2; i <= 2; i++) {
-            ctx.beginPath();
-            ctx.moveTo(cx + i * 4, cy - 14 + walkBob);
-            ctx.lineTo(cx + i * 4 - 2, cy - 9 + walkBob);
-            ctx.lineTo(cx + i * 4 + 2, cy - 9 + walkBob);
-            ctx.closePath();
-            ctx.fill();
-        }
 
-        // ── Goggles ──
-        const goggleY = cy - 6 + walkBob;
-        const eyeAngle1 = this.facingAngle - 0.35;
-        const eyeAngle2 = this.facingAngle + 0.35;
-        const goggleDist = 4.5;
-
-        // Goggle strap
-        ctx.strokeStyle = '#666';
-        ctx.lineWidth = 1.5;
+        // ── Red Baseball Cap ──
+        const capY = cy - 8 + walkBob;
+        ctx.fillStyle = '#DD2222';
+        // Cap dome
         ctx.beginPath();
-        ctx.arc(cx, goggleY, 8.5, Math.PI * 0.8, Math.PI * 0.2, true);
-        ctx.stroke();
-
-        // Left goggle lens
-        const gx1 = cx + Math.cos(eyeAngle1) * goggleDist;
-        const gy1 = goggleY + Math.sin(eyeAngle1) * goggleDist;
-        ctx.fillStyle = '#334';
-        ctx.strokeStyle = '#888';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(gx1, gy1, 4.5, 0, Math.PI * 2);
+        ctx.arc(cx, capY, 10, Math.PI, 0);
         ctx.fill();
-        ctx.stroke();
-        // Lens reflection
-        ctx.fillStyle = 'rgba(100,200,255,0.5)';
+        ctx.fillRect(cx - 10, capY - 1, 20, 4);
+        // Cap brim (points in facing direction)
+        ctx.fillStyle = '#BB1111';
+        const brimAngle = this.facingAngle;
         ctx.beginPath();
-        ctx.arc(gx1, gy1, 3.5, 0, Math.PI * 2);
+        ctx.ellipse(
+            cx + Math.cos(brimAngle) * 8,
+            capY + 2 + Math.sin(brimAngle) * 3,
+            7, 3, brimAngle, 0, Math.PI * 2
+        );
         ctx.fill();
-        // Pupil
+        // Cap button on top
+        ctx.fillStyle = '#FF4444';
+        ctx.beginPath();
+        ctx.arc(cx, capY - 3, 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ── Eyes (normal boy eyes, follow facing) ──
+        const eyeY = cy - 5 + walkBob;
+        const eyeAngle1 = this.facingAngle - 0.4;
+        const eyeAngle2 = this.facingAngle + 0.4;
+        const eyeDist = 4.5;
+        // Eye whites
         ctx.fillStyle = '#FFF';
         ctx.beginPath();
-        ctx.arc(gx1 + Math.cos(this.facingAngle) * 1.5, gy1 + Math.sin(this.facingAngle) * 1.5, 1.5, 0, Math.PI * 2);
+        ctx.arc(cx + Math.cos(eyeAngle1) * eyeDist, eyeY + Math.sin(eyeAngle1) * eyeDist, 3, 0, Math.PI * 2);
         ctx.fill();
-
-        // Right goggle lens
-        const gx2 = cx + Math.cos(eyeAngle2) * goggleDist;
-        const gy2 = goggleY + Math.sin(eyeAngle2) * goggleDist;
-        ctx.fillStyle = '#334';
-        ctx.strokeStyle = '#888';
         ctx.beginPath();
-        ctx.arc(gx2, gy2, 4.5, 0, Math.PI * 2);
+        ctx.arc(cx + Math.cos(eyeAngle2) * eyeDist, eyeY + Math.sin(eyeAngle2) * eyeDist, 3, 0, Math.PI * 2);
         ctx.fill();
-        ctx.stroke();
-        ctx.fillStyle = 'rgba(100,200,255,0.5)';
+        // Pupils
+        ctx.fillStyle = '#332211';
         ctx.beginPath();
-        ctx.arc(gx2, gy2, 3.5, 0, Math.PI * 2);
+        ctx.arc(cx + Math.cos(eyeAngle1) * (eyeDist + 1), eyeY + Math.sin(eyeAngle1) * (eyeDist + 1), 1.5, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = '#FFF';
         ctx.beginPath();
-        ctx.arc(gx2 + Math.cos(this.facingAngle) * 1.5, gy2 + Math.sin(this.facingAngle) * 1.5, 1.5, 0, Math.PI * 2);
+        ctx.arc(cx + Math.cos(eyeAngle2) * (eyeDist + 1), eyeY + Math.sin(eyeAngle2) * (eyeDist + 1), 1.5, 0, Math.PI * 2);
         ctx.fill();
 
         // ── Mouth (small smile) ──
@@ -392,7 +362,7 @@ class Player {
         ctx.lineWidth = 1;
         ctx.beginPath();
         const mouthX = cx + Math.cos(this.facingAngle) * 5;
-        const mouthY = goggleY + Math.sin(this.facingAngle) * 5 + 3;
+        const mouthY = eyeY + Math.sin(this.facingAngle) * 5 + 3;
         ctx.arc(mouthX, mouthY, 2, 0.1, Math.PI - 0.1);
         ctx.stroke();
 

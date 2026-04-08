@@ -280,20 +280,11 @@ const Renderer = {
         ctx.fillStyle = '#553322';
         ctx.fillRect(-12, 32, 10, 5);
         ctx.fillRect(2, 32, 10, 5);
-        // Body
+        // Body (blue shirt)
         ctx.fillStyle = '#4499AA';
         ctx.beginPath();
         ctx.roundRect(-14, -5, 28, 26, 5);
         ctx.fill();
-        // Belt
-        ctx.fillStyle = '#8B5E3C';
-        ctx.fillRect(-15, 14, 30, 5);
-        ctx.fillStyle = '#FFD700';
-        ctx.fillRect(-3, 14, 6, 5);
-        ctx.fillStyle = '#AAA';
-        ctx.fillRect(-12, 12, 3, 6);
-        ctx.fillStyle = '#C44';
-        ctx.fillRect(9, 12, 3, 6);
         // Arms
         ctx.strokeStyle = '#FFBB77';
         ctx.lineWidth = 5;
@@ -306,60 +297,56 @@ const Renderer = {
         ctx.moveTo(14, 2);
         ctx.lineTo(24, 10);
         ctx.stroke();
-        // Bat
+        // Bat in right hand
         ctx.strokeStyle = '#C8A060';
-        ctx.lineWidth = 5;
+        ctx.lineWidth = 6;
         ctx.beginPath();
         ctx.moveTo(24, 10);
-        ctx.lineTo(32, -8);
+        ctx.lineTo(34, -10);
         ctx.stroke();
         ctx.strokeStyle = '#333';
         ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.moveTo(24, 10);
-        ctx.lineTo(26, 4);
+        ctx.lineTo(26, 3);
         ctx.stroke();
         // Head
         ctx.fillStyle = '#FFCC88';
         ctx.beginPath();
         ctx.arc(0, -16, 14, 0, Math.PI * 2);
         ctx.fill();
-        // Hair
+        // Hair (short brown, visible below cap)
         ctx.fillStyle = '#663300';
+        ctx.fillRect(-13, -12, 4, 6);
+        ctx.fillRect(9, -12, 4, 6);
+        // Red Baseball Cap
+        ctx.fillStyle = '#DD2222';
         ctx.beginPath();
-        ctx.arc(0, -20, 14, Math.PI, 0);
+        ctx.arc(0, -20, 15, Math.PI, 0);
         ctx.fill();
-        ctx.fillStyle = '#773311';
-        for (let i = -3; i <= 3; i++) {
-            ctx.beginPath();
-            ctx.moveTo(i * 5, -30);
-            ctx.lineTo(i * 5 - 3, -22);
-            ctx.lineTo(i * 5 + 3, -22);
-            ctx.closePath();
-            ctx.fill();
-        }
-        // Goggles
-        ctx.fillStyle = '#334';
-        ctx.strokeStyle = '#888';
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(-6, -16, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.arc(6, -16, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = 'rgba(100,200,255,0.5)';
-        ctx.beginPath(); ctx.arc(-6, -16, 5, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(6, -16, 5, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#FFF';
-        ctx.beginPath(); ctx.arc(-5, -16, 2, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(7, -16, 2, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = '#666';
-        ctx.lineWidth = 2;
+        ctx.fillRect(-15, -21, 30, 5);
+        // Brim (forward)
+        ctx.fillStyle = '#BB1111';
         ctx.beginPath();
-        ctx.arc(0, -16, 12, Math.PI * 0.75, Math.PI * 0.25, true);
-        ctx.stroke();
+        ctx.ellipse(12, -18, 10, 4, 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        // Cap button
+        ctx.fillStyle = '#FF4444';
+        ctx.beginPath();
+        ctx.arc(0, -25, 3, 0, Math.PI * 2);
+        ctx.fill();
+        // Eyes
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath(); ctx.arc(-5, -15, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(5, -15, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#332211';
+        ctx.beginPath(); ctx.arc(-4, -14, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(6, -14, 2, 0, Math.PI * 2); ctx.fill();
         // Smile
         ctx.strokeStyle = '#884422';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(0, -10, 4, 0.2, Math.PI - 0.2);
+        ctx.arc(0, -10, 5, 0.2, Math.PI - 0.2);
         ctx.stroke();
         ctx.restore();
     },
