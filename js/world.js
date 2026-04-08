@@ -413,29 +413,39 @@ function generateLevel(width, height, numRooms, seed) {
     // Place spawn in first room
     map[rooms[0].cy][rooms[0].cx] = S;
 
-    // Boss room: last room, make it bigger
+    // Boss room: last room - ISOLATE it with walls, single boss door entry
     const bossRoom = rooms[rooms.length - 1];
-    carveRoom(bossRoom.x - 2, bossRoom.y - 2, bossRoom.w + 4, bossRoom.h + 4);
-    map[bossRoom.cy][bossRoom.cx] = BS;
+    const bx1 = Math.max(1, bossRoom.x - 3);
+    const by1 = Math.max(1, bossRoom.y - 3);
+    const bx2 = Math.min(width - 2, bossRoom.x + bossRoom.w + 3);
+    const by2 = Math.min(height - 2, bossRoom.y + bossRoom.h + 3);
 
-    // Place boss door: find wall between second-to-last corridor and boss room
-    let doorPlaced = false;
-    const preBoss = rooms[rooms.length - 2];
-    // Walk from preBoss to bossRoom and find a wall to place door
-    let dx = preBoss.cx, dy = preBoss.cy;
-    while (dx !== bossRoom.cx || dy !== bossRoom.cy) {
-        if (dx !== bossRoom.cx) dx += dx < bossRoom.cx ? 1 : -1;
-        else dy += dy < bossRoom.cy ? 1 : -1;
-        if (!doorPlaced && map[dy] && map[dy][dx] === W) {
-            map[dy][dx] = B;
-            doorPlaced = true;
+    // Wall off the boss room completely
+    for (let y = by1; y <= by2; y++) {
+        for (let x = bx1; x <= bx2; x++) {
+            if (y === by1 || y === by2 || x === bx1 || x === bx2) {
+                map[y][x] = W;
+            } else {
+                map[y][x] = F;
+            }
         }
     }
-    if (!doorPlaced) {
-        // Fallback: place door at boss room entrance
-        const doorY = Math.max(1, bossRoom.y - 2);
-        if (map[doorY]) map[doorY][bossRoom.cx] = B;
-    }
+    // Add windows on boss room walls
+    addWindows(bx1 + 1, by1 + 1, bx2 - bx1 - 2, by2 - by1 - 2);
+    // Place boss spawn in center
+    map[bossRoom.cy][bossRoom.cx] = BS;
+
+    // Place boss door on the top wall of boss room
+    const doorX = bossRoom.cx;
+    const doorY = by1;
+    map[doorY][doorX] = B;
+
+    // Make sure there's a corridor FROM the pre-boss room TO the boss door
+    const preBoss = rooms[rooms.length - 2];
+    carveCorridor(preBoss.cx, preBoss.cy, doorX, doorY - 1);
+    // Ensure the tile above the door is floor (so player can reach it)
+    if (doorY > 1) map[doorY - 1][doorX] = F;
+    if (doorY > 2) map[doorY - 2][doorX] = F;
 
     return map;
 }
