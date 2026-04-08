@@ -432,8 +432,9 @@ const Renderer = {
 
         // Worlds
         const worlds = [
+            { name: 'Tutorial', color: '#AAA' },
             { name: 'Welt 1: Geisterschloss', color: '#A6F' },
-            { name: 'Welt 2: Roboter-K\u00fcken', color: '#F80' },
+            { name: 'Welt 2: Maschinen-Hof', color: '#F80' },
             { name: 'Welt 3: Schleim-Arena', color: '#4D4' },
             { name: 'Welt 4: Schatten-Burg', color: '#C66' },
             { name: 'Welt 5: Pilz-Wald', color: '#A84' },
@@ -442,14 +443,14 @@ const Renderer = {
             { name: 'Welt 8: Vulkan-Insel', color: '#F84' },
         ];
 
-        // World select buttons (big, easy to tap)
-        const btnW = 260;
-        const btnH = 42;
-        const startY = ch * 0.34;
+        // World select buttons (scrollable list, smaller to fit 9)
+        const btnW = 240;
+        const btnH = 30;
+        const startY = ch * 0.14;
         for (let i = 0; i < worlds.length; i++) {
-            const unlocked = i + 1 <= Game.maxWorldUnlocked;
+            const unlocked = i <= Game.maxWorldUnlocked; // Tutorial=0 always unlocked
             const bx = tx - btnW / 2;
-            const by = startY + i * 50;
+            const by = startY + i * 34;
             if (unlocked) {
                 this._drawButton(ctx, bx, by, btnW, btnH, worlds[i].name, 14);
             } else {
@@ -483,7 +484,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v3.0.0', cw - 8, ch - 6);
+        ctx.fillText('v4.0.0', cw - 8, ch - 6);
 
         ctx.restore();
     },

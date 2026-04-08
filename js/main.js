@@ -4,12 +4,13 @@ const Game = {
     canvas: null,
     ctx: null,
     state: 'TITLE',
-    currentWorld: 1,
+    currentWorld: 0, // 0 = tutorial
     player: null,
     world: null,
     camera: null,
     enemies: [],
     projectiles: [],
+    companions: [], // Juri, Crocodile
     particles: [],
     chests: [],
     keyDrops: [],
@@ -135,14 +136,14 @@ const Game = {
 
     startNewGame() {
         Sound.resume();
-        this.currentWorld = 1;
+        this.currentWorld = 0;
         this.unlockedRanged = false;
         this.unlockedAuto = false;
         this.unlockedCrown = false;
         this.unlockedTripleShot = false;
-        this.maxWorldUnlocked = 1;
+        this.maxWorldUnlocked = 0;
         this.clearSave();
-        this.startWorld(1);
+        this.startWorld(0);
     },
 
     startWorld(worldNum) {
@@ -154,6 +155,7 @@ const Game = {
         this.projectiles = [];
         this.particles = [];
         this.chests = [];
+        this.companions = [];
         this.keyDrops = [];
         this.hasKey = false;
         this.bossActive = false;
@@ -161,15 +163,27 @@ const Game = {
 
         // Load world
         this.world = new World();
-        const levels = [null, WORLD1_LEVEL, WORLD2_LEVEL, WORLD3_LEVEL, WORLD4_LEVEL,
+        const levels = [TUTORIAL_LEVEL, WORLD1_LEVEL, WORLD2_LEVEL, WORLD3_LEVEL, WORLD4_LEVEL,
             WORLD5_LEVEL, WORLD6_LEVEL, WORLD7_LEVEL, WORLD8_LEVEL];
-        const themes = [null, 'castle', 'factory', 'cave', 'dark',
+        const themes = ['factory', 'castle', 'factory', 'cave', 'dark',
             'mushroom', 'swamp', 'ice', 'volcano'];
         this.world.load(levels[worldNum]);
         this.world.theme = themes[worldNum];
 
         // Spawn player
         this.player = new Player(this.world.spawnPoint.x, this.world.spawnPoint.y);
+
+        // Spawn companions
+        if (worldNum >= 7) {
+            const juri = new Juri(this.player.x + 30, this.player.y + 20);
+            if (worldNum >= 8) juri.fireCircle = true; // fire special from W7 reward
+            this.companions.push(juri);
+            const croc = new ShadowCrocodile(this.player.x - 30, this.player.y + 20);
+            if (worldNum >= 9) croc.fireExplosion = true; // W8 reward (future)
+            this.companions.push(croc);
+        } else if (worldNum >= 6) {
+            // Juri joins from W6 onward (recruited end of W6)
+        }
 
         // Apply unlocked abilities
         // W1-2: bat only. W3+: baseball werfer with 3x gift balls
@@ -236,7 +250,9 @@ const Game = {
     },
 
     _spawnWorldContent(worldNum) {
-        if (worldNum === 1) {
+        if (worldNum === 0) {
+            this._spawnTutorial();
+        } else if (worldNum === 1) {
             this._spawnWorld1();
         } else if (worldNum === 2) {
             this._spawnWorld2();
@@ -252,6 +268,22 @@ const Game = {
     _spawnAt(EnemyClass, minDist) {
         const p = this._getSpawnPos(minDist || 150);
         return new EnemyClass(p.x, p.y);
+    },
+
+    // ── Tutorial (Level 0) ──
+    _spawnTutorial() {
+        // Phase 1: Chests to open
+        for (let i = 0; i < 3; i++) this.chests.push(this._spawnChestAt());
+        // Phase 2: Small robots (move, don't shoot)
+        for (let i = 0; i < 4; i++) this.enemies.push(this._spawnAt(TutorialRobotSmall));
+        // Phase 3: Medium robot (drops key)
+        this.enemies.push(this._spawnAt(TutorialRobotMedium, 200));
+        // Phase 5: Big robot (passive, behind wall/door)
+        this.enemies.push(this._spawnAt(TutorialRobotBig, 250));
+        // Phase 6: Three types at once
+        this.enemies.push(this._spawnAt(ShieldRobot, 200));
+        this.enemies.push(this._spawnAt(ShooterRobot, 200));
+        this.enemies.push(this._spawnAt(StandRobot, 200));
     },
 
     _spawnChestAt() {
@@ -410,10 +442,10 @@ const Game = {
                 Sound.resume();
                 const btn = Renderer.getClickedButton(Input.mouse.x, Input.mouse.y);
                 if (btn) {
-                    const worldNames = ['Welt 1: Geisterschloss', 'Welt 2: Maschinen-Hof', 'Welt 3: Schleim-Arena', 'Welt 4: Schatten-Burg', 'Welt 5: Pilz-Wald', 'Welt 6: M\u00fccken-Sumpf', 'Welt 7: Antarktis', 'Welt 8: Vulkan-Insel'];
+                    const worldNames = ['Tutorial', 'Welt 1: Geisterschloss', 'Welt 2: Maschinen-Hof', 'Welt 3: Schleim-Arena', 'Welt 4: Schatten-Burg', 'Welt 5: Pilz-Wald', 'Welt 6: M\u00fccken-Sumpf', 'Welt 7: Antarktis', 'Welt 8: Vulkan-Insel'];
                     for (let i = 0; i < worldNames.length; i++) {
-                        if (btn === worldNames[i] && i + 1 <= this.maxWorldUnlocked) {
-                            this.startWorld(i + 1);
+                        if (btn === worldNames[i] && i <= this.maxWorldUnlocked) {
+                            this.startWorld(i);
                             break;
                         }
                     }
@@ -465,6 +497,11 @@ const Game = {
         // ── Playing ──
         this.world.update(dt);
         this.player.update(dt, this.world);
+
+        // Update companions
+        for (const c of this.companions) {
+            c.update(dt, this.world, this.player, this.enemies);
+        }
 
         // Check player death
         if (this.player.dead && this.player.deathTimer <= 0) {
@@ -726,6 +763,11 @@ const Game = {
         for (const proj of this.projectiles) {
             if (!isOnScreen({ x: proj.x - 5, y: proj.y - 5, w: 10, h: 10 }, this.camera, 10)) continue;
             proj.draw(ctx, this.camera);
+        }
+
+        // Companions
+        for (const c of this.companions) {
+            c.draw(ctx, this.camera);
         }
 
         // Player

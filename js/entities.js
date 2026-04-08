@@ -2246,3 +2246,401 @@ class BossKnightBat extends Enemy {
         ctx.restore();
     }
 }
+
+// ══════════════════════════════════════════
+// ── Tutorial Robots ──
+// ══════════════════════════════════════════
+
+class TutorialRobotSmall extends Enemy {
+    constructor(x, y) {
+        super(x, y, 20, 20);
+        this.hp = 2; this.maxHp = 2; this.speed = 30; this.damage = 1;
+        this.detectionRange = 120;
+    }
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        const dist = vecDist({x:this.centerX(),y:this.centerY()}, {x:player.x+player.w/2,y:player.y+player.h/2});
+        if (dist < this.detectionRange) {
+            const a = angleBetween({x:this.centerX(),y:this.centerY()}, {x:player.x+player.w/2,y:player.y+player.h/2});
+            this._moveWithCollision(Math.cos(a)*this.speed*dt, Math.sin(a)*this.speed*dt, world);
+        }
+    }
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x+this.w/2, cy = pos.y+this.h/2;
+        if (this.dead) { const t=this.deathProgress(); ctx.save(); ctx.globalAlpha=(1-t); ctx.fillStyle='#888'; ctx.beginPath(); ctx.arc(cx,cy,10*(1-t),0,Math.PI*2); ctx.fill(); ctx.restore(); return; }
+        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
+        ctx.fillStyle='#AAA'; ctx.beginPath(); ctx.arc(cx,cy,10,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#F00'; ctx.beginPath(); ctx.arc(cx+3,cy-3,3,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+}
+
+class TutorialRobotMedium extends Enemy {
+    constructor(x, y) {
+        super(x, y, 26, 26);
+        this.hp = 4; this.maxHp = 4; this.speed = 0; this.damage = 0;
+        this.contactDamage = false; this.isKeyGhost = true; this.droppedKey = false;
+    }
+    update(dt, world, player) { this.baseUpdate(dt, world); }
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x+this.w/2, cy = pos.y+this.h/2;
+        if (this.dead) { const t=this.deathProgress(); ctx.save(); ctx.globalAlpha=(1-t); ctx.fillStyle='#888'; ctx.beginPath(); ctx.arc(cx,cy,13*(1-t),0,Math.PI*2); ctx.fill(); ctx.restore(); return; }
+        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
+        ctx.fillStyle='#999'; ctx.beginPath(); ctx.roundRect(cx-12,cy-12,24,24,4); ctx.fill();
+        ctx.fillStyle='#FFD700'; ctx.fillRect(cx-3,cy-14,6,4);
+        ctx.fillStyle='#F00'; ctx.beginPath(); ctx.arc(cx,cy,4,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+}
+
+class TutorialRobotBig extends Enemy {
+    constructor(x, y) {
+        super(x, y, 36, 36);
+        this.hp = 6; this.maxHp = 6; this.speed = 0; this.damage = 0; this.contactDamage = false;
+    }
+    update(dt, world, player) { this.baseUpdate(dt, world); }
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x+this.w/2, cy = pos.y+this.h/2;
+        if (this.dead) { const t=this.deathProgress(); ctx.save(); ctx.globalAlpha=(1-t); ctx.fillStyle='#666'; ctx.beginPath(); ctx.arc(cx,cy,18*(1-t),0,Math.PI*2); ctx.fill(); ctx.restore(); return; }
+        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
+        ctx.fillStyle='#777'; ctx.beginPath(); ctx.roundRect(cx-16,cy-16,32,32,6); ctx.fill();
+        ctx.fillStyle='#555'; ctx.beginPath(); ctx.roundRect(cx-12,cy-12,24,24,4); ctx.fill();
+        ctx.fillStyle='#F00'; ctx.beginPath(); ctx.arc(cx-5,cy-4,4,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx+5,cy-4,4,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+}
+
+class ShieldRobot extends Enemy {
+    constructor(x, y) {
+        super(x, y, 24, 24);
+        this.hp = 8; this.maxHp = 8; this.speed = 25; this.damage = 1; this.detectionRange = 100;
+    }
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        const dist = vecDist({x:this.centerX(),y:this.centerY()}, {x:player.x+player.w/2,y:player.y+player.h/2});
+        if (dist < this.detectionRange) {
+            const a = angleBetween({x:this.centerX(),y:this.centerY()}, {x:player.x+player.w/2,y:player.y+player.h/2});
+            this._moveWithCollision(Math.cos(a)*this.speed*dt, Math.sin(a)*this.speed*dt, world);
+        }
+    }
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x+this.w/2, cy = pos.y+this.h/2;
+        if (this.dead) { const t=this.deathProgress(); ctx.save(); ctx.globalAlpha=(1-t); ctx.fillStyle='#44F'; ctx.beginPath(); ctx.arc(cx,cy,12*(1-t),0,Math.PI*2); ctx.fill(); ctx.restore(); return; }
+        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
+        ctx.fillStyle='#66F'; ctx.beginPath(); ctx.arc(cx,cy,12,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#88F'; ctx.beginPath(); ctx.arc(cx,cy-2,8,Math.PI,0); ctx.fill();
+        ctx.fillStyle='#FFF'; ctx.beginPath(); ctx.arc(cx,cy-2,3,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+}
+
+class ShooterRobot extends Enemy {
+    constructor(x, y) {
+        super(x, y, 22, 22);
+        this.hp = 3; this.maxHp = 3; this.speed = 35; this.damage = 1;
+        this.detectionRange = 200; this.shootTimer = 0; this.shootCooldown = 1.5;
+    }
+    update(dt, world, player, enemies, projectiles) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        const pc = {x:player.x+player.w/2,y:player.y+player.h/2};
+        const mc = {x:this.centerX(),y:this.centerY()};
+        const dist = vecDist(mc, pc);
+        if (dist < this.detectionRange) {
+            const a = angleBetween(mc, pc);
+            this._moveWithCollision(Math.cos(a)*this.speed*0.3*dt, Math.sin(a)*this.speed*0.3*dt, world);
+            this.shootTimer -= dt;
+            if (this.shootTimer <= 0 && typeof Game !== 'undefined') {
+                this.shootTimer = this.shootCooldown;
+                Game.projectiles.push(new Projectile(mc.x,mc.y, Math.cos(a)*150, Math.sin(a)*150, 1, 'enemy', 60));
+            }
+        }
+    }
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x+this.w/2, cy = pos.y+this.h/2;
+        if (this.dead) { const t=this.deathProgress(); ctx.save(); ctx.globalAlpha=(1-t); ctx.fillStyle='#F44'; ctx.beginPath(); ctx.arc(cx,cy,11*(1-t),0,Math.PI*2); ctx.fill(); ctx.restore(); return; }
+        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
+        ctx.fillStyle='#C44'; ctx.beginPath(); ctx.arc(cx,cy,11,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#F66'; ctx.fillRect(cx+6,cy-2,8,4);
+        ctx.fillStyle='#FFF'; ctx.beginPath(); ctx.arc(cx-2,cy-3,3,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+}
+
+class StandRobot extends Enemy {
+    constructor(x, y) {
+        super(x, y, 22, 22);
+        this.hp = 2; this.maxHp = 2; this.speed = 0; this.damage = 0; this.contactDamage = false;
+    }
+    update(dt, world, player) { this.baseUpdate(dt, world); }
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x+this.w/2, cy = pos.y+this.h/2;
+        if (this.dead) { const t=this.deathProgress(); ctx.save(); ctx.globalAlpha=(1-t); ctx.fillStyle='#888'; ctx.beginPath(); ctx.arc(cx,cy,11*(1-t),0,Math.PI*2); ctx.fill(); ctx.restore(); return; }
+        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
+        ctx.fillStyle='#AAA'; ctx.beginPath(); ctx.arc(cx,cy,11,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#666'; ctx.fillRect(cx-4,cy+6,3,6); ctx.fillRect(cx+1,cy+6,3,6);
+        ctx.fillStyle='#FFF'; ctx.beginPath(); ctx.arc(cx-3,cy-2,2,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx+3,cy-2,2,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+}
+
+// ══════════════════════════════════════════
+// ── Companion AI: Juri (Clown) ──
+// ══════════════════════════════════════════
+
+class Juri {
+    constructor(x, y) {
+        this.x = x; this.y = y; this.w = 24; this.h = 24;
+        this.hp = 12; this.maxHp = 12; // 3 hearts
+        this.speed = 130; this.damage = 3;
+        this.dead = false; this.iFrames = 0;
+        this.attackTimer = 0; this.attackCooldown = 0.8;
+        this.hitCount = 0; this.fireCircle = false;
+        this.target = null; this.swingAngle = 0;
+        this.swinging = false; this.swingTimer = 0;
+    }
+    centerX() { return this.x + this.w/2; }
+    centerY() { return this.y + this.h/2; }
+
+    takeDamage(amount) {
+        if (this.iFrames > 0 || this.dead) return;
+        this.hp -= amount; this.iFrames = 1;
+        if (this.hp <= 0) { this.hp = 0; this.dead = true; }
+    }
+
+    update(dt, world, player, enemies) {
+        if (this.dead) return;
+        if (this.iFrames > 0) this.iFrames -= dt;
+
+        // Follow player
+        const px = player.x + player.w/2, py = player.y + player.h/2;
+        const dist = vecDist({x:this.centerX(),y:this.centerY()}, {x:px,y:py});
+        if (dist > 60) {
+            const a = angleBetween({x:this.centerX(),y:this.centerY()}, {x:px,y:py});
+            const dx = Math.cos(a) * this.speed * dt;
+            const dy = Math.sin(a) * this.speed * dt;
+            this.x += dx; this.y += dy;
+        }
+
+        // Find nearest enemy
+        this.target = null;
+        let minDist = 150;
+        for (const e of enemies) {
+            if (e.dead) continue;
+            const d = vecDist({x:this.centerX(),y:this.centerY()}, {x:e.centerX(),y:e.centerY()});
+            if (d < minDist) { minDist = d; this.target = e; }
+        }
+
+        // Attack
+        this.attackTimer -= dt;
+        if (this.swinging) { this.swingTimer -= dt; if (this.swingTimer <= 0) this.swinging = false; }
+        if (this.target && this.attackTimer <= 0 && minDist < 50) {
+            this.attackTimer = this.attackCooldown;
+            this.swinging = true; this.swingTimer = 0.2;
+            this.swingAngle = angleBetween({x:this.centerX(),y:this.centerY()}, {x:this.target.centerX(),y:this.target.centerY()});
+            this.target.takeDamage(this.damage, this.swingAngle, 100);
+            this.hitCount++;
+            if (this.fireCircle && this.hitCount % 3 === 0) {
+                // Fire circle around Juri
+                for (const e of enemies) {
+                    if (e.dead) continue;
+                    const d = vecDist({x:this.centerX(),y:this.centerY()}, {x:e.centerX(),y:e.centerY()});
+                    if (d < 80) e.takeDamage(4, angleBetween({x:this.centerX(),y:this.centerY()}, {x:e.centerX(),y:e.centerY()}), 150);
+                }
+            }
+        }
+
+        // Contact damage from enemies
+        for (const e of enemies) {
+            if (e.dead || !e.contactDamage) continue;
+            if (rectOverlap({x:this.x,y:this.y,w:this.w,h:this.h}, {x:e.x,y:e.y,w:e.w,h:e.h})) {
+                this.takeDamage(e.damage);
+            }
+        }
+    }
+
+    draw(ctx, camera) {
+        if (this.dead) return;
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x+this.w/2, cy = pos.y+this.h/2;
+        const flash = this.iFrames > 0 && Math.floor(this.iFrames*10)%2;
+        ctx.save();
+        if (flash) ctx.globalAlpha = 0.4;
+
+        // Body (red with white stripes)
+        ctx.fillStyle = '#D33';
+        ctx.beginPath(); ctx.roundRect(cx-8,cy-4,16,14,3); ctx.fill();
+        ctx.fillStyle = '#FFF';
+        ctx.fillRect(cx-2,cy-4,4,14);
+
+        // Head
+        ctx.fillStyle = '#FCA';
+        ctx.beginPath(); ctx.arc(cx,cy-10,8,0,Math.PI*2); ctx.fill();
+        // Red nose
+        ctx.fillStyle = '#F00';
+        ctx.beginPath(); ctx.arc(cx,cy-8,3,0,Math.PI*2); ctx.fill();
+        // Eyes
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath(); ctx.arc(cx-3,cy-12,2.5,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx+3,cy-12,2.5,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.arc(cx-3,cy-11.5,1,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx+3,cy-11.5,1,0,Math.PI*2); ctx.fill();
+        // Smile
+        ctx.strokeStyle = '#800';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(cx,cy-7,4,0.2,Math.PI-0.2); ctx.stroke();
+
+        // Hammers on chains
+        if (this.swinging) {
+            ctx.strokeStyle = '#999'; ctx.lineWidth = 2;
+            const hx = cx+Math.cos(this.swingAngle)*20, hy = cy+Math.sin(this.swingAngle)*18;
+            ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(hx,hy); ctx.stroke();
+            ctx.fillStyle = '#888';
+            ctx.beginPath(); ctx.arc(hx,hy,6,0,Math.PI*2); ctx.fill();
+        }
+
+        // Fire circle effect
+        if (this.fireCircle && this.hitCount > 0 && this.hitCount % 3 === 0 && this.swingTimer > 0) {
+            ctx.globalAlpha = 0.3;
+            ctx.strokeStyle = '#F80'; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.arc(cx,cy,40+Math.sin(Date.now()/100)*10,0,Math.PI*2); ctx.stroke();
+            ctx.globalAlpha = 1;
+        }
+
+        // HP bar above head
+        ctx.globalAlpha = 1;
+        const barW = 20, barH = 3;
+        ctx.fillStyle = '#333';
+        ctx.fillRect(cx-barW/2, pos.y-18, barW, barH);
+        ctx.fillStyle = '#F44';
+        ctx.fillRect(cx-barW/2, pos.y-18, barW*(this.hp/this.maxHp), barH);
+
+        ctx.restore();
+    }
+}
+
+// ══════════════════════════════════════════
+// ── Companion AI: Shadow Crocodile ──
+// ══════════════════════════════════════════
+
+class ShadowCrocodile {
+    constructor(x, y) {
+        this.x = x; this.y = y; this.w = 28; this.h = 26;
+        this.hp = 20; this.maxHp = 20; // 5 hearts
+        this.speed = 120; this.damage = 4;
+        this.dead = false; this.iFrames = 0;
+        this.shootTimer = 0; this.shootCooldown = 1.2;
+        this.fireExplosion = false;
+        this.target = null; this.facingAngle = 0;
+    }
+    centerX() { return this.x + this.w/2; }
+    centerY() { return this.y + this.h/2; }
+
+    takeDamage(amount) {
+        if (this.iFrames > 0 || this.dead) return;
+        this.hp -= amount; this.iFrames = 1;
+        if (this.hp <= 0) { this.hp = 0; this.dead = true; }
+    }
+
+    update(dt, world, player, enemies) {
+        if (this.dead) return;
+        if (this.iFrames > 0) this.iFrames -= dt;
+
+        // Follow player
+        const px = player.x+player.w/2, py = player.y+player.h/2;
+        const dist = vecDist({x:this.centerX(),y:this.centerY()}, {x:px,y:py});
+        if (dist > 70) {
+            const a = angleBetween({x:this.centerX(),y:this.centerY()}, {x:px,y:py});
+            this.x += Math.cos(a)*this.speed*dt;
+            this.y += Math.sin(a)*this.speed*dt;
+        }
+
+        // Find nearest enemy
+        this.target = null;
+        let minDist = 250;
+        for (const e of enemies) {
+            if (e.dead) continue;
+            const d = vecDist({x:this.centerX(),y:this.centerY()}, {x:e.centerX(),y:e.centerY()});
+            if (d < minDist) { minDist = d; this.target = e; }
+        }
+
+        // Shoot at target
+        this.shootTimer -= dt;
+        if (this.target && this.shootTimer <= 0) {
+            this.shootTimer = this.shootCooldown;
+            this.facingAngle = angleBetween({x:this.centerX(),y:this.centerY()}, {x:this.target.centerX(),y:this.target.centerY()});
+            if (typeof Game !== 'undefined') {
+                const p = new Projectile(this.centerX(), this.centerY(),
+                    Math.cos(this.facingAngle)*250, Math.sin(this.facingAngle)*250,
+                    this.damage, 'player', 80);
+                p.radius = 4;
+                if (this.fireExplosion) p.explosive = true;
+                Game.projectiles.push(p);
+            }
+        }
+
+        // Contact damage
+        for (const e of enemies) {
+            if (e.dead || !e.contactDamage) continue;
+            if (rectOverlap({x:this.x,y:this.y,w:this.w,h:this.h}, {x:e.x,y:e.y,w:e.w,h:e.h})) {
+                this.takeDamage(e.damage);
+            }
+        }
+    }
+
+    draw(ctx, camera) {
+        if (this.dead) return;
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x+this.w/2, cy = pos.y+this.h/2;
+        const flash = this.iFrames > 0 && Math.floor(this.iFrames*10)%2;
+        ctx.save();
+        if (flash) ctx.globalAlpha = 0.4;
+
+        // Body (green croc with armor)
+        ctx.fillStyle = '#3A6A3A';
+        ctx.beginPath(); ctx.ellipse(cx,cy,13,10,0,0,Math.PI*2); ctx.fill();
+        // Armor plates
+        ctx.fillStyle = '#777';
+        ctx.beginPath(); ctx.roundRect(cx-8,cy-6,16,12,3); ctx.fill();
+        // Helmet
+        ctx.fillStyle = '#888';
+        ctx.beginPath(); ctx.arc(cx,cy-10,9,Math.PI,0); ctx.fill();
+        ctx.fillStyle = '#666';
+        ctx.fillRect(cx-8,cy-11,16,4);
+        // Snout
+        ctx.fillStyle = '#4A8A4A';
+        ctx.beginPath(); ctx.ellipse(cx+Math.cos(this.facingAngle)*10,cy+Math.sin(this.facingAngle)*6,7,4,this.facingAngle,0,Math.PI*2); ctx.fill();
+        // Eyes (red)
+        ctx.fillStyle = '#F44';
+        ctx.beginPath(); ctx.arc(cx-4,cy-8,2.5,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx+4,cy-8,2.5,0,Math.PI*2); ctx.fill();
+        // Weapon (Schattenspucker in right hand)
+        ctx.strokeStyle = '#555';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(cx+8,cy);
+        ctx.lineTo(cx+Math.cos(this.facingAngle)*18+8, cy+Math.sin(this.facingAngle)*14);
+        ctx.stroke();
+
+        // HP bar above head
+        ctx.globalAlpha = 1;
+        const barW = 24, barH = 3;
+        ctx.fillStyle = '#333';
+        ctx.fillRect(cx-barW/2, pos.y-18, barW, barH);
+        ctx.fillStyle = '#4D4';
+        ctx.fillRect(cx-barW/2, pos.y-18, barW*(this.hp/this.maxHp), barH);
+
+        ctx.restore();
+    }
+}

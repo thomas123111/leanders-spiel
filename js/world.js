@@ -588,6 +588,7 @@ function generateLevel(width, height, numRooms, seed) {
 
 // ── Level Data ──
 
+const TUTORIAL_LEVEL = generateLevel(25, 20, 6, 999);
 const WORLD1_LEVEL = generateLevel(50, 45, 12, 101);
 const WORLD2_LEVEL = generateLevel(55, 45, 14, 202);
 const WORLD3_LEVEL = generateLevel(50, 42, 13, 303);
