@@ -173,7 +173,7 @@ const Game = {
         if (this.unlockedRanged || worldNum >= 2) {
             this.unlockedRanged = true;
             this.player.rangedWeapon = new BaseballLauncher();
-            if (this.unlockedTripleShot || worldNum >= 4) {
+            if (this.unlockedTripleShot) {
                 this.player.rangedWeapon.tripleShot = true;
             }
             if (worldNum >= 2) {
