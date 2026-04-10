@@ -4011,3 +4011,141 @@ class BossFirePhoenix extends Enemy {
     }
 }
 
+
+// ══════════════════════════════════════════
+// ── World 11: Pixel-Welt Enemies ──
+// ══════════════════════════════════════════
+
+class PixelGhost extends Enemy {
+    constructor(x,y) {
+        super(x,y,20,20); this.hp=4; this.maxHp=4; this.speed=55; this.damage=1;
+        this.phasesThroughWalls=true; this.detectionRange=180;
+    }
+    update(dt,world,player) {
+        this.baseUpdate(dt,world); if(this.dead) return;
+        const dist=vecDist({x:this.centerX(),y:this.centerY()},{x:player.x+player.w/2,y:player.y+player.h/2});
+        if(dist<this.detectionRange){
+            const a=angleBetween({x:this.centerX(),y:this.centerY()},{x:player.x+player.w/2,y:player.y+player.h/2});
+            this.x+=Math.cos(a)*this.speed*dt; this.y+=Math.sin(a)*this.speed*dt;
+        }
+    }
+    draw(ctx,camera) {
+        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
+        if(this.dead){
+            // Blue pixel blood splatter
+            const t=this.deathProgress(); ctx.save();
+            for(let i=0;i<8;i++){ctx.globalAlpha=(1-t);ctx.fillStyle='#44F';
+                const bx=cx+Math.cos(i*0.8+t)*t*25, by=cy+Math.sin(i*1.1+t)*t*25;
+                ctx.fillRect(Math.floor(bx/4)*4,Math.floor(by/4)*4,4,4);
+            }ctx.restore();return;
+        }
+        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
+        // Pixelated ghost (4px grid)
+        ctx.fillStyle='#8AF';
+        ctx.fillRect(cx-8,cy-8,4,4);ctx.fillRect(cx-4,cy-8,4,4);ctx.fillRect(cx,cy-8,4,4);ctx.fillRect(cx+4,cy-8,4,4);
+        ctx.fillRect(cx-8,cy-4,4,4);ctx.fillRect(cx-4,cy-4,4,4);ctx.fillRect(cx,cy-4,4,4);ctx.fillRect(cx+4,cy-4,4,4);
+        ctx.fillRect(cx-8,cy,4,4);ctx.fillRect(cx,cy,4,4);ctx.fillRect(cx+4,cy,4,4);
+        ctx.fillRect(cx-8,cy+4,4,4);ctx.fillRect(cx-4,cy+4,4,4);ctx.fillRect(cx+4,cy+4,4,4);
+        // Eyes
+        ctx.fillStyle='#000';ctx.fillRect(cx-6,cy-6,4,4);ctx.fillRect(cx+2,cy-6,4,4);
+        ctx.restore();
+    }
+}
+
+class PixelRobot extends Enemy {
+    constructor(x,y) {
+        super(x,y,30,30); this.hp=12; this.maxHp=12; this.speed=40; this.damage=2;
+        this.detectionRange=200; this.shootTimer=0; this.shootCooldown=1.5;
+        this.isKeyGhost=true; this.droppedKey=false; // acts as key holder
+    }
+    update(dt,world,player) {
+        this.baseUpdate(dt,world); if(this.dead) return;
+        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
+        const dist=vecDist(mc,pc);
+        if(dist<this.detectionRange){
+            const a=angleBetween(mc,pc);
+            this._moveWithCollision(Math.cos(a)*this.speed*dt,Math.sin(a)*this.speed*dt,world);
+            this.shootTimer-=dt;
+            if(this.shootTimer<=0&&typeof Game!=='undefined'){
+                this.shootTimer=this.shootCooldown;
+                Game.projectiles.push(new Projectile(mc.x,mc.y,Math.cos(a)*160,Math.sin(a)*160,1,'enemy',70));
+            }
+        }
+    }
+    draw(ctx,camera) {
+        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
+        if(this.dead){const t=this.deathProgress();ctx.save();for(let i=0;i<10;i++){ctx.globalAlpha=(1-t);ctx.fillStyle='#44F';ctx.fillRect(cx+Math.cos(i)*t*30-2,cy+Math.sin(i*1.3)*t*30-2,4,4);}ctx.restore();return;}
+        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
+        // Pixelated robot body
+        ctx.fillStyle='#888';
+        for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){
+            if(Math.abs(dx)+Math.abs(dy)<4) ctx.fillRect(cx+dx*6-3,cy+dy*6-3,6,6);
+        }
+        ctx.fillStyle='#F00';ctx.fillRect(cx-6,cy-9,6,6);ctx.fillRect(cx,cy-9,6,6);
+        ctx.fillStyle='#0FF';ctx.fillRect(cx-3,cy-3,6,6);
+        // Antenna
+        ctx.fillStyle='#FF0';ctx.fillRect(cx-1,cy-18,2,8);ctx.beginPath();ctx.arc(cx,cy-18,3,0,Math.PI*2);ctx.fill();
+        // Key glow
+        ctx.globalAlpha=0.2+Math.sin(Date.now()/400)*0.1;ctx.fillStyle='#FFD700';ctx.beginPath();ctx.arc(cx,cy,22,0,Math.PI*2);ctx.fill();
+        ctx.restore();
+    }
+}
+
+// ══════════════════════════════════════════
+// ── World 12: Sternen-Ritter-Galaxie ──
+// ══════════════════════════════════════════
+
+class StarKnight extends Enemy {
+    constructor(x,y) {
+        super(x,y,26,28); this.hp=8; this.maxHp=8; this.speed=50; this.damage=2;
+        this.detectionRange=180; this.slashTimer=0; this.slashCooldown=1.2;
+        this.slashing=false; this.slashT=0; this.facingA=0;
+    }
+    update(dt,world,player) {
+        this.baseUpdate(dt,world); if(this.dead) return;
+        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
+        const dist=vecDist(mc,pc);
+        if(this.slashing){this.slashT-=dt;if(this.slashT<=0)this.slashing=false;return;}
+        if(dist<this.detectionRange){
+            this.facingA=angleBetween(mc,pc);
+            this._moveWithCollision(Math.cos(this.facingA)*this.speed*dt,Math.sin(this.facingA)*this.speed*dt,world);
+            this.slashTimer-=dt;
+            if(this.slashTimer<=0&&dist<40){
+                this.slashing=true;this.slashT=0.3;this.slashTimer=this.slashCooldown;
+                player.takeDamage(this.damage,this.facingA,150);
+            }
+        }
+    }
+    draw(ctx,camera) {
+        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
+        if(this.dead){
+            // Stardust shatter effect
+            const t=this.deathProgress();ctx.save();
+            for(let i=0;i<15;i++){
+                ctx.globalAlpha=(1-t)*0.8;
+                const a=(Math.PI*2*i)/15+t*2;
+                ctx.fillStyle=`hsl(${i*24+Date.now()/10},80%,70%)`;
+                ctx.beginPath();ctx.arc(cx+Math.cos(a)*t*40,cy+Math.sin(a)*t*40,(1-t)*3,0,Math.PI*2);ctx.fill();
+            }ctx.restore();return;
+        }
+        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
+        // Glowing star suit
+        ctx.globalAlpha=0.15;ctx.fillStyle=`hsl(${Date.now()/8%360},80%,60%)`;
+        ctx.beginPath();ctx.arc(cx,cy,18,0,Math.PI*2);ctx.fill();
+        ctx.globalAlpha=this.isFlashing()?0.4:1;
+        // Body
+        ctx.fillStyle=`hsl(${Date.now()/20%360},60%,50%)`;
+        ctx.beginPath();ctx.roundRect(cx-10,cy-6,20,18,4);ctx.fill();
+        // Helmet
+        ctx.fillStyle=`hsl(${(Date.now()/20+60)%360},50%,40%)`;
+        ctx.beginPath();ctx.arc(cx,cy-10,10,0,Math.PI*2);ctx.fill();
+        // Visor
+        ctx.fillStyle='#224';ctx.beginPath();ctx.ellipse(cx+Math.cos(this.facingA)*3,cy-10,6,4,0,0,Math.PI*2);ctx.fill();
+        // Star emblem
+        ctx.fillStyle='#FFD700';ctx.font='10px monospace';ctx.textAlign='center';ctx.fillText('\u2605',cx,cy+4);
+        // Sword slash
+        if(this.slashing){ctx.strokeStyle='#FFF';ctx.lineWidth=2;ctx.globalAlpha=0.6;
+            ctx.beginPath();ctx.arc(cx,cy,25,this.facingA-0.5,this.facingA+0.5);ctx.stroke();}
+        ctx.restore();
+    }
+}

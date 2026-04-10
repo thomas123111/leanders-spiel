@@ -112,6 +112,8 @@ class World {
         if (t === 'swamp') return '_drawSwamp';
         if (t === 'ice') return '_drawIce';
         if (t === 'volcano') return '_drawVolcano';
+        if (t === 'pixel') return '_drawPixel';
+        if (t === 'space') return '_drawSpace';
         return '_drawCastle';
     }
 
@@ -373,6 +375,66 @@ class World {
         }
     }
 
+    _drawPixel(ctx, t, pos, x, y) {
+        const ps = 8; // pixel size for retro look
+        if (t === TILE_WALL) {
+            ctx.fillStyle = `hsl(${this.bgHue}, 40%, 18%)`;
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            // Glitch lines
+            if ((x + y) % 4 === 0) {
+                ctx.fillStyle = `hsl(${(this.bgHue + 180) % 360}, 80%, 50%)`;
+                ctx.fillRect(pos.x, pos.y + 12, TILE_SIZE, 2);
+            }
+        } else if (t === TILE_FLOOR || t === TILE_DOOR) {
+            ctx.fillStyle = `hsl(${this.bgHue}, 20%, 28%)`;
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            // Grid pattern
+            ctx.strokeStyle = `hsl(${this.bgHue}, 30%, 22%)`;
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+        } else if (t === TILE_BOSS_DOOR) { this._drawBossDoor(ctx, pos);
+        } else if (t === TILE_WINDOW) {
+            ctx.fillStyle = `hsl(${this.bgHue}, 40%, 18%)`;
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            // Glowing pixel screen
+            ctx.fillStyle = `hsl(${(this.bgHue + 90) % 360}, 80%, 50%)`;
+            ctx.fillRect(pos.x + 8, pos.y + 8, ps, ps);
+            ctx.fillRect(pos.x + 16, pos.y + 8, ps, ps);
+            ctx.fillRect(pos.x + 8, pos.y + 16, ps, ps);
+        }
+    }
+
+    _drawSpace(ctx, t, pos, x, y) {
+        if (t === TILE_WALL) {
+            ctx.fillStyle = '#0A0A20';
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            // Stars
+            if ((x * 7 + y * 13) % 5 === 0) {
+                ctx.fillStyle = '#FFF';
+                ctx.fillRect(pos.x + (x * 3) % 28, pos.y + (y * 7) % 28, 2, 2);
+            }
+        } else if (t === TILE_FLOOR || t === TILE_DOOR) {
+            ctx.fillStyle = `hsl(${this.bgHue}, 15%, 15%)`;
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            // Nebula glow
+            if ((x + y) % 6 === 0) {
+                ctx.globalAlpha = 0.08;
+                ctx.fillStyle = `hsl(${this.bgHue}, 60%, 50%)`;
+                ctx.beginPath(); ctx.arc(pos.x + 16, pos.y + 16, 14, 0, Math.PI * 2); ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        } else if (t === TILE_BOSS_DOOR) { this._drawBossDoor(ctx, pos);
+        } else if (t === TILE_WINDOW) {
+            ctx.fillStyle = '#0A0A20';
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            // Bright star
+            ctx.fillStyle = '#FFD';
+            ctx.globalAlpha = 0.5 + Math.sin(Date.now() / 300 + x * y) * 0.3;
+            ctx.beginPath(); ctx.arc(pos.x + 16, pos.y + 16, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+    }
+
     _drawDark(ctx, t, pos, x, y) {
         if (t === TILE_WALL) {
             ctx.fillStyle = '#2A2020';
@@ -597,3 +659,7 @@ const WORLD5_LEVEL = generateLevel(52, 48, 14, 505);
 const WORLD6_LEVEL = generateLevel(55, 45, 13, 606);
 const WORLD7_LEVEL = generateLevel(50, 50, 15, 707);
 const WORLD8_LEVEL = generateLevel(55, 52, 16, 808);
+const WORLD9_LEVEL = generateLevel(50, 45, 12, 909); // placeholder
+const WORLD10_LEVEL = generateLevel(50, 45, 12, 1010); // placeholder
+const WORLD11_LEVEL = generateLevel(52, 48, 14, 1111); // Pixel-Welt
+const WORLD12_LEVEL = generateLevel(55, 50, 15, 1212); // Sternen-Galaxie
