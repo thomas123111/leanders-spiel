@@ -25,6 +25,9 @@ const Game = {
     unlockedAuto: false,
     unlockedCrown: false,
     unlockedTripleShot: false,
+    unlockedShadowCaster: false,
+    unlockedFruitUpgrades: false,
+    unlockedGamerPistol: false,
     maxWorldUnlocked: 1,
 
     // Epic Freeze
@@ -78,7 +81,10 @@ const Game = {
                 ranged: this.unlockedRanged,
                 auto: this.unlockedAuto,
                 crown: this.unlockedCrown,
-                triple: this.unlockedTripleShot
+                triple: this.unlockedTripleShot,
+                shadow: this.unlockedShadowCaster,
+                fruit: this.unlockedFruitUpgrades,
+                gamer: this.unlockedGamerPistol
             }));
         } catch (e) {}
     },
@@ -93,6 +99,9 @@ const Game = {
                 this.unlockedAuto = !!data.auto;
                 this.unlockedCrown = !!data.crown;
                 this.unlockedTripleShot = !!data.triple;
+                this.unlockedShadowCaster = !!data.shadow;
+                this.unlockedFruitUpgrades = !!data.fruit;
+                this.unlockedGamerPistol = !!data.gamer;
             }
         } catch (e) {}
     },
@@ -184,25 +193,38 @@ const Game = {
         // Spawn companions
         if (worldNum >= 7) {
             const juri = new Juri(this.player.x + 30, this.player.y + 20);
-            if (worldNum >= 8) juri.fireCircle = true; // fire special from W7 reward
+            if (worldNum >= 8) juri.fireCircle = true;
+            if (this.unlockedFruitUpgrades) juri.melonHammers = true;
             this.companions.push(juri);
             const croc = new ShadowCrocodile(this.player.x - 30, this.player.y + 20);
-            if (worldNum >= 9) croc.fireExplosion = true; // W8 reward (future)
+            if (worldNum >= 9) croc.fireExplosion = true;
+            if (this.unlockedFruitUpgrades) croc.fruitAmmo = true;
             this.companions.push(croc);
-        } else if (worldNum >= 6) {
-            // Juri joins from W6 onward (recruited end of W6)
         }
 
         // Apply unlocked abilities
-        // W1-2: bat only. W3+: baseball werfer with 3x gift balls
         if (this.unlockedRanged || worldNum >= 3) {
             this.unlockedRanged = true;
             this.player.rangedWeapon = new BaseballLauncher();
-            this.player.rangedWeapon.tripleShot = true; // always 3x from W3
-            this.player.rangedWeapon.poison = true; // gift balls
+            this.player.rangedWeapon.tripleShot = true;
+            this.player.rangedWeapon.poison = true;
+            // W9 reward: Schattenwerfer (more damage, colorful)
+            if (this.unlockedShadowCaster || worldNum >= 10) {
+                this.player.rangedWeapon.damage = 5;
+                this.player.rangedWeapon.shadowCaster = true;
+            }
+            // W11 reward: Gamer-Pistole (pixel beam, even more damage)
+            if (this.unlockedGamerPistol || worldNum >= 12) {
+                this.player.rangedWeapon.damage = 7;
+                this.player.rangedWeapon.gamerPistol = true;
+            }
             if (worldNum >= 3) {
                 this.player.activeWeapon = this.player.rangedWeapon;
             }
+        }
+        // W10 reward: fruit upgrades for companions
+        if (this.unlockedFruitUpgrades) {
+            this.player.orangeExplosion = true;
         }
         if (this.unlockedAuto) {
             this.player.hasAuto = true;
@@ -441,11 +463,17 @@ const Game = {
         if (this.currentWorld === 1) {
             // Progress only
         } else if (this.currentWorld === 2) {
-            this.unlockedRanged = true; // baseball werfer with 3x gift balls
+            this.unlockedRanged = true;
         } else if (this.currentWorld === 3) {
             this.unlockedAuto = true;
         } else if (this.currentWorld === 4) {
             this.unlockedCrown = true;
+        } else if (this.currentWorld === 9) {
+            this.unlockedShadowCaster = true;
+        } else if (this.currentWorld === 10) {
+            this.unlockedFruitUpgrades = true;
+        } else if (this.currentWorld === 11) {
+            this.unlockedGamerPistol = true;
         } else if (this.currentWorld >= 12) {
             this.state = 'WIN';
         }

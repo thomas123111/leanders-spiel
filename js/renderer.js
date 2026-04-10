@@ -500,6 +500,7 @@ const Renderer = {
             { name: 'Welt 10: Obst-Paradies', color: '#F80' },
             { name: 'Welt 11: Pixel-Welt', color: '#48F' },
             { name: 'Welt 12: Sternen-Galaxie', color: '#FA0' },
+            { name: 'Welt 13: (bald)', color: '#666' },
         ];
 
         // World select buttons (scrollable list, smaller to fit 9)
@@ -543,7 +544,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v6.0.0', cw - 8, ch - 6);
+        ctx.fillText('v6.1.0', cw - 8, ch - 6);
 
         ctx.restore();
     },
@@ -616,6 +617,10 @@ const Renderer = {
             5: { title: 'RIESEN PILZ besiegt!', desc: 'Der M\u00fccken-Sumpf wartet...', color: '#A84' },
             6: { title: 'RIESEN M\u00dcCKE besiegt!', desc: 'Ab in die Antarktis! Juri schlie\u00dft sich an!', color: '#8A4' },
             7: { title: 'SCHNEE ADLER besiegt!', desc: 'Das Schatten-Krokodil k\u00e4mpft jetzt f\u00fcr euch!', color: '#8CF' },
+            8: { title: 'FEUER PH\u00d6NIX besiegt!', desc: 'Weiter in die Schatten-Dimension!', color: '#F84' },
+            9: { title: 'SCHATTENWERFER erhalten!', desc: 'Bunte Energie-Sch\u00fcsse! Mehr Schaden!', color: '#A0F' },
+            10: { title: 'OBST-UPGRADES erhalten!', desc: 'Orangen-Explosion + Melonen-H\u00e4mmer + Fruchtfleisch-Patrone!', color: '#F80' },
+            11: { title: 'GAMER-PISTOLE erhalten!', desc: 'Blaue Pixel-Strahlen! Maximaler Schaden!', color: '#48F' },
         };
         const r = rewards[worldNum];
         if (r) {

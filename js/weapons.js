@@ -228,7 +228,15 @@ class Projectile {
         const pos = camera.worldToScreen(this.x, this.y);
         ctx.save();
         const isPoison = this.owner === 'player' && this.poison;
-        ctx.fillStyle = isPoison ? '#4F4' : (this.owner === 'player' ? '#FFF' : '#FF4444');
+        const isShadow = this.owner === 'player' && this.shadowCaster;
+        const isGamer = this.owner === 'player' && this.gamerPistol;
+        const isIce = this.isIce;
+        let ballColor = this.owner === 'player' ? '#FFF' : '#FF4444';
+        if (isGamer) ballColor = '#48F';
+        else if (isShadow) ballColor = `hsl(${Date.now() / 3 % 360}, 80%, 60%)`;
+        else if (isPoison) ballColor = '#4F4';
+        if (isIce) ballColor = '#8CF';
+        ctx.fillStyle = ballColor;
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, this.radius, 0, Math.PI * 2);
         ctx.fill();
