@@ -65,8 +65,8 @@ const Renderer = {
         }
 
         // ── World indicator ──
-        const worldNames = [null, 'Geisterschloss', 'Maschinen-Hof', 'Schleim-Arena', 'Schatten-Burg', 'Pilz-Wald', 'M\u00fccken-Sumpf', 'Antarktis', 'Vulkan-Insel', 'Pixel-Welt', 'Sternen-Galaxie'];
-        const worldColors = [null, '#A6F', '#F80', '#4D4', '#C66', '#A84', '#8A4', '#8CF', '#F84', '#48F', '#FA0'];
+        const worldNames = [null, 'Geisterschloss', 'Maschinen-Hof', 'Schleim-Arena', 'Schatten-Burg', 'Pilz-Wald', 'M\u00fccken-Sumpf', 'Antarktis', 'Vulkan-Insel', 'Schatten-Dim.', 'Obst-Paradies', 'Pixel-Welt', 'Sternen-Galaxie'];
+        const worldColors = [null, '#A6F', '#F80', '#4D4', '#C66', '#A84', '#8A4', '#8CF', '#F84', '#A0F', '#F80', '#48F', '#FA0'];
         ctx.fillStyle = worldColors[game.currentWorld];
         ctx.font = 'bold 11px monospace';
         ctx.textAlign = 'right';
@@ -183,8 +183,10 @@ const Renderer = {
                 6: { name: 'RIESEN M\u00dcCKE', color: '#8A4' },
                 7: { name: 'SCHNEE ADLER', color: '#8CF' },
                 8: { name: 'FEUER PH\u00d6NIX', color: '#F84' },
-                9: { name: 'PIXEL-ROBOTER', color: '#48F' },
-                10: { name: 'STERNEN-RITTER', color: '#FA0' },
+                9: { name: 'SCHATTEN-MEISTER', color: '#A0F' },
+                10: { name: 'OBST-K\u00d6NIG', color: '#F80' },
+                11: { name: 'PIXEL-ROBOTER', color: '#48F' },
+                12: { name: 'STERNEN-RITTER', color: '#FA0' },
             };
             const boss = bossNames[game.currentWorld] || { name: 'BOSS', color: '#F00' };
             ctx.fillStyle = 'rgba(0,0,0,0.7)';
@@ -446,17 +448,18 @@ const Renderer = {
         }
         // Draw Mark with simulated 3D rotation (scale X = cos)
         const flipX = Math.cos(this._markAngle);
+        const markX = cw * 0.10;
+        const markY = ch * 0.40;
         ctx.save();
-        ctx.translate(cw * 0.12, ch * 0.45);
-        ctx.scale(flipX * 2.5, 2.5);
-        ctx.translate(-cw * 0.12 / (flipX * 2.5 || 0.01), -ch * 0.45 / 2.5);
-        this._drawMarkCharacter(ctx, cw * 0.12, ch * 0.45, 1);
+        ctx.translate(markX, markY);
+        ctx.scale(flipX < 0 ? -2.2 : 2.2, 2.2);
+        ctx.translate(0, 0);
+        this._drawMarkCharacter(ctx, 0, 0, 1);
         ctx.restore();
-        // Rotation hint
         ctx.fillStyle = '#666';
         ctx.font = '8px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('drehen \u2194', cw * 0.12, ch * 0.72);
+        ctx.fillText('\u2194 drehen', markX, ch * 0.62);
 
         // ── Bio text (right of Mark) ──
         ctx.fillStyle = '#999';
@@ -470,9 +473,9 @@ const Renderer = {
             'er sich verwandelt...',
             'Findet es selbst heraus!'
         ];
-        const bioX = cw * 0.22;
+        const bioX = cw * 0.19;
         for (let i = 0; i < bioLines.length; i++) {
-            ctx.fillText(bioLines[i], bioX, ch * 0.30 + i * 13);
+            ctx.fillText(bioLines[i], bioX, ch * 0.25 + i * 13);
         }
 
         // ── Right Panel: World Select ──
@@ -493,18 +496,20 @@ const Renderer = {
             { name: 'Welt 6: M\u00fccken-Sumpf', color: '#8A4' },
             { name: 'Welt 7: Antarktis', color: '#8CF' },
             { name: 'Welt 8: Vulkan-Insel', color: '#F84' },
-            { name: 'Welt 9: Pixel-Welt', color: '#48F' },
-            { name: 'Welt 10: Sternen-Galaxie', color: '#FA0' },
+            { name: 'Welt 9: Schatten-Dim.', color: '#A0F' },
+            { name: 'Welt 10: Obst-Paradies', color: '#F80' },
+            { name: 'Welt 11: Pixel-Welt', color: '#48F' },
+            { name: 'Welt 12: Sternen-Galaxie', color: '#FA0' },
         ];
 
         // World select buttons (scrollable list, smaller to fit 9)
-        const btnW = 220;
-        const btnH = 26;
-        const startY = ch * 0.10;
+        const btnW = 210;
+        const btnH = 24;
+        const startY = ch * 0.08;
         for (let i = 0; i < worlds.length; i++) {
             const unlocked = i <= Game.maxWorldUnlocked; // Tutorial=0 always unlocked
             const bx = tx - btnW / 2;
-            const by = startY + i * 30;
+            const by = startY + i * 28;
             if (unlocked) {
                 this._drawButton(ctx, bx, by, btnW, btnH, worlds[i].name, 14);
             } else {
@@ -538,7 +543,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v5.2.0', cw - 8, ch - 6);
+        ctx.fillText('v6.0.0', cw - 8, ch - 6);
 
         ctx.restore();
     },

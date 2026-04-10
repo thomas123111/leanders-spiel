@@ -4149,3 +4149,228 @@ class StarKnight extends Enemy {
         ctx.restore();
     }
 }
+
+// ══════════════════════════════════════════
+// ── World 9: Schatten-Dimension Enemies ──
+// ══════════════════════════════════════════
+
+class ShadowGhost extends Enemy {
+    constructor(x,y) {
+        super(x,y,22,22); this.hp=6; this.maxHp=6; this.speed=50; this.damage=1;
+        this.phasesThroughWalls=true; this.detectionRange=160;
+        this.alpha=0.4; this.flickerTimer=0;
+    }
+    update(dt,world,player) {
+        this.baseUpdate(dt,world); if(this.dead) return;
+        this.flickerTimer+=dt;
+        this.alpha=0.3+Math.sin(this.flickerTimer*3)*0.2;
+        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
+        if(vecDist(mc,pc)<this.detectionRange){
+            const a=angleBetween(mc,pc);
+            this.x+=Math.cos(a)*this.speed*dt; this.y+=Math.sin(a)*this.speed*dt;
+        }
+    }
+    draw(ctx,camera) {
+        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
+        if(this.dead){const t=this.deathProgress();ctx.save();ctx.globalAlpha=(1-t)*0.5;ctx.fillStyle='#408';ctx.beginPath();ctx.arc(cx,cy,11*(1-t),0,Math.PI*2);ctx.fill();ctx.restore();return;}
+        ctx.save();ctx.globalAlpha=this.isFlashing()?0.15:this.alpha;
+        ctx.fillStyle='#306';ctx.beginPath();ctx.arc(cx,cy-3,11,Math.PI,0);
+        ctx.lineTo(cx+11,cy+8);
+        for(let i=4;i>0;i--){const sx=cx-11+i*5.5;const w=Math.sin(Date.now()/200+i)*3;
+            ctx.lineTo(sx-2.75,cy+6+w);ctx.lineTo(sx-5.5,cy+8);}
+        ctx.closePath();ctx.fill();
+        ctx.fillStyle='#F0F';ctx.beginPath();ctx.arc(cx-4,cy-3,2.5,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(cx+4,cy-3,2.5,0,Math.PI*2);ctx.fill();
+        ctx.restore();
+    }
+}
+
+class ShadowWraith extends Enemy {
+    constructor(x,y) {
+        super(x,y,28,28); this.hp=10; this.maxHp=10; this.speed=35; this.damage=2;
+        this.phasesThroughWalls=true; this.detectionRange=200;
+        this.teleportTimer=0; this.teleportCooldown=4;
+    }
+    update(dt,world,player) {
+        this.baseUpdate(dt,world); if(this.dead) return;
+        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
+        const dist=vecDist(mc,pc);
+        if(dist<this.detectionRange){
+            const a=angleBetween(mc,pc);
+            this.x+=Math.cos(a)*this.speed*dt; this.y+=Math.sin(a)*this.speed*dt;
+            this.teleportTimer-=dt;
+            if(this.teleportTimer<=0&&dist>80){
+                this.teleportTimer=this.teleportCooldown;
+                this.x=player.x+randRange(-60,60); this.y=player.y+randRange(-60,60);
+            }
+        }
+    }
+    draw(ctx,camera) {
+        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
+        if(this.dead){const t=this.deathProgress();ctx.save();ctx.globalAlpha=(1-t)*0.4;ctx.fillStyle='#606';ctx.beginPath();ctx.arc(cx,cy,14*(1-t),0,Math.PI*2);ctx.fill();ctx.restore();return;}
+        ctx.save();ctx.globalAlpha=this.isFlashing()?0.2:0.5;
+        ctx.fillStyle='#404';ctx.beginPath();ctx.ellipse(cx,cy,14,12,0,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#808';ctx.beginPath();ctx.ellipse(cx,cy-4,10,8,0,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#F0F';ctx.beginPath();ctx.arc(cx-5,cy-6,3,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(cx+5,cy-6,3,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#FFF';ctx.beginPath();ctx.arc(cx-5,cy-7,1,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(cx+5,cy-7,1,0,Math.PI*2);ctx.fill();
+        ctx.restore();
+    }
+}
+
+// W9 Boss: SCHATTEN-MEISTER
+class BossShadowMaster extends Enemy {
+    constructor(x,y) {
+        super(x,y,90,90); this.hp=55; this.maxHp=55; this.speed=30;
+        this.damage=2; this.isBoss=true; this.contactDamage=false; this.phasesThroughWalls=true;
+        this.state='intro'; this.introTimer=2; this.stunnedTimer=0;
+        this.darkTimer=3; this.spawnTimer=8; this.phase=1;
+    }
+    update(dt,world,player,enemies,particles) {
+        this.baseUpdate(dt,world); if(this.dead) return;
+        if(this.hp<=28&&this.phase===1){this.phase=2;this.speed=45;}
+        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
+        if(this.state==='intro'){this.introTimer-=dt;if(this.introTimer<=0)this.state='chase';return;}
+        if(this.state==='stunned'){this.stunnedTimer-=dt;if(this.stunnedTimer<=0)this.state='chase';return;}
+        const a=angleBetween(mc,pc);
+        this.x+=Math.cos(a)*this.speed*dt;this.y+=Math.sin(a)*this.speed*dt;
+        this.darkTimer-=dt;
+        if(this.darkTimer<=0){this.darkTimer=this.phase===1?3:2;
+            const n=this.phase===1?8:12;
+            for(let i=0;i<n;i++){const sa=(Math.PI*2*i)/n;
+                if(typeof Game!=='undefined')Game.projectiles.push(new Projectile(mc.x,mc.y,Math.cos(sa)*130,Math.sin(sa)*130,1,'enemy',60));}
+            this.state='stunned';this.stunnedTimer=2;}
+        this.spawnTimer-=dt;
+        if(this.spawnTimer<=0&&enemies){this.spawnTimer=8;
+            for(let i=0;i<2;i++){const sa=Math.random()*Math.PI*2;enemies.push(new ShadowGhost(mc.x+Math.cos(sa)*50,mc.y+Math.sin(sa)*50));}}
+    }
+    draw(ctx,camera) {
+        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
+        if(this.dead){const t=this.deathProgress();ctx.save();for(let i=0;i<12;i++){ctx.globalAlpha=(1-t);const a=(Math.PI*2*i)/12+t*2;ctx.fillStyle=i%2?'#F0F':'#808';ctx.beginPath();ctx.arc(cx+Math.cos(a)*t*60,cy+Math.sin(a)*t*60,(1-t)*8,0,Math.PI*2);ctx.fill();}ctx.restore();return;}
+        ctx.save();ctx.globalAlpha=this.isFlashing()?0.3:0.7;
+        ctx.fillStyle='#303';ctx.beginPath();ctx.ellipse(cx,cy,42,36,0,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#505';ctx.beginPath();ctx.ellipse(cx,cy-8,30,25,0,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#F0F';ctx.beginPath();ctx.arc(cx-14,cy-15,8,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(cx+14,cy-15,8,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#FFF';ctx.beginPath();ctx.arc(cx-14,cy-16,4,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(cx+14,cy-16,4,0,Math.PI*2);ctx.fill();
+        if(this.state==='stunned'){ctx.globalAlpha=0.7;ctx.fillStyle='#FF0';ctx.font='12px monospace';for(let i=0;i<4;i++){const sa=Date.now()/250+i*Math.PI/2;ctx.fillText('\u2605',cx+Math.cos(sa)*35,pos.y-10+Math.sin(sa)*6);}}
+        ctx.globalAlpha=1;ctx.fillStyle='#FFF';ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.fillText('SCHATTEN-MEISTER',cx,pos.y-20);ctx.textAlign='left';
+        ctx.fillStyle='#222';ctx.beginPath();ctx.roundRect(cx-45,pos.y-15,90,7,3);ctx.fill();
+        ctx.fillStyle=this.hp>25?'#A0F':'#F00';ctx.beginPath();ctx.roundRect(cx-44,pos.y-14,88*(this.hp/this.maxHp),5,2);ctx.fill();
+        ctx.restore();
+    }
+}
+
+// ══════════════════════════════════════════
+// ── World 10: Obst-Paradies Enemies ──
+// ══════════════════════════════════════════
+
+class AngryFruit extends Enemy {
+    constructor(x,y) {
+        super(x,y,20,20); this.hp=4; this.maxHp=4; this.speed=55; this.damage=1;
+        this.detectionRange=150; this.fruitType=randInt(0,2); // 0=apple,1=orange,2=grape
+    }
+    update(dt,world,player) {
+        this.baseUpdate(dt,world); if(this.dead) return;
+        const dist=vecDist({x:this.centerX(),y:this.centerY()},{x:player.x+player.w/2,y:player.y+player.h/2});
+        if(dist<this.detectionRange){const a=angleBetween({x:this.centerX(),y:this.centerY()},{x:player.x+player.w/2,y:player.y+player.h/2});
+            this._moveWithCollision(Math.cos(a)*this.speed*dt,Math.sin(a)*this.speed*dt,world);}
+    }
+    draw(ctx,camera) {
+        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
+        if(this.dead){const t=this.deathProgress();ctx.save();ctx.globalAlpha=(1-t);ctx.fillStyle=['#F44','#F80','#A4F'][this.fruitType];ctx.beginPath();ctx.arc(cx,cy,10*(1-t),0,Math.PI*2);ctx.fill();ctx.restore();return;}
+        ctx.save();if(this.isFlashing())ctx.globalAlpha=0.4;
+        const colors=['#F44','#F80','#A4F'];
+        ctx.fillStyle=colors[this.fruitType];ctx.beginPath();ctx.arc(cx,cy,10,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#4A0';ctx.fillRect(cx-1,cy-13,2,5);
+        ctx.fillStyle='#000';ctx.beginPath();ctx.arc(cx-3,cy-2,1.5,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(cx+3,cy-2,1.5,0,Math.PI*2);ctx.fill();
+        ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.beginPath();ctx.arc(cx,cy+3,3,0.3,Math.PI-0.3);ctx.stroke();
+        ctx.restore();
+    }
+}
+
+class GiantPlant extends Enemy {
+    constructor(x,y) {
+        super(x,y,30,30); this.hp=8; this.maxHp=8; this.speed=20; this.damage=1;
+        this.detectionRange=140; this.shootTimer=0; this.shootCooldown=2;
+    }
+    update(dt,world,player) {
+        this.baseUpdate(dt,world); if(this.dead) return;
+        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
+        const dist=vecDist(mc,pc);
+        if(dist<this.detectionRange){
+            const a=angleBetween(mc,pc);
+            this._moveWithCollision(Math.cos(a)*this.speed*dt,Math.sin(a)*this.speed*dt,world);
+            this.shootTimer-=dt;
+            if(this.shootTimer<=0&&typeof Game!=='undefined'){this.shootTimer=this.shootCooldown;
+                Game.projectiles.push(new Projectile(mc.x,mc.y,Math.cos(a)*100,Math.sin(a)*100,1,'enemy',50));}
+        }
+    }
+    draw(ctx,camera) {
+        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
+        if(this.dead){const t=this.deathProgress();ctx.save();ctx.globalAlpha=(1-t);ctx.fillStyle='#4A0';ctx.beginPath();ctx.arc(cx,cy,15*(1-t),0,Math.PI*2);ctx.fill();ctx.restore();return;}
+        ctx.save();if(this.isFlashing())ctx.globalAlpha=0.4;
+        ctx.fillStyle='#4A0';ctx.fillRect(cx-4,cy,8,14);
+        ctx.fillStyle='#6C0';ctx.beginPath();ctx.arc(cx,cy-2,14,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#8E2';ctx.beginPath();ctx.arc(cx-4,cy-6,6,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#F44';ctx.beginPath();ctx.arc(cx,cy-2,4,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#000';ctx.beginPath();ctx.arc(cx-2,cy-3,1.5,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(cx+2,cy-3,1.5,0,Math.PI*2);ctx.fill();
+        ctx.restore();
+    }
+}
+
+// W10 Boss: OBST-KÖNIG
+class BossFruitKing extends Enemy {
+    constructor(x,y) {
+        super(x,y,100,90); this.hp=60; this.maxHp=60; this.speed=25;
+        this.damage=2; this.isBoss=true; this.contactDamage=false;
+        this.state='intro'; this.introTimer=2; this.stunnedTimer=0;
+        this.fruitTimer=3; this.vineTimer=5; this.phase=1;
+    }
+    update(dt,world,player,enemies,particles) {
+        this.baseUpdate(dt,world); if(this.dead) return;
+        if(this.hp<=30&&this.phase===1){this.phase=2;this.speed=35;}
+        const pc={x:player.x+player.w/2,y:player.y+player.h/2}, mc={x:this.centerX(),y:this.centerY()};
+        if(this.state==='intro'){this.introTimer-=dt;if(this.introTimer<=0)this.state='chase';return;}
+        if(this.state==='stunned'){this.stunnedTimer-=dt;if(this.stunnedTimer<=0)this.state='chase';return;}
+        const a=angleBetween(mc,pc);
+        this._moveWithCollision(Math.cos(a)*this.speed*dt,Math.sin(a)*this.speed*dt,world);
+        this.fruitTimer-=dt;
+        if(this.fruitTimer<=0){this.fruitTimer=this.phase===1?3:2;
+            const n=this.phase===1?6:10;
+            for(let i=0;i<n;i++){const sa=(Math.PI*2*i)/n;
+                if(typeof Game!=='undefined')Game.projectiles.push(new Projectile(mc.x,mc.y,Math.cos(sa)*120,Math.sin(sa)*120,1,'enemy',60));}
+            this.state='stunned';this.stunnedTimer=2;}
+        this.vineTimer-=dt;
+        if(this.vineTimer<=0&&enemies){this.vineTimer=5;
+            for(let i=0;i<3;i++){const sa=Math.random()*Math.PI*2;
+                enemies.push(new AngryFruit(mc.x+Math.cos(sa)*60,mc.y+Math.sin(sa)*60));}}
+    }
+    draw(ctx,camera) {
+        const pos=camera.worldToScreen(this.x,this.y),cx=pos.x+this.w/2,cy=pos.y+this.h/2;
+        if(this.dead){const t=this.deathProgress();ctx.save();for(let i=0;i<14;i++){ctx.globalAlpha=(1-t);const a=(Math.PI*2*i)/14+t*2;ctx.fillStyle=['#F44','#F80','#FF0','#4F4','#A4F'][i%5];ctx.beginPath();ctx.arc(cx+Math.cos(a)*t*60,cy+Math.sin(a)*t*60,(1-t)*8,0,Math.PI*2);ctx.fill();}ctx.restore();return;}
+        ctx.save();if(this.isFlashing())ctx.globalAlpha=0.4;
+        ctx.fillStyle='#6C0';ctx.beginPath();ctx.ellipse(cx,cy+5,45,35,0,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#8E2';ctx.beginPath();ctx.ellipse(cx,cy-10,35,30,0,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#F80';ctx.beginPath();ctx.arc(cx-15,cy-5,10,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#F44';ctx.beginPath();ctx.arc(cx+15,cy,10,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#FF0';ctx.beginPath();ctx.arc(cx,cy+10,8,0,Math.PI*2);ctx.fill();
+        // Crown
+        ctx.fillStyle='#FFD700';ctx.beginPath();ctx.moveTo(cx-15,cy-30);ctx.lineTo(cx-15,cy-38);ctx.lineTo(cx-8,cy-33);ctx.lineTo(cx,cy-40);ctx.lineTo(cx+8,cy-33);ctx.lineTo(cx+15,cy-38);ctx.lineTo(cx+15,cy-30);ctx.closePath();ctx.fill();
+        // Face
+        ctx.fillStyle='#000';ctx.beginPath();ctx.arc(cx-10,cy-15,5,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(cx+10,cy-15,5,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#FFF';ctx.beginPath();ctx.arc(cx-10,cy-16,2,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(cx+10,cy-16,2,0,Math.PI*2);ctx.fill();
+        ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy-5,10,0.2,Math.PI-0.2);ctx.stroke();
+        if(this.state==='stunned'){ctx.globalAlpha=0.7;ctx.fillStyle='#FF0';ctx.font='12px monospace';for(let i=0;i<4;i++){const sa=Date.now()/250+i*Math.PI/2;ctx.fillText('\u2605',cx+Math.cos(sa)*40,pos.y-25+Math.sin(sa)*6);}}
+        ctx.globalAlpha=1;ctx.fillStyle='#FFF';ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.fillText('OBST-K\u00d6NIG',cx,pos.y-25);ctx.textAlign='left';
+        ctx.fillStyle='#222';ctx.beginPath();ctx.roundRect(cx-45,pos.y-20,90,7,3);ctx.fill();
+        ctx.fillStyle=this.hp>25?'#F80':'#F00';ctx.beginPath();ctx.roundRect(cx-44,pos.y-19,88*(this.hp/this.maxHp),5,2);ctx.fill();
+        ctx.restore();
+    }
+}
