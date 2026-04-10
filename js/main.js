@@ -170,10 +170,10 @@ const Game = {
         this.world = new World();
         const levels = [TUTORIAL_LEVEL, WORLD1_LEVEL, WORLD2_LEVEL, WORLD3_LEVEL, WORLD4_LEVEL,
             WORLD5_LEVEL, WORLD6_LEVEL, WORLD7_LEVEL, WORLD8_LEVEL,
-            WORLD9_LEVEL, WORLD10_LEVEL, WORLD11_LEVEL, WORLD12_LEVEL];
+            WORLD11_LEVEL, WORLD12_LEVEL];
         const themes = ['factory', 'castle', 'factory', 'cave', 'dark',
             'mushroom', 'swamp', 'ice', 'volcano',
-            'castle', 'castle', 'pixel', 'space'];
+            'pixel', 'space'];
         this.world.load(levels[worldNum]);
         this.world.theme = themes[worldNum];
 
@@ -275,18 +275,13 @@ const Game = {
             this._spawnWorld7();
         } else if (worldNum === 8) {
             this._spawnWorld8();
-        } else if (worldNum === 9 || worldNum === 10) {
-            // Placeholder worlds - mix of everything
-            for (let i = 0; i < 15; i++) this.enemies.push(this._spawnAt([Ghost,Slime,ShadowKnight,GiantBat][Math.floor(Math.random()*4)]));
-            this.enemies.push(this._spawnAt(KeyGhost, 300));
-            for (let i = 0; i < 6; i++) this.chests.push(this._spawnChestAt());
-        } else if (worldNum === 11) {
+        } else if (worldNum === 9) {
             // Pixel-Welt
             for (let i = 0; i < 20; i++) this.enemies.push(this._spawnAt(PixelGhost));
-            this.enemies.push(this._spawnAt(PixelRobot, 300)); // key holder
+            this.enemies.push(this._spawnAt(PixelRobot, 300));
             for (let i = 0; i < 7; i++) this.chests.push(this._spawnChestAt());
-        } else if (worldNum === 12) {
-            // Sternen-Ritter-Galaxie
+        } else if (worldNum === 10) {
+            // Sternen-Galaxie
             for (let i = 0; i < 18; i++) this.enemies.push(this._spawnAt(StarKnight));
             this.enemies.push(this._spawnAt(KeyGhost, 300));
             for (let i = 0; i < 7; i++) this.chests.push(this._spawnChestAt());
@@ -402,12 +397,12 @@ const Game = {
             boss = new BossSnowEagle(this.world.bossSpawn.x, this.world.bossSpawn.y);
         } else if (this.currentWorld === 8) {
             boss = new BossFirePhoenix(this.world.bossSpawn.x, this.world.bossSpawn.y);
-        } else if (this.currentWorld === 11) {
+        } else if (this.currentWorld === 9) {
             boss = new BossGhostChick(this.world.bossSpawn.x, this.world.bossSpawn.y);
-            boss.hp = 55; boss.maxHp = 55; // Pixel Robot Boss
-        } else if (this.currentWorld === 12) {
+            boss.hp = 55; boss.maxHp = 55;
+        } else if (this.currentWorld === 10) {
             boss = new BossKnightBat(this.world.bossSpawn.x, this.world.bossSpawn.y);
-            boss.hp = 65; boss.maxHp = 65; // Star Knight Boss
+            boss.hp = 65; boss.maxHp = 65;
         } else {
             boss = new BossGhost(this.world.bossSpawn.x, this.world.bossSpawn.y);
             boss.hp = 50; boss.maxHp = 50; // fallback
@@ -438,14 +433,14 @@ const Game = {
             this.unlockedAuto = true;
         } else if (this.currentWorld === 4) {
             this.unlockedCrown = true;
-        } else if (this.currentWorld >= 8) {
+        } else if (this.currentWorld >= 10) {
             this.state = 'WIN';
         }
         this.save();
     },
 
     _advanceToNextWorld() {
-        if (this.currentWorld < 12) {
+        if (this.currentWorld < 10) {
             this.startWorld(this.currentWorld + 1);
         }
     },
@@ -487,7 +482,7 @@ const Game = {
                 Sound.resume();
                 const btn = Renderer.getClickedButton(Input.mouse.x, Input.mouse.y);
                 if (btn) {
-                    const worldNames = ['Tutorial', 'Welt 1: Geisterschloss', 'Welt 2: Maschinen-Hof', 'Welt 3: Schleim-Arena', 'Welt 4: Schatten-Burg', 'Welt 5: Pilz-Wald', 'Welt 6: M\u00fccken-Sumpf', 'Welt 7: Antarktis', 'Welt 8: Vulkan-Insel', 'Welt 9: (bald)', 'Welt 10: (bald)', 'Welt 11: Pixel-Welt', 'Welt 12: Sternen-Galaxie'];
+                    const worldNames = ['Tutorial', 'Welt 1: Geisterschloss', 'Welt 2: Maschinen-Hof', 'Welt 3: Schleim-Arena', 'Welt 4: Schatten-Burg', 'Welt 5: Pilz-Wald', 'Welt 6: M\u00fccken-Sumpf', 'Welt 7: Antarktis', 'Welt 8: Vulkan-Insel', 'Welt 9: Pixel-Welt', 'Welt 10: Sternen-Galaxie'];
                     for (let i = 0; i < worldNames.length; i++) {
                         if (btn === worldNames[i] && i <= this.maxWorldUnlocked) {
                             this.startWorld(i);

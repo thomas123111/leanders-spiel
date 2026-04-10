@@ -65,8 +65,8 @@ const Renderer = {
         }
 
         // ── World indicator ──
-        const worldNames = [null, 'Geisterschloss', 'Maschinen-Hof', 'Schleim-Arena', 'Schatten-Burg', 'Pilz-Wald', 'M\u00fccken-Sumpf', 'Antarktis', 'Vulkan-Insel', 'Welt 9', 'Welt 10', 'Pixel-Welt', 'Sternen-Galaxie'];
-        const worldColors = [null, '#A6F', '#F80', '#4D4', '#C66', '#A84', '#8A4', '#8CF', '#F84', '#AAA', '#AAA', '#48F', '#FA0'];
+        const worldNames = [null, 'Geisterschloss', 'Maschinen-Hof', 'Schleim-Arena', 'Schatten-Burg', 'Pilz-Wald', 'M\u00fccken-Sumpf', 'Antarktis', 'Vulkan-Insel', 'Pixel-Welt', 'Sternen-Galaxie'];
+        const worldColors = [null, '#A6F', '#F80', '#4D4', '#C66', '#A84', '#8A4', '#8CF', '#F84', '#48F', '#FA0'];
         ctx.fillStyle = worldColors[game.currentWorld];
         ctx.font = 'bold 11px monospace';
         ctx.textAlign = 'right';
@@ -183,8 +183,8 @@ const Renderer = {
                 6: { name: 'RIESEN M\u00dcCKE', color: '#8A4' },
                 7: { name: 'SCHNEE ADLER', color: '#8CF' },
                 8: { name: 'FEUER PH\u00d6NIX', color: '#F84' },
-                11: { name: 'PIXEL-ROBOTER', color: '#48F' },
-                12: { name: 'STERNEN-RITTER', color: '#FA0' },
+                9: { name: 'PIXEL-ROBOTER', color: '#48F' },
+                10: { name: 'STERNEN-RITTER', color: '#FA0' },
             };
             const boss = bossNames[game.currentWorld] || { name: 'BOSS', color: '#F00' };
             ctx.fillStyle = 'rgba(0,0,0,0.7)';
@@ -436,7 +436,7 @@ const Renderer = {
         ctx.font = '8px monospace';
         ctx.textAlign = 'center';
         const bioLines = [
-            'Mark ist ein Golfspieler',
+            'Mark ist ein Baseballspieler',
             'und Geisterj\u00e4ger.',
             'Seit er bestohlen wurde,',
             'hat er sich verwandelt...',
@@ -471,10 +471,8 @@ const Renderer = {
             { name: 'Welt 6: M\u00fccken-Sumpf', color: '#8A4' },
             { name: 'Welt 7: Antarktis', color: '#8CF' },
             { name: 'Welt 8: Vulkan-Insel', color: '#F84' },
-            { name: 'Welt 9: (bald)', color: '#AAA' },
-            { name: 'Welt 10: (bald)', color: '#AAA' },
-            { name: 'Welt 11: Pixel-Welt', color: '#48F' },
-            { name: 'Welt 12: Sternen-Galaxie', color: '#FA0' },
+            { name: 'Welt 9: Pixel-Welt', color: '#48F' },
+            { name: 'Welt 10: Sternen-Galaxie', color: '#FA0' },
         ];
 
         // World select buttons (scrollable list, smaller to fit 9)
@@ -518,7 +516,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v5.0.0', cw - 8, ch - 6);
+        ctx.fillText('v5.1.0', cw - 8, ch - 6);
 
         ctx.restore();
     },
