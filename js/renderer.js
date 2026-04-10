@@ -419,39 +419,61 @@ const Renderer = {
         const ch = ctx.canvas.height;
         ctx.save();
 
-        // ── Left Panel: MARK name + 3D model + bio ──
-        // Name
+        // ── Game Title (top right) ──
+        ctx.fillStyle = '#4A9';
+        ctx.font = 'bold 16px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText('Mark und die', cw - 12, 22);
+        ctx.fillStyle = '#F88';
+        ctx.font = 'bold 14px monospace';
+        ctx.fillText('geklauten Erfindungen', cw - 12, 40);
+
+        // ── Left Panel: MARK name + rotatable model ──
         ctx.fillStyle = '#FFF';
         ctx.font = 'bold 20px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('MARK', cw * 0.15, 30);
+        ctx.fillText('MARK', cw * 0.12, 30);
 
-        // 360° rotating Mark
-        this._markRotation = (this._markRotation || 0) + 0.008;
-        const markScale = 2.2 + Math.sin(this._markRotation * 2) * 0.1;
-        this._drawMarkCharacter(ctx, cw * 0.15, ch * 0.38, markScale);
-
-        // Bio text
-        ctx.fillStyle = '#999';
+        // 360° Mark - drag/touch to rotate
+        if (!this._markAngle) this._markAngle = 0;
+        // Track drag on left side of screen for rotation
+        if (Input.mouse.down && Input.mouse.x < cw * 0.3) {
+            this._markAngle += 0.08;
+        } else if (Input.joystick.active && Input.joystick.baseX < cw * 0.3) {
+            this._markAngle += 0.08;
+        } else {
+            this._markAngle += 0.005; // slow idle spin
+        }
+        // Draw Mark with simulated 3D rotation (scale X = cos)
+        const flipX = Math.cos(this._markAngle);
+        ctx.save();
+        ctx.translate(cw * 0.12, ch * 0.45);
+        ctx.scale(flipX * 2.5, 2.5);
+        ctx.translate(-cw * 0.12 / (flipX * 2.5 || 0.01), -ch * 0.45 / 2.5);
+        this._drawMarkCharacter(ctx, cw * 0.12, ch * 0.45, 1);
+        ctx.restore();
+        // Rotation hint
+        ctx.fillStyle = '#666';
         ctx.font = '8px monospace';
         ctx.textAlign = 'center';
+        ctx.fillText('drehen \u2194', cw * 0.12, ch * 0.72);
+
+        // ── Bio text (right of Mark) ──
+        ctx.fillStyle = '#999';
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'left';
         const bioLines = [
-            'Mark ist ein Baseballspieler',
-            'und Geisterj\u00e4ger.',
-            'Seit er bestohlen wurde,',
-            'hat er sich verwandelt...',
+            'Mark ist ein',
+            'Baseballspieler und',
+            'Geisterj\u00e4ger. Seit er',
+            'bestohlen wurde, hat',
+            'er sich verwandelt...',
             'Findet es selbst heraus!'
         ];
+        const bioX = cw * 0.22;
         for (let i = 0; i < bioLines.length; i++) {
-            ctx.fillText(bioLines[i], cw * 0.15, ch * 0.68 + i * 12);
+            ctx.fillText(bioLines[i], bioX, ch * 0.30 + i * 13);
         }
-
-        // Game title at bottom left
-        ctx.fillStyle = '#4A9';
-        ctx.font = 'bold 9px monospace';
-        ctx.fillText('Mark und die', cw * 0.15, ch * 0.88);
-        ctx.fillStyle = '#F88';
-        ctx.fillText('geklauten Erfindungen', cw * 0.15, ch * 0.92);
 
         // ── Right Panel: World Select ──
         const tx = cw * 0.6;
@@ -516,7 +538,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v5.1.0', cw - 8, ch - 6);
+        ctx.fillText('v5.2.0', cw - 8, ch - 6);
 
         ctx.restore();
     },
