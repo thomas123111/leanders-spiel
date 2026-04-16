@@ -65,8 +65,8 @@ const Renderer = {
         }
 
         // ── World indicator ──
-        const worldNames = [null, 'Geisterschloss', 'Maschinen-Hof', 'Schleim-Arena', 'Schatten-Burg', 'Pilz-Wald', 'M\u00fccken-Sumpf', 'Antarktis', 'Vulkan-Insel', 'Schatten-Dim.', 'Obst-Paradies', 'Pixel-Welt', 'Sternen-Galaxie'];
-        const worldColors = [null, '#A6F', '#F80', '#4D4', '#C66', '#A84', '#8A4', '#8CF', '#F84', '#A0F', '#F80', '#48F', '#FA0'];
+        const worldNames = [null, 'Geisterschloss', 'Maschinen-Hof', 'Schleim-Arena', 'Schatten-Burg', 'Pilz-Wald', 'M\u00fccken-Sumpf', 'Antarktis', 'Vulkan-Insel', 'Schatten-Dim.', 'Obst-Paradies', 'Pixel-Welt', 'Sternen-Galaxie', 'Knochen-Tal', 'Gift-Sumpf', 'Steinwelt'];
+        const worldColors = [null, '#A6F', '#F80', '#4D4', '#C66', '#A84', '#8A4', '#8CF', '#F84', '#A0F', '#F80', '#48F', '#FA0', '#EEE', '#4F4', '#AAA'];
         ctx.fillStyle = worldColors[game.currentWorld];
         ctx.font = 'bold 11px monospace';
         ctx.textAlign = 'right';
@@ -187,6 +187,9 @@ const Renderer = {
                 10: { name: 'OBST-K\u00d6NIG', color: '#F80' },
                 11: { name: 'PIXEL-ROBOTER', color: '#48F' },
                 12: { name: 'STERNEN-RITTER', color: '#FA0' },
+                13: { name: 'KNOCHEN-REITER', color: '#EEE' },
+                14: { name: 'HYDRA', color: '#4F4' },
+                15: { name: 'STEIN-D\u00c4MON', color: '#AAA' },
             };
             const boss = bossNames[game.currentWorld] || { name: 'BOSS', color: '#F00' };
             ctx.fillStyle = 'rgba(0,0,0,0.7)';
@@ -500,17 +503,19 @@ const Renderer = {
             { name: 'Welt 10: Obst-Paradies', color: '#F80' },
             { name: 'Welt 11: Pixel-Welt', color: '#48F' },
             { name: 'Welt 12: Sternen-Galaxie', color: '#FA0' },
-            { name: 'Welt 13: (bald)', color: '#666' },
+            { name: 'Welt 13: Knochen-Tal', color: '#EEE' },
+            { name: 'Welt 14: Gift-Sumpf', color: '#4F4' },
+            { name: 'Welt 15: Steinwelt', color: '#AAA' },
         ];
 
         // World select buttons (scrollable list, smaller to fit 9)
-        const btnW = 210;
-        const btnH = 24;
-        const startY = ch * 0.08;
+        const btnW = 200;
+        const btnH = 22;
+        const startY = ch * 0.04;
         for (let i = 0; i < worlds.length; i++) {
             const unlocked = i <= Game.maxWorldUnlocked; // Tutorial=0 always unlocked
             const bx = tx - btnW / 2;
-            const by = startY + i * 28;
+            const by = startY + i * 26;
             if (unlocked) {
                 this._drawButton(ctx, bx, by, btnW, btnH, worlds[i].name, 14);
             } else {
@@ -544,7 +549,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v6.1.0', cw - 8, ch - 6);
+        ctx.fillText('v7.0.0', cw - 8, ch - 6);
 
         ctx.restore();
     },
@@ -621,6 +626,10 @@ const Renderer = {
             9: { title: 'SCHATTENWERFER erhalten!', desc: 'Bunte Energie-Sch\u00fcsse! Mehr Schaden!', color: '#A0F' },
             10: { title: 'OBST-UPGRADES erhalten!', desc: 'Orangen-Explosion + Melonen-H\u00e4mmer + Fruchtfleisch-Patrone!', color: '#F80' },
             11: { title: 'GAMER-PISTOLE erhalten!', desc: 'Blaue Pixel-Strahlen! Maximaler Schaden!', color: '#48F' },
+            12: { title: 'STERNEN-RITTER besiegt!', desc: 'Weiter ins Knochen-Tal!', color: '#FA0' },
+            13: { title: 'KNOCHEN-UPGRADE erhalten!', desc: 'Der Schl\u00e4ger feuert Knochen-Projektile!', color: '#EEE' },
+            14: { title: 'SCHLANGE erhalten!', desc: 'Die kleine Schlange sitzt auf Marks Schulter und spuckt Gift!', color: '#4F4' },
+            15: { title: 'STEIN DES SHOGUNS!', desc: 'Die Schlange leuchtet violett - Versteinerungs-Gift!', color: '#A0F' },
         };
         const r = rewards[worldNum];
         if (r) {
