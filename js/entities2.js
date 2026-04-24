@@ -698,3 +698,364 @@ class BossFruitGiant extends Enemy {
         ctx.restore();
     }
 }
+
+// Extra standard enemies used by the late worlds
+
+class Drone extends Enemy {
+    constructor(x, y) {
+        super(x, y, 20, 18);
+        this.hp = 4;
+        this.maxHp = 4;
+        this.speed = 58;
+        this.damage = 1;
+        this.contactDamage = true;
+        this.detectionRange = 260;
+        this.shootTimer = 0;
+        this.hoverPhase = Math.random() * Math.PI * 2;
+    }
+
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+        const dist = vecDist(mc, pc);
+        if (dist < this.detectionRange) {
+            const a = angleBetween(mc, pc);
+            const sway = Math.sin(this.hoverPhase) * 24;
+            this.hoverPhase += dt * 5;
+            this._moveWithCollision(
+                Math.cos(a) * this.speed * dt + Math.cos(this.hoverPhase) * sway * dt,
+                Math.sin(a) * this.speed * dt + Math.sin(this.hoverPhase * 0.7) * 8 * dt,
+                world
+            );
+            this.shootTimer -= dt;
+            if (this.shootTimer <= 0 && typeof Game !== 'undefined') {
+                this.shootTimer = 2.2;
+                Game.projectiles.push(new Projectile(mc.x, mc.y, Math.cos(a) * 170, Math.sin(a) * 170, 1, 'enemy', 50));
+            }
+        }
+    }
+
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        if (this.isFlashing()) ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#778';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 10, 7, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#AAB';
+        ctx.beginPath();
+        ctx.arc(cx, cy - 1, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(cx - 2, cy - 9, 4, 3);
+        ctx.fillStyle = '#333';
+        ctx.fillRect(cx - 8, cy + 5, 4, 2);
+        ctx.fillRect(cx + 4, cy + 5, 4, 2);
+        ctx.restore();
+    }
+}
+
+class WalkingMushroom extends Enemy {
+    constructor(x, y) {
+        super(x, y, 24, 22);
+        this.hp = 5;
+        this.maxHp = 5;
+        this.speed = 28;
+        this.damage = 1;
+        this.contactDamage = true;
+        this.sporeTimer = 0;
+        this.wobble = Math.random() * Math.PI * 2;
+    }
+
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+        const dist = vecDist(mc, pc);
+        if (dist < 220) {
+            const a = angleBetween(mc, pc);
+            this.wobble += dt * 4;
+            this._moveWithCollision(
+                Math.cos(a) * this.speed * dt + Math.sin(this.wobble) * 8 * dt,
+                Math.sin(a) * this.speed * dt,
+                world
+            );
+            this.sporeTimer -= dt;
+            if (this.sporeTimer <= 0 && typeof Game !== 'undefined' && dist < 120) {
+                this.sporeTimer = 2.6;
+                const p = new Projectile(mc.x, mc.y, Math.cos(a) * 120, Math.sin(a) * 120, 1, 'enemy', 70);
+                p.poison = true;
+                Game.projectiles.push(p);
+            }
+        }
+    }
+
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        if (this.isFlashing()) ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#6A4';
+        ctx.beginPath();
+        ctx.arc(cx, cy + 2, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#A8C';
+        ctx.beginPath();
+        ctx.arc(cx, cy - 7, 9, Math.PI, 0);
+        ctx.fill();
+        ctx.fillStyle = '#DDD';
+        ctx.fillRect(cx - 3, cy - 2, 6, 8);
+        ctx.fillStyle = '#111';
+        ctx.beginPath();
+        ctx.arc(cx - 3, cy - 6, 1.5, 0, Math.PI * 2);
+        ctx.arc(cx + 3, cy - 6, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+class SwampMosquito extends Enemy {
+    constructor(x, y) {
+        super(x, y, 20, 16);
+        this.hp = 3;
+        this.maxHp = 3;
+        this.speed = 72;
+        this.damage = 1;
+        this.contactDamage = true;
+        this.detectionRange = 280;
+        this.diveTimer = 0;
+        this.wingPhase = Math.random() * Math.PI * 2;
+    }
+
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+        const dist = vecDist(mc, pc);
+        if (dist < this.detectionRange) {
+            const a = angleBetween(mc, pc);
+            this.wingPhase += dt * 16;
+            this._moveWithCollision(
+                Math.cos(a) * this.speed * dt + Math.cos(this.wingPhase) * 10 * dt,
+                Math.sin(a) * this.speed * dt + Math.sin(this.wingPhase * 1.2) * 6 * dt,
+                world
+            );
+            this.diveTimer -= dt;
+            if (this.diveTimer <= 0 && dist < 130) {
+                this.diveTimer = 1.7;
+                this._moveWithCollision(Math.cos(a) * 140 * dt, Math.sin(a) * 140 * dt, world);
+            }
+        }
+    }
+
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        if (this.isFlashing()) ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#485';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 7, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#CFC';
+        ctx.beginPath();
+        ctx.arc(cx - 3, cy - 2, 2, 0, Math.PI * 2);
+        ctx.arc(cx + 3, cy - 2, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#B8E';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cx - 8, cy - 4);
+        ctx.lineTo(cx - 14, cy - 8);
+        ctx.moveTo(cx + 8, cy - 4);
+        ctx.lineTo(cx + 14, cy - 8);
+        ctx.stroke();
+        ctx.restore();
+    }
+}
+
+class CrocodileKid extends Enemy {
+    constructor(x, y) {
+        super(x, y, 26, 22);
+        this.hp = 6;
+        this.maxHp = 6;
+        this.speed = 42;
+        this.damage = 2;
+        this.contactDamage = true;
+        this.spitTimer = 0;
+    }
+
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+        const dist = vecDist(mc, pc);
+        if (dist < 220) {
+            const a = angleBetween(mc, pc);
+            this._moveWithCollision(Math.cos(a) * this.speed * dt, Math.sin(a) * this.speed * dt, world);
+            this.spitTimer -= dt;
+            if (this.spitTimer <= 0 && typeof Game !== 'undefined' && dist < 150) {
+                this.spitTimer = 2.4;
+                const p = new Projectile(mc.x, mc.y, Math.cos(a) * 135, Math.sin(a) * 135, 1, 'enemy', 60);
+                p.poison = true;
+                Game.projectiles.push(p);
+            }
+        }
+    }
+
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        if (this.isFlashing()) ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#3A6A3A';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 11, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#5B8';
+        ctx.beginPath();
+        ctx.arc(cx + 6, cy - 2, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#222';
+        ctx.fillRect(cx + 4, cy - 3, 6, 2);
+        ctx.fillStyle = '#F44';
+        ctx.beginPath();
+        ctx.arc(cx - 4, cy - 5, 1.5, 0, Math.PI * 2);
+        ctx.arc(cx + 2, cy - 5, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+class IcePenguin extends Enemy {
+    constructor(x, y) {
+        super(x, y, 22, 22);
+        this.hp = 4;
+        this.maxHp = 4;
+        this.speed = 46;
+        this.damage = 1;
+        this.contactDamage = true;
+        this.shootTimer = 0;
+    }
+
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+        const dist = vecDist(mc, pc);
+        if (dist < 240) {
+            const a = angleBetween(mc, pc);
+            this._moveWithCollision(Math.cos(a) * this.speed * dt, Math.sin(a) * this.speed * dt, world);
+            this.shootTimer -= dt;
+            if (this.shootTimer <= 0 && typeof Game !== 'undefined') {
+                this.shootTimer = 2.8;
+                const p = new Projectile(mc.x, mc.y, Math.cos(a) * 140, Math.sin(a) * 140, 1, 'enemy', 55);
+                p.slow = true;
+                Game.projectiles.push(p);
+            }
+        }
+    }
+
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        if (this.isFlashing()) ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#DFF';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + 2, 10, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#9CF';
+        ctx.beginPath();
+        ctx.arc(cx, cy - 8, 8, Math.PI, 0);
+        ctx.fill();
+        ctx.fillStyle = '#111';
+        ctx.fillRect(cx - 2, cy - 4, 4, 4);
+        ctx.fillStyle = '#F90';
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - 1);
+        ctx.lineTo(cx + 4, cy + 2);
+        ctx.lineTo(cx, cy + 4);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+class LavaBall extends Enemy {
+    constructor(x, y) {
+        super(x, y, 20, 20);
+        this.hp = 3;
+        this.maxHp = 3;
+        this.speed = 62;
+        this.damage = 1;
+        this.contactDamage = true;
+        this.burnTimer = 0;
+        this.pulse = Math.random() * Math.PI * 2;
+    }
+
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+        const dist = vecDist(mc, pc);
+        if (dist < 240) {
+            const a = angleBetween(mc, pc);
+            this.pulse += dt * 10;
+            this._moveWithCollision(
+                Math.cos(a) * this.speed * dt + Math.cos(this.pulse) * 12 * dt,
+                Math.sin(a) * this.speed * dt + Math.sin(this.pulse) * 12 * dt,
+                world
+            );
+            this.burnTimer -= dt;
+            if (this.burnTimer <= 0 && typeof Game !== 'undefined' && dist < 120) {
+                this.burnTimer = 2.0;
+                for (let i = 0; i < 4; i++) {
+                    const sa = (Math.PI * 2 * i) / 4;
+                    Game.projectiles.push(new Projectile(mc.x, mc.y, Math.cos(sa) * 110, Math.sin(sa) * 110, 1, 'enemy', 45));
+                }
+            }
+        }
+    }
+
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        if (this.isFlashing()) ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#F60';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FFB000';
+        ctx.beginPath();
+        ctx.arc(cx - 2, cy - 2, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#FFF0A0';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 10 + Math.sin(Date.now() / 120 + this.pulse) * 1.5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    }
+}
