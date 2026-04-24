@@ -588,7 +588,7 @@ const Renderer = {
         ctx.fillStyle = '#888';
         ctx.font = '10px monospace';
         const infoY = mobile ? startY + 194 : startY + 170;
-        ctx.fillText(Game.trainingCompleted ? 'PLAY = Story-Fortschritt fortsetzen' : 'PLAY startet zuerst den Trainingsplatz', tx, infoY);
+        ctx.fillText('PLAY öffnet die Weltauswahl', tx, infoY);
         ctx.fillText('VOLLBILD blendet die Browserleiste aus', tx, infoY + 16);
         ctx.fillText('SHOP enth\u00e4lt Tagesbelohnung, Sterne und die Krone', tx, infoY + 32);
 
@@ -606,7 +606,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v8.0.5', cw - 8, ch - 6);
+        ctx.fillText('v8.0.6', cw - 8, ch - 6);
 
         ctx.restore();
     },
