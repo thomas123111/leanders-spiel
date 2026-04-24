@@ -47,7 +47,11 @@ class Player {
         // Krone/Crown (unlocked after World 3): 5s shield at level start
         this.hasCrown = false;
         this.crownShieldTimer = 0;
-        this.crownShieldDuration = 5;
+        this.crownShieldDuration = 15;
+
+        // Slow / sticky effects
+        this.slowTimer = 0;
+        this.slowFactor = 1;
 
         // Death
         this.deathTimer = 0;
@@ -101,6 +105,11 @@ class Player {
         }
     }
 
+    applySlow(duration, factor) {
+        this.slowTimer = Math.max(this.slowTimer, duration);
+        this.slowFactor = Math.min(this.slowFactor, factor || 0.65);
+    }
+
     switchWeapon() {
         if (this.rangedWeapon) {
             this.activeWeapon = this.activeWeapon === this.meleeWeapon
@@ -116,6 +125,12 @@ class Player {
 
         // Crown shield countdown
         if (this.crownShieldTimer > 0) this.crownShieldTimer -= dt;
+
+        // Slow countdown
+        if (this.slowTimer > 0) {
+            this.slowTimer -= dt;
+            if (this.slowTimer <= 0) this.slowFactor = 1;
+        }
 
         // Auto ability
         if (this.autoActive) {
@@ -176,8 +191,8 @@ class Player {
         if (dir.x !== 0 || dir.y !== 0) {
             this.facingAngle = Math.atan2(dir.y, dir.x);
         }
-        const dx = dir.x * this.speed * dt;
-        const dy = dir.y * this.speed * dt;
+        const dx = dir.x * this.speed * this.slowFactor * dt;
+        const dy = dir.y * this.speed * this.slowFactor * dt;
         if (this.autoActive) {
             // Auto: drive through walls!
             this.x += dx;

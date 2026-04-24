@@ -196,3 +196,122 @@ class KeyDrop {
         ctx.fill();
     }
 }
+
+// â”€â”€ Coin Drop â”€â”€
+class CoinDrop {
+    constructor(x, y, value) {
+        this.x = x;
+        this.y = y;
+        this.w = 14;
+        this.h = 14;
+        this.value = value || 1;
+        this.collected = false;
+        this.bobOffset = Math.random() * Math.PI * 2;
+    }
+
+    update(dt, player) {
+        if (this.collected) return false;
+        this.bobOffset += dt;
+        const dist = vecDist(
+            { x: this.x + this.w / 2, y: this.y + this.h / 2 },
+            { x: player.x + player.w / 2, y: player.y + player.h / 2 }
+        );
+        if (dist < 30) {
+            this.collected = true;
+            return true;
+        }
+        return false;
+    }
+
+    draw(ctx, camera) {
+        if (this.collected) return;
+        const bob = Math.sin(this.bobOffset * 4) * 3;
+        const pos = camera.worldToScreen(this.x, this.y + bob);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+
+        ctx.save();
+        ctx.globalAlpha = 0.35 + Math.sin(this.bobOffset * 5) * 0.1;
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#FFE680';
+        ctx.beginPath();
+        ctx.arc(cx - 2, cy - 2, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#B8960F';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 7, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 8px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(String(this.value), cx, cy + 3);
+        ctx.restore();
+    }
+}
+
+// â”€â”€ Decorative Skull Prop â”€â”€
+class SkullProp {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.w = 16;
+        this.h = 16;
+        this.vx = randRange(-20, 20);
+        this.vy = randRange(-20, 20);
+        this.spin = randRange(0, Math.PI * 2);
+    }
+
+    update(dt, world, player, enemies) {
+        this.spin += dt * 4;
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+        this.vx *= 0.985;
+        this.vy *= 0.985;
+
+        if (world && world.isWall(this.x + this.w / 2, this.y + this.h / 2)) {
+            this.vx *= -0.7;
+            this.vy *= -0.7;
+        }
+
+        const bumpTargets = [];
+        if (player) bumpTargets.push({ x: player.x + player.w / 2, y: player.y + player.h / 2, w: player.w, h: player.h, push: 50 });
+        if (enemies) {
+            for (const e of enemies) {
+                if (e.dead) continue;
+                bumpTargets.push({ x: e.centerX(), y: e.centerY(), w: e.w, h: e.h, push: 30 });
+            }
+        }
+        for (const t of bumpTargets) {
+            const dist = vecDist({ x: this.x + this.w / 2, y: this.y + this.h / 2 }, { x: t.x, y: t.y });
+            if (dist < 24) {
+                const a = angleBetween({ x: t.x, y: t.y }, { x: this.x + this.w / 2, y: this.y + this.h / 2 });
+                this.vx += Math.cos(a) * t.push * dt;
+                this.vy += Math.sin(a) * t.push * dt;
+            }
+        }
+    }
+
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const bob = Math.sin(this.spin) * 1.5;
+        ctx.save();
+        ctx.translate(pos.x + this.w / 2, pos.y + this.h / 2 + bob);
+        ctx.rotate(Math.sin(this.spin) * 0.2);
+        ctx.fillStyle = '#EDEDED';
+        ctx.beginPath();
+        ctx.arc(0, 0, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#111';
+        ctx.beginPath();
+        ctx.arc(-3, -1, 1.7, 0, Math.PI * 2);
+        ctx.arc(3, -1, 1.7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(-2, 3, 4, 1.5);
+        ctx.restore();
+    }
+}

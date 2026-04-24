@@ -13,6 +13,8 @@ const Game = {
     companions: [], // Juri, Crocodile
     particles: [],
     chests: [],
+    coinDrops: [],
+    props: [],
     keyDrops: [],
     hasKey: false,
     bossActive: false,
@@ -29,6 +31,13 @@ const Game = {
     unlockedFruitUpgrades: false,
     unlockedGamerPistol: false,
     maxWorldUnlocked: 1,
+    trainingCompleted: false,
+    coins: 0,
+    dailyRewardClaimDate: '',
+    freeStarTier: null,
+    shopRandomStarTier: 0,
+    shopRandomStarAttempts: 5,
+    shopRandomStarFinished: false,
 
     // Epic Freeze
     epicFreezeActive: false,
@@ -78,6 +87,10 @@ const Game = {
             localStorage.setItem('mark_save', JSON.stringify({
                 world: this.currentWorld,
                 maxWorld: this.maxWorldUnlocked,
+                coins: this.coins,
+                trainingDone: this.trainingCompleted,
+                dailyRewardClaimDate: this.dailyRewardClaimDate,
+                freeStarTier: this.freeStarTier,
                 ranged: this.unlockedRanged,
                 auto: this.unlockedAuto,
                 crown: this.unlockedCrown,
@@ -93,8 +106,15 @@ const Game = {
         try {
             const data = JSON.parse(localStorage.getItem('mark_save'));
             if (data) {
-                this.currentWorld = data.world || 1;
-                this.maxWorldUnlocked = data.maxWorld || data.world || 1;
+                this.currentWorld = Math.max(0, Math.min(16, typeof data.world === 'number' ? data.world : 1));
+                const maxWorld = typeof data.maxWorld === 'number'
+                    ? data.maxWorld
+                    : (typeof data.world === 'number' ? data.world : 1);
+                this.maxWorldUnlocked = Math.min(16, maxWorld);
+                this.coins = data.coins || 0;
+                this.trainingCompleted = !!data.trainingDone;
+                this.dailyRewardClaimDate = data.dailyRewardClaimDate || '';
+                this.freeStarTier = data.freeStarTier || null;
                 this.unlockedRanged = !!data.ranged;
                 this.unlockedAuto = !!data.auto;
                 this.unlockedCrown = !!data.crown;
@@ -108,6 +128,117 @@ const Game = {
 
     clearSave() {
         try { localStorage.removeItem('mark_save'); } catch (e) {}
+    },
+
+    _todayKey() {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    },
+
+    openShop() {
+        this.shopRandomStarTier = 0;
+        this.shopRandomStarAttempts = 5;
+        this.shopRandomStarFinished = false;
+        this.state = 'SHOP';
+    },
+
+    returnToTitle() {
+        if (this.trainingMode) {
+            this.trainingCompleted = true;
+        }
+        this.trainingMode = false;
+        this.state = 'TITLE';
+        this.save();
+    },
+
+    _grantCoins(amount) {
+        this.coins = Math.max(0, this.coins + amount);
+    },
+
+    _grantDailyReward(forcePay) {
+        const today = this._todayKey();
+        const randI = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+        const alreadyClaimed = this.dailyRewardClaimDate === today;
+        if (alreadyClaimed && !forcePay) return false;
+        if (alreadyClaimed && forcePay) {
+            if (this.coins < 5000) return false;
+            this.coins -= 5000;
+        }
+        const roll = Math.random();
+        if (roll < 0.45) {
+            this._grantCoins(randI(150, 700));
+        } else if (roll < 0.7) {
+            const upgrades = ['unlockedTripleShot', 'unlockedShadowCaster', 'unlockedGamerPistol', 'unlockedFruitUpgrades'];
+            const unlocked = upgrades.find(u => !this[u]);
+            if (unlocked) {
+                this[unlocked] = true;
+            } else {
+                this._grantCoins(300);
+            }
+        } else {
+            const tiers = ['green', 'yellow', 'orange', 'red'];
+            this.freeStarTier = tiers[randI(0, tiers.length - 1)];
+        }
+        this.dailyRewardClaimDate = today;
+        this.save();
+        return true;
+    },
+
+    _consumeFreeStar() {
+        const tier = this.freeStarTier;
+        this.freeStarTier = null;
+        return tier;
+    },
+
+    _applyStarReward(tier, free = false) {
+        const price = { green: 50, yellow: 150, orange: 200, red: 350 }[tier] || 50;
+        if (!free && this.coins < price) return false;
+        if (!free) this.coins -= price;
+
+        if (tier === 'green') {
+            this._grantCoins(100);
+        } else if (tier === 'yellow') {
+            this.unlockedTripleShot = true;
+            this._grantCoins(75);
+        } else if (tier === 'orange') {
+            this.unlockedShadowCaster = true;
+            this._grantCoins(150);
+        } else if (tier === 'red') {
+            this.unlockedCrown = true;
+            this._grantCoins(250);
+        }
+        this.save();
+        return true;
+    },
+
+    _advanceRandomStar() {
+        if (this.shopRandomStarFinished) return;
+        if (this.shopRandomStarAttempts <= 0) return;
+        this.shopRandomStarAttempts--;
+
+        const chances = [0.65, 0.5, 0.35];
+        const chance = chances[Math.min(this.shopRandomStarTier, chances.length - 1)];
+        if (Math.random() < chance && this.shopRandomStarTier < 3) {
+            this.shopRandomStarTier++;
+        }
+        if (this.shopRandomStarTier >= 3) {
+            this.shopRandomStarFinished = true;
+            this._grantCoins(1000);
+            this.unlockedTripleShot = true;
+            this.unlockedShadowCaster = true;
+            this.unlockedGamerPistol = true;
+            this.unlockedFruitUpgrades = true;
+            this.save();
+            return;
+        }
+        if (this.shopRandomStarAttempts <= 0) {
+            this.shopRandomStarFinished = true;
+            this._grantCoins(50);
+            this.save();
+        }
     },
 
     // ── Hitstop ──
@@ -156,6 +287,10 @@ const Game = {
         this.unlockedCrown = false;
         this.unlockedTripleShot = false;
         this.maxWorldUnlocked = 0;
+        this.trainingCompleted = false;
+        this.coins = 0;
+        this.dailyRewardClaimDate = '';
+        this.freeStarTier = null;
         this.clearSave();
         this.startWorld(0);
     },
@@ -163,12 +298,15 @@ const Game = {
     startWorld(worldNum) {
         this.currentWorld = worldNum;
         this.state = 'PLAYING';
+        this.trainingMode = worldNum === 0;
         this.hitstopTimer = 0;
         this.fadeIn();
         this.enemies = [];
         this.projectiles = [];
         this.particles = [];
         this.chests = [];
+        this.coinDrops = [];
+        this.props = [];
         this.companions = [];
         this.keyDrops = [];
         this.hasKey = false;
@@ -180,10 +318,12 @@ const Game = {
         const levels = [TUTORIAL_LEVEL, WORLD1_LEVEL, WORLD2_LEVEL, WORLD3_LEVEL, WORLD4_LEVEL,
             WORLD5_LEVEL, WORLD6_LEVEL, WORLD7_LEVEL, WORLD8_LEVEL,
             generateLevel(50,48,14,909), generateLevel(52,48,14,1010),
-            WORLD11_LEVEL, WORLD12_LEVEL, WORLD13_LEVEL, WORLD14_LEVEL, WORLD15_LEVEL];
-        const themes = ['factory', 'castle', 'factory', 'cave', 'dark',
+            WORLD11_LEVEL, WORLD12_LEVEL, WORLD13_LEVEL, WORLD14_LEVEL, WORLD15_LEVEL,
+            WORLD16_LEVEL];
+        const themes = ['castle', 'castle', 'factory', 'cave', 'dark',
             'mushroom', 'swamp', 'ice', 'volcano',
             'dark', 'mushroom', 'pixel', 'space', 'dark', 'swamp', 'ice'];
+        themes.push('fruit');
         this.world.load(levels[worldNum]);
         this.world.theme = themes[worldNum];
 
@@ -237,6 +377,12 @@ const Game = {
         if (this.unlockedCrown) {
             this.player.hasCrown = true;
             this.player.startCrownShield();
+        }
+
+        if (worldNum === 0) {
+            this.player.hasAuto = false;
+            this.player.rangedWeapon = null;
+            this.player.activeWeapon = this.player.meleeWeapon;
         }
 
         // Player always has 5 hearts (20 HP)
@@ -328,6 +474,8 @@ const Game = {
             for (let i = 0; i < 16; i++) this.enemies.push(this._spawnAt(StoneSamurai));
             this.enemies.push(this._spawnAt(KeyGhost, 300));
             for (let i = 0; i < 7; i++) this.chests.push(this._spawnChestAt());
+        } else if (worldNum === 16) {
+            this._spawnWorld16();
         }
     },
 
@@ -337,19 +485,11 @@ const Game = {
     },
 
     // ── Tutorial (Level 0) ──
-    _spawnTutorial() {
-        // Phase 1: Chests to open
-        for (let i = 0; i < 3; i++) this.chests.push(this._spawnChestAt());
-        // Phase 2: Small robots (move, don't shoot)
-        for (let i = 0; i < 4; i++) this.enemies.push(this._spawnAt(TutorialRobotSmall));
-        // Phase 3: Medium robot (drops key)
-        this.enemies.push(this._spawnAt(TutorialRobotMedium, 200));
-        // Phase 5: Big robot (passive, behind wall/door)
-        this.enemies.push(this._spawnAt(TutorialRobotBig, 250));
-        // Phase 6: Three types at once
-        this.enemies.push(this._spawnAt(ShieldRobot, 200));
-        this.enemies.push(this._spawnAt(ShooterRobot, 200));
-        this.enemies.push(this._spawnAt(StandRobot, 200));
+    _spawnTraining() {
+        for (let i = 0; i < 4; i++) this.enemies.push(this._spawnAt(TrainingTargetRobot, 120));
+        for (let i = 0; i < 4; i++) this.enemies.push(this._spawnAt(TrainingPatrolRobot, 160));
+        for (let i = 0; i < 3; i++) this.enemies.push(this._spawnAt(TrainingShooterRobot, 200));
+        for (let i = 0; i < 4; i++) this.props.push(new SkullProp(this.player.x + i * 28, this.player.y + 100 + i * 10));
     },
 
     _spawnChestAt() {
@@ -417,6 +557,17 @@ const Game = {
         for (let i = 0; i < 7; i++) this.chests.push(this._spawnChestAt());
     },
 
+    // â”€â”€ World 16: Obst-Ninja Welt â”€â”€
+    _spawnWorld16() {
+        for (let i = 0; i < 10; i++) this.enemies.push(this._spawnAt(AppleNinja));
+        for (let i = 0; i < 8; i++) this.enemies.push(this._spawnAt(KiwiNinja));
+        const keyApple = this._spawnAt(AppleNinja, 300);
+        keyApple.isKeyGhost = true;
+        this.enemies.push(keyApple);
+        for (let i = 0; i < 7; i++) this.chests.push(this._spawnChestAt());
+        for (let i = 0; i < 6; i++) this.props.push(new SkullProp(this.player.x + 100 + i * 22, this.player.y + 60 + (i % 2) * 18));
+    },
+
     _spawnBoss() {
         this.bossActive = true;
         this.state = 'BOSS_INTRO';
@@ -456,6 +607,8 @@ const Game = {
             boss = new BossHydra(this.world.bossSpawn.x, this.world.bossSpawn.y);
         } else if (this.currentWorld === 15) {
             boss = new BossStoneDemon(this.world.bossSpawn.x, this.world.bossSpawn.y);
+        } else if (this.currentWorld === 16) {
+            boss = new BossFruitGiant(this.world.bossSpawn.x, this.world.bossSpawn.y);
         } else {
             boss = new BossGhost(this.world.bossSpawn.x, this.world.bossSpawn.y);
             boss.hp = 50; boss.maxHp = 50;
@@ -473,7 +626,7 @@ const Game = {
         this.camera.shake(8, 0.5);
         this.vibrate(400);
 
-        this.maxWorldUnlocked = Math.max(this.maxWorldUnlocked, this.currentWorld + 1);
+        this.maxWorldUnlocked = Math.min(16, Math.max(this.maxWorldUnlocked, this.currentWorld + 1));
         Sound.worldClear();
         this.state = 'WORLD_CLEAR';
         this.worldClearTimer = 60; // wait for button click
@@ -498,14 +651,17 @@ const Game = {
             this.unlockedSnakeCompanion = true;
         } else if (this.currentWorld === 15) {
             this.unlockedPetrifyStone = true;
-        } else if (this.currentWorld >= 15) {
+        } else if (this.currentWorld === 16) {
+            this.coins += 1000;
+            this.state = 'WIN';
+        } else if (this.currentWorld >= 16) {
             this.state = 'WIN';
         }
         this.save();
     },
 
     _advanceToNextWorld() {
-        if (this.currentWorld < 15) {
+        if (this.currentWorld < 16) {
             this.startWorld(this.currentWorld + 1);
         }
     },
@@ -541,18 +697,64 @@ const Game = {
         if (this.state === 'TITLE') {
             if (Input._key('Enter') || Input._key('Space')) {
                 Sound.resume();
-                this.startWorld(this.maxWorldUnlocked);
+                const targetWorld = this.trainingCompleted ? Math.min(16, Math.max(1, this.maxWorldUnlocked)) : 0;
+                this.startWorld(targetWorld);
             }
             if (Input.attackPressed || Input.mouse.pressed) {
                 Sound.resume();
                 const btn = Renderer.getClickedButton(Input.mouse.x, Input.mouse.y);
-                if (btn) {
-                    const worldNames = ['Tutorial', 'Welt 1: Geisterschloss', 'Welt 2: Maschinen-Hof', 'Welt 3: Schleim-Arena', 'Welt 4: Schatten-Burg', 'Welt 5: Pilz-Wald', 'Welt 6: M\u00fccken-Sumpf', 'Welt 7: Antarktis', 'Welt 8: Vulkan-Insel', 'Welt 9: Schatten-Dim.', 'Welt 10: Obst-Paradies', 'Welt 11: Pixel-Welt', 'Welt 12: Sternen-Galaxie', 'Welt 13: Knochen-Tal', 'Welt 14: Gift-Sumpf', 'Welt 15: Steinwelt'];
-                    for (let i = 0; i < worldNames.length; i++) {
-                        if (btn === worldNames[i] && i <= this.maxWorldUnlocked) {
-                            this.startWorld(i);
-                            break;
+                if (btn === 'PLAY') {
+                    const targetWorld = this.trainingCompleted ? Math.min(16, Math.max(1, this.maxWorldUnlocked)) : 0;
+                    this.startWorld(targetWorld);
+                } else if (btn === 'SHOP') {
+                    this.openShop();
+                } else if (btn === 'TRAININGSPLATZ') {
+                    this.startWorld(0);
+                }
+            }
+            Input.postUpdate();
+            return;
+        }
+
+        if (this.state === 'SHOP') {
+            if (Input._key('Escape') || Input._key('Enter')) {
+                this.returnToTitle();
+                Input.postUpdate();
+                return;
+            }
+            if (Input.attackPressed || Input.mouse.pressed) {
+                const btn = Renderer.getClickedButton(Input.mouse.x, Input.mouse.y);
+                if (btn === 'BACK') {
+                    this.returnToTitle();
+                } else if (btn === 'DAILY') {
+                    this._grantDailyReward(false) || this._grantDailyReward(true);
+                } else if (btn === 'GREEN') {
+                    const free = this.freeStarTier === 'green';
+                    const tier = free ? this._consumeFreeStar() : 'green';
+                    this._applyStarReward(tier, free);
+                } else if (btn === 'YELLOW') {
+                    const free = this.freeStarTier === 'yellow';
+                    const tier = free ? this._consumeFreeStar() : 'yellow';
+                    this._applyStarReward(tier, free);
+                } else if (btn === 'ORANGE') {
+                    const free = this.freeStarTier === 'orange';
+                    const tier = free ? this._consumeFreeStar() : 'orange';
+                    this._applyStarReward(tier, free);
+                } else if (btn === 'RED') {
+                    const free = this.freeStarTier === 'red';
+                    const tier = free ? this._consumeFreeStar() : 'red';
+                    this._applyStarReward(tier, free);
+                } else if (btn === 'RANDOM_STAR') {
+                    this._advanceRandomStar();
+                } else if (btn === 'CROWN_ITEM') {
+                    if (this.coins >= 500) {
+                        this.coins -= 500;
+                        this.unlockedCrown = true;
+                        if (this.player) {
+                            this.player.hasCrown = true;
+                            this.player.startCrownShield();
                         }
+                        this.save();
                     }
                 }
             }
@@ -567,7 +769,7 @@ const Game = {
             if (Input.attackPressed || Input.mouse.pressed) {
                 const btn = Renderer.getClickedButton(Input.mouse.x, Input.mouse.y);
                 if (btn === 'NOCHMAL') this.startWorld(this.currentWorld);
-                else if (btn === 'STARTSEITE') { this.state = 'TITLE'; }
+                else if (btn === 'STARTSEITE') { this.trainingMode = false; this.state = 'TITLE'; }
             }
             Input.postUpdate();
             return;
@@ -580,7 +782,7 @@ const Game = {
             if (Input.attackPressed || Input.mouse.pressed) {
                 const btn = Renderer.getClickedButton(Input.mouse.x, Input.mouse.y);
                 if (btn === 'WEITER') this._advanceToNextWorld();
-                else if (btn === 'STARTSEITE') this.state = 'TITLE';
+                else if (btn === 'STARTSEITE') { this.trainingMode = false; this.state = 'TITLE'; }
             }
             Input.postUpdate();
             return;
@@ -588,6 +790,7 @@ const Game = {
 
         if (this.state === 'WIN') {
             if (Input.attackPressed || Input._key('Enter') || Input._key('Space')) {
+                this.trainingMode = false;
                 this.state = 'TITLE';
             }
             Input.postUpdate();
@@ -600,12 +803,30 @@ const Game = {
         }
 
         // ── Playing ──
+        if (this.currentWorld === 0 && (Input._key('Escape') || Input._key('Backspace'))) {
+            this.returnToTitle();
+            Input.postUpdate();
+            return;
+        }
+        if (this.currentWorld === 0 && (Input.attackPressed || Input.mouse.pressed)) {
+            const btn = Renderer.getClickedButton(Input.mouse.x, Input.mouse.y);
+            if (btn === 'STARTSEITE') {
+                this.returnToTitle();
+                Input.postUpdate();
+                return;
+            }
+        }
         this.world.update(dt);
         this.player.update(dt, this.world);
 
         // Update companions
         for (const c of this.companions) {
             c.update(dt, this.world, this.player, this.enemies);
+        }
+
+        // Decorative props
+        for (const prop of this.props) {
+            prop.update(dt, this.world, this.player, this.enemies);
         }
 
         // Check player death
@@ -618,6 +839,11 @@ const Game = {
         // Enemies
         for (const enemy of this.enemies) {
             if (enemy.dead) {
+                if (!enemy._coinDropped && !enemy.isBoss && this.currentWorld !== 0) {
+                    enemy._coinDropped = true;
+                    const value = Math.max(1, Math.ceil(enemy.maxHp / 2));
+                    this.coinDrops.push(new CoinDrop(enemy.centerX(), enemy.centerY(), value));
+                }
                 enemy.deathTimer -= dt;
                 continue;
             }
@@ -724,6 +950,7 @@ const Game = {
                 if (dist < proj.radius + this.player.w / 2) {
                     const angle = Math.atan2(proj.vy, proj.vx);
                     this.player.takeDamage(1, angle, 100);
+                    if (proj.slow && this.player.applySlow) this.player.applySlow(2.5, 0.55);
                     proj.dead = true;
                     this.camera.shake(3, 0.15);
                 }
@@ -757,6 +984,21 @@ const Game = {
                         key.x + key.w / 2, key.y + key.h / 2,
                         randRange(-60, 60), randRange(-60, 60),
                         '#FFD700', 0.6
+                    ));
+                }
+            }
+        }
+
+        // Coin drops
+        for (const coin of this.coinDrops) {
+            if (coin.update(dt, this.player)) {
+                this._grantCoins(coin.value);
+                Sound.chest();
+                for (let i = 0; i < 4; i++) {
+                    this.particles.push(new Particle(
+                        coin.x + coin.w / 2, coin.y + coin.h / 2,
+                        randRange(-50, 50), randRange(-70, -10),
+                        '#FFD700', 0.35
                     ));
                 }
             }
@@ -844,6 +1086,7 @@ const Game = {
         // Cleanup + particle cap
         this.enemies = this.enemies.filter(e => !(e.dead && e.deathTimer <= 0 && !e.isBoss));
         this.projectiles = this.projectiles.filter(p => !p.dead);
+        this.coinDrops = this.coinDrops.filter(c => !c.collected);
         this.particles = this.particles.filter(p => !p.dead);
         if (this.particles.length > MAX_PARTICLES) {
             this.particles.splice(0, this.particles.length - MAX_PARTICLES);
@@ -866,6 +1109,11 @@ const Game = {
             return;
         }
 
+        if (this.state === 'SHOP') {
+            Renderer.drawShopScreen(ctx, this);
+            return;
+        }
+
         // Background
         ctx.fillStyle = '#111';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -883,11 +1131,26 @@ const Game = {
             key.draw(ctx, this.camera);
         }
 
+        // Coin drops
+        for (const coin of this.coinDrops) {
+            coin.draw(ctx, this.camera);
+        }
+
+        // Props
+        for (const prop of this.props) {
+            prop.draw(ctx, this.camera);
+        }
+
         // Enemies (with offscreen culling)
         for (const enemy of this.enemies) {
             if (enemy.dead && enemy.deathTimer <= 0) continue;
             if (!enemy.isBoss && !isOnScreen(enemy, this.camera)) continue;
+            ctx.save();
+            if (this.world && this.world.isBush(enemy.centerX(), enemy.centerY())) {
+                ctx.globalAlpha = 0.3;
+            }
             enemy.draw(ctx, this.camera);
+            ctx.restore();
         }
 
         // Projectiles (with offscreen culling)
@@ -898,12 +1161,22 @@ const Game = {
 
         // Companions
         for (const c of this.companions) {
+            ctx.save();
+            if (this.world && this.world.isBush(c.centerX(), c.centerY())) {
+                ctx.globalAlpha = 0.3;
+            }
             c.draw(ctx, this.camera);
+            ctx.restore();
         }
 
         // Player
         if (this.player) {
+            ctx.save();
+            if (this.world && this.world.isBush(this.player.x + this.player.w / 2, this.player.y + this.player.h / 2)) {
+                ctx.globalAlpha = 0.3;
+            }
             this.player.draw(ctx, this.camera);
+            ctx.restore();
         }
 
         // Particles (with offscreen culling)

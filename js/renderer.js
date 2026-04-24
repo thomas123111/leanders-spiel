@@ -65,13 +65,29 @@ const Renderer = {
         }
 
         // ── World indicator ──
-        const worldNames = [null, 'Geisterschloss', 'Maschinen-Hof', 'Schleim-Arena', 'Schatten-Burg', 'Pilz-Wald', 'M\u00fccken-Sumpf', 'Antarktis', 'Vulkan-Insel', 'Schatten-Dim.', 'Obst-Paradies', 'Pixel-Welt', 'Sternen-Galaxie', 'Knochen-Tal', 'Gift-Sumpf', 'Steinwelt'];
-        const worldColors = [null, '#A6F', '#F80', '#4D4', '#C66', '#A84', '#8A4', '#8CF', '#F84', '#A0F', '#F80', '#48F', '#FA0', '#EEE', '#4F4', '#AAA'];
-        ctx.fillStyle = worldColors[game.currentWorld];
+        const worldNames = ['Trainingsplatz', 'Geisterschloss', 'Maschinen-Hof', 'Schleim-Arena', 'Schatten-Burg', 'Pilz-Wald', 'M\u00fccken-Sumpf', 'Antarktis', 'Vulkan-Insel', 'Schatten-Dim.', 'Obst-Paradies', 'Pixel-Welt', 'Sternen-Galaxie', 'Knochen-Tal', 'Gift-Sumpf', 'Steinwelt', 'Obst-Ninja'];
+        const worldColors = ['#AAA', '#A6F', '#F80', '#4D4', '#C66', '#A84', '#8A4', '#8CF', '#F84', '#A0F', '#F80', '#48F', '#FA0', '#EEE', '#4F4', '#AAA', '#F88'];
+        const worldIndex = Math.max(0, Math.min(worldNames.length - 1, game.currentWorld || 0));
+        ctx.fillStyle = worldColors[worldIndex];
         ctx.font = 'bold 11px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('Welt ' + game.currentWorld + ': ' + worldNames[game.currentWorld], ctx.canvas.width - 10, 14);
+        ctx.fillText((game.currentWorld === 0 ? 'Training' : 'Welt ' + game.currentWorld) + ': ' + worldNames[worldIndex], ctx.canvas.width - 10, 14);
         ctx.textAlign = 'left';
+
+        // Coin counter
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.beginPath();
+        ctx.roundRect(4, 34, 96, 28, 6);
+        ctx.fill();
+        this._drawCoinIcon(ctx, 18, 48, 11);
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 14px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(String(game.coins || 0), 32, 52);
+
+        if (game.currentWorld === 0) {
+            this._drawButton(ctx, ctx.canvas.width - 118, 34, 110, 24, 'STARTSEITE', 11);
+        }
 
         // ── Key indicator ──
         if (game.hasKey) {
@@ -190,6 +206,7 @@ const Renderer = {
                 13: { name: 'KNOCHEN-REITER', color: '#EEE' },
                 14: { name: 'HYDRA', color: '#4F4' },
                 15: { name: 'STEIN-D\u00c4MON', color: '#AAA' },
+                16: { name: 'FRUCHT-GIGANT', color: '#F88' },
             };
             const boss = bossNames[game.currentWorld] || { name: 'BOSS', color: '#F00' };
             ctx.fillStyle = 'rgba(0,0,0,0.7)';
@@ -239,6 +256,63 @@ const Renderer = {
             ctx.lineWidth = 1.5;
             ctx.stroke();
         }
+    },
+
+    _drawCoinIcon(ctx, x, y, size) {
+        const s = size || 10;
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.beginPath();
+        ctx.roundRect(10, 10, 104, 28, 8);
+        ctx.fill();
+        this._drawCoinIcon(ctx, 24, 24, 10);
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 13px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(String(Game.coins || 0), 38, 28);
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.arc(x, y, s, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FFEFA0';
+        ctx.beginPath();
+        ctx.arc(x - 2, y - 2, s * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#B8960F';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, s * 0.9, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    },
+
+    _drawStarFace(ctx, x, y, size, color) {
+        const s = size || 10;
+        ctx.save();
+        ctx.fillStyle = color || '#FFD700';
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+            const a = -Math.PI / 2 + i * (Math.PI * 2 / 5);
+            const outerX = x + Math.cos(a) * s;
+            const outerY = y + Math.sin(a) * s;
+            const innerA = a + Math.PI / 5;
+            const innerX = x + Math.cos(innerA) * (s * 0.45);
+            const innerY = y + Math.sin(innerA) * (s * 0.45);
+            if (i === 0) ctx.moveTo(outerX, outerY);
+            else ctx.lineTo(outerX, outerY);
+            ctx.lineTo(innerX, innerY);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#111';
+        ctx.beginPath();
+        ctx.arc(x - s * 0.25, y - s * 0.15, Math.max(1.5, s * 0.12), 0, Math.PI * 2);
+        ctx.arc(x + s * 0.25, y - s * 0.15, Math.max(1.5, s * 0.12), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(x, y + s * 0.25, Math.max(1.5, s * 0.11), 0, Math.PI, false);
+        ctx.fill();
+        ctx.restore();
     },
 
     _drawMobileControls(ctx) {
@@ -482,74 +556,168 @@ const Renderer = {
         }
 
         // ── Right Panel: World Select ──
-        const tx = cw * 0.6;
+        const tx = cw * 0.67;
+        const btnW = 180;
+        const btnH = 36;
+        const startY = ch * 0.40;
         ctx.textAlign = 'center';
-        ctx.fillStyle = '#FFF';
+        ctx.fillStyle = '#DDD';
         ctx.font = 'bold 14px monospace';
-        ctx.fillText('W\u00e4hle eine Welt:', tx, ch * 0.06);
-
-        // Worlds
-        const worlds = [
-            { name: 'Tutorial', color: '#AAA' },
-            { name: 'Welt 1: Geisterschloss', color: '#A6F' },
-            { name: 'Welt 2: Maschinen-Hof', color: '#F80' },
-            { name: 'Welt 3: Schleim-Arena', color: '#4D4' },
-            { name: 'Welt 4: Schatten-Burg', color: '#C66' },
-            { name: 'Welt 5: Pilz-Wald', color: '#A84' },
-            { name: 'Welt 6: M\u00fccken-Sumpf', color: '#8A4' },
-            { name: 'Welt 7: Antarktis', color: '#8CF' },
-            { name: 'Welt 8: Vulkan-Insel', color: '#F84' },
-            { name: 'Welt 9: Schatten-Dim.', color: '#A0F' },
-            { name: 'Welt 10: Obst-Paradies', color: '#F80' },
-            { name: 'Welt 11: Pixel-Welt', color: '#48F' },
-            { name: 'Welt 12: Sternen-Galaxie', color: '#FA0' },
-            { name: 'Welt 13: Knochen-Tal', color: '#EEE' },
-            { name: 'Welt 14: Gift-Sumpf', color: '#4F4' },
-            { name: 'Welt 15: Steinwelt', color: '#AAA' },
-        ];
-
-        // World select buttons (scrollable list, smaller to fit 9)
-        const btnW = 200;
-        const btnH = 22;
-        const startY = ch * 0.04;
-        for (let i = 0; i < worlds.length; i++) {
-            const unlocked = i <= Game.maxWorldUnlocked; // Tutorial=0 always unlocked
-            const bx = tx - btnW / 2;
-            const by = startY + i * 26;
-            if (unlocked) {
-                this._drawButton(ctx, bx, by, btnW, btnH, worlds[i].name, 14);
-            } else {
-                ctx.fillStyle = '#333';
-                ctx.beginPath();
-                ctx.roundRect(bx, by, btnW, btnH, 10);
-                ctx.fill();
-                ctx.strokeStyle = '#555';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.roundRect(bx, by, btnW, btnH, 10);
-                ctx.stroke();
-                ctx.fillStyle = '#666';
-                ctx.font = '14px monospace';
-                ctx.textAlign = 'center';
-                ctx.fillText('\uD83D\uDD12 ' + worlds[i].name, tx, by + btnH / 2 + 5);
-            }
-        }
+        ctx.fillText('W\u00e4hle einen Startpunkt', tx, startY - 30);
+        this._drawButton(ctx, tx - btnW / 2, startY, btnW, btnH, 'SHOP', 16);
+        this._drawButton(ctx, tx - btnW / 2, startY + 48, btnW, btnH, 'TRAININGSPLATZ', 13);
+        this._drawButton(ctx, tx - btnW / 2, startY + 96, btnW, btnH, 'PLAY', 16);
+        ctx.fillStyle = '#888';
+        ctx.font = '10px monospace';
+        ctx.fillText(Game.trainingCompleted ? 'PLAY = Story-Fortschritt fortsetzen' : 'PLAY startet zuerst den Trainingsplatz', tx, startY + 150);
+        ctx.fillText('SHOP enth\u00e4lt Tagesbelohnung, Sterne und die Krone', tx, startY + 166);
 
         // Controls
         ctx.fillStyle = '#555';
         ctx.font = '10px monospace';
         ctx.textAlign = 'center';
         if (!Input.isMobile) {
-            ctx.fillText('WASD = Bewegen | Maus = Zielen | Leertaste = Ausweichen | Q = Waffe', tx, ch * 0.92);
+            ctx.fillText('WASD = Bewegen | Maus = Zielen | Leertaste = Ausweichen | Q = Waffe', cw / 2, ch * 0.92);
         } else {
-            ctx.fillText('Links = Bewegen | Rechts = Zielen & Angreifen', tx, ch * 0.92);
+            ctx.fillText('Links = Bewegen | Rechts = Zielen & Angreifen', cw / 2, ch * 0.92);
         }
 
         // Version number
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v7.0.0', cw - 8, ch - 6);
+        ctx.fillText('v8.0.0', cw - 8, ch - 6);
+
+        ctx.restore();
+    },
+
+    drawShopScreen(ctx, game) {
+        this._buttons = [];
+        const cw = ctx.canvas.width;
+        const ch = ctx.canvas.height;
+
+        const bg = ctx.createLinearGradient(0, 0, cw, ch);
+        bg.addColorStop(0, '#130f1f');
+        bg.addColorStop(0.5, '#20142d');
+        bg.addColorStop(1, '#0d171d');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, cw, ch);
+
+        ctx.save();
+        ctx.textAlign = 'left';
+
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 20px monospace';
+        ctx.fillText('SHOP', 16, 28);
+        ctx.fillStyle = '#AAA';
+        ctx.font = '11px monospace';
+        ctx.fillText('M\u00fcnzen: ' + (game.coins || 0), 16, 46);
+
+        // Daily reward card
+        const cardX = 16;
+        const cardY = 64;
+        const cardW = cw - 32;
+        const cardH = 82;
+        ctx.fillStyle = 'rgba(255,255,255,0.06)';
+        ctx.beginPath();
+        ctx.roundRect(cardX, cardY, cardW, cardH, 12);
+        ctx.fill();
+        ctx.strokeStyle = '#5C4D7A';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 14px monospace';
+        ctx.fillText('Daily Reward', cardX + 16, cardY + 24);
+        ctx.font = '11px monospace';
+        const today = game._todayKey ? game._todayKey() : '';
+        const claimed = game.dailyRewardClaimDate === today;
+        ctx.fillStyle = claimed ? '#999' : '#DDD';
+        ctx.fillText(claimed ? 'Heute schon geholt. Klick nochmal f\u00fcr 5000 M\u00fcnzen.' : 'Erster Klick heute gratis.', cardX + 16, cardY + 42);
+        if (game.freeStarTier) {
+            ctx.fillStyle = '#FFD700';
+            ctx.fillText('Freier Stern: ' + game.freeStarTier.toUpperCase(), cardX + 16, cardY + 60);
+        }
+        this._drawButton(ctx, cardX + cardW - 140, cardY + 20, 120, 36, 'DAILY', 14);
+
+        // Star market
+        const marketY = 160;
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 14px monospace';
+        ctx.fillText('Sternen-Markt', 16, marketY);
+
+        const tiers = [
+            { id: 'STAR_GREEN', key: 'green', name: 'Scharf', color: '#4D4', price: 50, y: marketY + 20, desc: 'kleiner Bonus' },
+            { id: 'STAR_YELLOW', key: 'yellow', name: 'Super Scharf', color: '#FD0', price: 150, y: marketY + 62, desc: 'solider Bonus' },
+            { id: 'STAR_ORANGE', key: 'orange', name: 'Mega Scharf', color: '#F80', price: 200, y: marketY + 104, desc: 'starker Bonus' },
+            { id: 'STAR_RED', key: 'red', name: 'Ultra Scharf', color: '#F44', price: 350, y: marketY + 146, desc: 'maximaler Bonus' }
+        ];
+        for (const tier of tiers) {
+            ctx.fillStyle = 'rgba(255,255,255,0.05)';
+            ctx.beginPath();
+            ctx.roundRect(16, tier.y, cw - 32, 34, 10);
+            ctx.fill();
+            ctx.strokeStyle = tier.color;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            this._drawStarFace(ctx, 34, tier.y + 17, 11, tier.color);
+            ctx.fillStyle = '#FFF';
+            ctx.font = 'bold 12px monospace';
+            ctx.fillText(tier.name, 58, tier.y + 16);
+            ctx.fillStyle = '#AAA';
+            ctx.font = '10px monospace';
+            ctx.fillText(tier.desc, 58, tier.y + 29);
+            ctx.textAlign = 'right';
+            ctx.fillStyle = game.freeStarTier === tier.key ? '#FFD700' : '#DDD';
+            ctx.fillText(game.freeStarTier === tier.key ? 'FREE' : tier.price + ' M', cw - 110, tier.y + 20);
+            ctx.textAlign = 'left';
+            this._drawButton(ctx, cw - 96, tier.y + 4, 80, 26, tier.id.replace('STAR_', ''), 11);
+        }
+
+        // Random star
+        const rsY = 340;
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 14px monospace';
+        ctx.fillText('Zufalls-Stern', 16, rsY);
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
+        ctx.beginPath();
+        ctx.roundRect(16, rsY + 20, cw - 32, 54, 12);
+        ctx.fill();
+        ctx.strokeStyle = '#7AA';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        const randomColors = ['#4D4', '#FD0', '#F80', '#F44'];
+        const currentColor = randomColors[Math.min(game.shopRandomStarTier || 0, 3)];
+        this._drawStarFace(ctx, 34, rsY + 46, 14, currentColor);
+        ctx.fillStyle = '#FFF';
+        ctx.font = '12px monospace';
+        ctx.fillText('Stufe: ' + ['Scharf', 'Super Scharf', 'Mega Scharf', 'Ultra Scharf'][Math.min(game.shopRandomStarTier || 0, 3)], 58, rsY + 40);
+        ctx.fillStyle = '#AAA';
+        ctx.font = '10px monospace';
+        ctx.fillText('5 Klicks, um die Farbe per Zufall zu steigern', 58, rsY + 54);
+        ctx.fillText('Versuche: ' + (game.shopRandomStarAttempts || 0), 58, rsY + 67);
+        this._drawButton(ctx, cw - 152, rsY + 28, 120, 28, 'RANDOM_STAR', 11);
+
+        // Special item
+        const crownY = 410;
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 14px monospace';
+        ctx.fillText('Spezial-Item', 16, crownY);
+        ctx.fillStyle = 'rgba(255,215,0,0.08)';
+        ctx.beginPath();
+        ctx.roundRect(16, crownY + 18, cw - 32, 48, 12);
+        ctx.fill();
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = '#FFD700';
+        ctx.font = 'bold 12px monospace';
+        ctx.fillText('Goldene Krone', 58, crownY + 36);
+        ctx.fillStyle = '#DDD';
+        ctx.font = '10px monospace';
+        ctx.fillText('500 M: Startet jedes Level mit 15 Sekunden Schutzschild', 58, crownY + 50);
+        this._drawButton(ctx, cw - 152, crownY + 28, 120, 26, 'CROWN_ITEM', 11);
+
+        this._drawButton(ctx, cw - 126, ch - 38, 110, 24, 'BACK', 11);
 
         ctx.restore();
     },
@@ -618,7 +786,7 @@ const Renderer = {
             1: { title: 'K\u00d6NIG GEIST besiegt!', desc: 'Weiter zum Maschinen-Hof!', color: '#A6F' },
             2: { title: 'BASEBALL-WERFER erhalten!', desc: '3-fach Gift-B\u00e4lle! Fernkampf freigeschaltet!', color: '#4F4' },
             3: { title: 'AUTO-F\u00c4HIGKEIT erhalten!', desc: '[E] dr\u00fccken: 15 Sekunden durch W\u00e4nde fahren!', color: '#0FF' },
-            4: { title: 'GOLDENE KRONE erhalten!', desc: '5 Sekunden Schutzschild zu Beginn jedes Levels!', color: '#FFD700' },
+            4: { title: 'GOLDENE KRONE erhalten!', desc: '15 Sekunden Schutzschild zu Beginn jedes Levels!', color: '#FFD700' },
             5: { title: 'RIESEN PILZ besiegt!', desc: 'Der M\u00fccken-Sumpf wartet...', color: '#A84' },
             6: { title: 'RIESEN M\u00dcCKE besiegt!', desc: 'Ab in die Antarktis! Juri schlie\u00dft sich an!', color: '#8A4' },
             7: { title: 'SCHNEE ADLER besiegt!', desc: 'Das Schatten-Krokodil k\u00e4mpft jetzt f\u00fcr euch!', color: '#8CF' },
@@ -630,6 +798,7 @@ const Renderer = {
             13: { title: 'KNOCHEN-UPGRADE erhalten!', desc: 'Der Schl\u00e4ger feuert Knochen-Projektile!', color: '#EEE' },
             14: { title: 'SCHLANGE erhalten!', desc: 'Die kleine Schlange sitzt auf Marks Schulter und spuckt Gift!', color: '#4F4' },
             15: { title: 'STEIN DES SHOGUNS!', desc: 'Die Schlange leuchtet violett - Versteinerungs-Gift!', color: '#A0F' },
+            16: { title: 'FRUCHT-GIGANT besiegt!', desc: '1000 Münzen und der finale Sieg in der Obst-Ninja-Welt!', color: '#F88' },
         };
         const r = rewards[worldNum];
         if (r) {
@@ -675,7 +844,7 @@ const Renderer = {
 
         ctx.fillStyle = '#FFD700';
         ctx.font = 'bold 32px monospace';
-        ctx.fillText('ALLE 3 WELTEN GESCHAFFT!', cx, cy - 50);
+        ctx.fillText('ALLE 16 WELTEN GESCHAFFT!', cx, cy - 50);
 
         ctx.fillStyle = '#FFF';
         ctx.font = '16px monospace';
@@ -684,11 +853,11 @@ const Renderer = {
         ctx.fillStyle = '#AAA';
         ctx.font = '13px monospace';
         ctx.fillText('Belohnung: Die goldene Schutzschild-Krone', cx, cy + 20);
-        ctx.fillText('(5 Sekunden Unverwundbarkeit zu Beginn jedes Levels)', cx, cy + 38);
+        ctx.fillText('(15 Sekunden Unverwundbarkeit zu Beginn jedes Levels)', cx, cy + 38);
 
         ctx.fillStyle = '#888';
         ctx.font = '12px monospace';
-        ctx.fillText('Welt 4 kommt bald...', cx, cy + 70);
+        ctx.fillText('Mehr Inhalte folgen bald...', cx, cy + 70);
 
         const blink = Math.sin(Date.now() / 500) > 0;
         if (blink) {

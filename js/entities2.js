@@ -345,3 +345,356 @@ class BossStoneDemon extends Enemy {
         ctx.restore();
     }
 }
+
+// â”€â”€ Training Arena Enemies â”€â”€
+
+class TrainingTargetRobot extends Enemy {
+    constructor(x, y) {
+        super(x, y, 24, 24);
+        this.hp = 3;
+        this.maxHp = 3;
+        this.contactDamage = false;
+        this.damage = 0;
+    }
+    update(dt, world) {
+        this.baseUpdate(dt, world);
+    }
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        ctx.fillStyle = '#999';
+        ctx.fillRect(pos.x + 4, pos.y + 4, 16, 16);
+        ctx.fillStyle = '#F44';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#222';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(pos.x, pos.y, this.w, this.h);
+        ctx.restore();
+    }
+}
+
+class TrainingPatrolRobot extends Enemy {
+    constructor(x, y) {
+        super(x, y, 26, 26);
+        this.hp = 5;
+        this.maxHp = 5;
+        this.contactDamage = false;
+        this.damage = 0;
+        this.points = [
+            { x: x - 30, y: y - 30 },
+            { x: x + 30, y: y - 30 },
+            { x: x + 30, y: y + 30 },
+            { x: x - 30, y: y + 30 }
+        ];
+        this.targetIndex = 0;
+    }
+    update(dt, world) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        const p = this.points[this.targetIndex];
+        const a = Math.atan2(p.y - this.centerY(), p.x - this.centerX());
+        this._moveWithCollision(Math.cos(a) * 55 * dt, Math.sin(a) * 55 * dt, world);
+        if (vecDist(this.center(), p) < 10) this.targetIndex = (this.targetIndex + 1) % this.points.length;
+    }
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        ctx.fillStyle = '#7AF';
+        ctx.fillRect(pos.x + 3, pos.y + 5, 20, 16);
+        ctx.fillStyle = '#222';
+        ctx.fillRect(pos.x + 7, pos.y + 10, 12, 5);
+        ctx.strokeStyle = '#0AF';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(pos.x, pos.y, this.w, this.h);
+        ctx.beginPath();
+        ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    }
+}
+
+class TrainingShooterRobot extends Enemy {
+    constructor(x, y) {
+        super(x, y, 24, 24);
+        this.hp = 6;
+        this.maxHp = 6;
+        this.contactDamage = false;
+        this.damage = 0;
+        this.shootTimer = 0;
+    }
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = this.center();
+        const dist = vecDist(mc, pc);
+        this.shootTimer -= dt;
+        if (dist < 260 && this.shootTimer <= 0 && typeof Game !== 'undefined') {
+            this.shootTimer = 2.2;
+            const a = angleBetween(mc, pc);
+            Game.projectiles.push(new Projectile(mc.x, mc.y, Math.cos(a) * 120, Math.sin(a) * 120, 1, 'enemy', 60));
+        }
+    }
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        ctx.fillStyle = '#FA7';
+        ctx.fillRect(pos.x + 4, pos.y + 4, 16, 16);
+        ctx.fillStyle = '#FFF';
+        ctx.fillRect(pos.x + 8, pos.y + 9, 8, 4);
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        ctx.arc(cx, cy - 4, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#F70';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(pos.x, pos.y, this.w, this.h);
+        ctx.restore();
+    }
+}
+
+// â”€â”€ World 16: Fruit-Ninja enemies â”€â”€
+
+class AppleNinja extends Enemy {
+    constructor(x, y) {
+        super(x, y, 22, 22);
+        this.hp = 4;
+        this.maxHp = 4;
+        this.contactDamage = true;
+        this.rollTimer = 0;
+        this.rollCooldown = 2.4;
+        this.rolling = false;
+        this.rollDir = { x: 0, y: 0 };
+        this.facing = 0;
+    }
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = this.center();
+        const dist = vecDist(mc, pc);
+        if (this.rolling) {
+            this.x += this.rollDir.x * 220 * dt;
+            this.y += this.rollDir.y * 220 * dt;
+            this.rollTimer -= dt;
+            if (this.rollTimer <= 0) this.rolling = false;
+            return;
+        }
+        if (dist < 220) {
+            this.facing = angleBetween(mc, pc);
+            this._moveWithCollision(Math.cos(this.facing) * 55 * dt, Math.sin(this.facing) * 55 * dt, world);
+            this.rollCooldown -= dt;
+            if (this.rollCooldown <= 0) {
+                this.rollCooldown = 2.2;
+                this.rollTimer = 0.45;
+                this.rolling = true;
+                this.rollDir = vecNormalize(vecSub(pc, mc));
+            }
+        }
+    }
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        ctx.fillStyle = this.rolling ? '#D44' : '#E55';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#2A2';
+        ctx.beginPath();
+        ctx.moveTo(cx - 5, cy - 9);
+        ctx.lineTo(cx, cy - 15);
+        ctx.lineTo(cx + 5, cy - 9);
+        ctx.fill();
+        ctx.fillStyle = '#111';
+        ctx.fillRect(cx - 4, cy - 1, 8, 3);
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath();
+        ctx.arc(cx - 3, cy - 2, 1.5, 0, Math.PI * 2);
+        ctx.arc(cx + 3, cy - 2, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+class KiwiNinja extends Enemy {
+    constructor(x, y) {
+        super(x, y, 22, 22);
+        this.hp = 3;
+        this.maxHp = 3;
+        this.contactDamage = false;
+        this.spitTimer = 0;
+    }
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = this.center();
+        const dist = vecDist(mc, pc);
+        if (dist < 210) {
+            const a = angleBetween(mc, pc);
+            this._moveWithCollision(Math.cos(a) * 35 * dt, Math.sin(a) * 35 * dt, world);
+            this.spitTimer -= dt;
+            if (this.spitTimer <= 0 && typeof Game !== 'undefined') {
+                this.spitTimer = 2.7;
+                const p = new Projectile(mc.x, mc.y, Math.cos(a) * 130, Math.sin(a) * 130, 1, 'enemy', 50);
+                p.slow = true;
+                Game.projectiles.push(p);
+            }
+        }
+    }
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        ctx.fillStyle = '#7DBD5B';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#A7E27A';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#111';
+        ctx.fillRect(cx - 3, cy - 2, 6, 2);
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath();
+        ctx.arc(cx - 3, cy - 3, 1.5, 0, Math.PI * 2);
+        ctx.arc(cx + 3, cy - 3, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+class BossFruitGiant extends Enemy {
+    constructor(x, y) {
+        super(x, y, 118, 100);
+        this.hp = 80;
+        this.maxHp = 80;
+        this.speed = 18;
+        this.damage = 3;
+        this.isBoss = true;
+        this.contactDamage = false;
+        this.state = 'intro';
+        this.introTimer = 2;
+        this.stompTimer = 3.5;
+        this.explosionTimer = 0;
+        this.triggeredExplosion = false;
+        this.phase = 1;
+    }
+    update(dt, world, player, enemies, particles) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = this.center();
+        if (this.hp <= 28 && !this.triggeredExplosion) {
+            this.triggeredExplosion = true;
+            this.state = 'explode';
+            this.explosionTimer = 1.1;
+        }
+        if (this.state === 'intro') {
+            this.introTimer -= dt;
+            if (this.introTimer <= 0) this.state = 'chase';
+            return;
+        }
+        if (this.state === 'explode') {
+            this.explosionTimer -= dt;
+            if (this.explosionTimer <= 0 && typeof Game !== 'undefined') {
+                for (let i = 0; i < 12; i++) {
+                    const a = (Math.PI * 2 * i) / 12;
+                    Game.projectiles.push(new Projectile(mc.x, mc.y, Math.cos(a) * 170, Math.sin(a) * 170, 1, 'enemy', 80));
+                }
+                if (particles) {
+                    for (let i = 0; i < 12; i++) {
+                        particles.push(new Particle(mc.x, mc.y, randRange(-80, 80), randRange(-80, 80), '#FFA', 0.6));
+                    }
+                }
+                this.state = 'chase';
+            }
+            return;
+        }
+        const a = angleBetween(mc, pc);
+        this._moveWithCollision(Math.cos(a) * this.speed * dt, Math.sin(a) * this.speed * dt, world);
+        this.stompTimer -= dt;
+        if (this.stompTimer <= 0 && typeof Game !== 'undefined') {
+            this.stompTimer = this.phase === 1 ? 3.8 : 2.7;
+            for (let i = 0; i < 8; i++) {
+                const sa = (Math.PI * 2 * i) / 8;
+                Game.projectiles.push(new Projectile(mc.x, mc.y, Math.cos(sa) * 140, Math.sin(sa) * 140, 1, 'enemy', 70));
+            }
+            if (particles) {
+                for (let i = 0; i < 6; i++) particles.push(new Particle(mc.x, mc.y, randRange(-60, 60), randRange(-60, 60), '#F70', 0.5));
+            }
+            this.state = 'stomp';
+            this.stompTimer = this.phase === 1 ? 3.8 : 2.7;
+        }
+        if (this.hp <= 40) this.phase = 2;
+        if (this.state === 'stomp') {
+            this.state = 'chase';
+        }
+    }
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        ctx.fillStyle = '#E48';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 44, 36, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#7B3';
+        ctx.beginPath();
+        ctx.arc(cx - 28, cy - 18, 16, 0, Math.PI * 2);
+        ctx.arc(cx + 18, cy - 22, 15, 0, Math.PI * 2);
+        ctx.arc(cx + 30, cy + 10, 14, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#F90';
+        ctx.beginPath();
+        ctx.arc(cx - 2, cy - 8, 22, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#222';
+        ctx.fillRect(cx - 11, cy - 2, 22, 4);
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath();
+        ctx.arc(cx - 6, cy - 6, 2, 0, Math.PI * 2);
+        ctx.arc(cx + 6, cy - 6, 2, 0, Math.PI * 2);
+        ctx.fill();
+        if (this.state === 'explode') {
+            ctx.strokeStyle = '#FF0';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 42 + Math.sin(Date.now() / 70) * 4, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('FRUCHT-GIGANT', cx, pos.y - 50);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        ctx.roundRect(cx - 48, pos.y - 40, 96, 7, 3);
+        ctx.fill();
+        ctx.fillStyle = this.hp > 40 ? '#F90' : '#F44';
+        ctx.beginPath();
+        ctx.roundRect(cx - 47, pos.y - 39, 94 * (this.hp / this.maxHp), 5, 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}

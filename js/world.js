@@ -11,6 +11,9 @@ const TILE_BOSS_DOOR = 4;
 const TILE_WINDOW = 5;
 const TILE_SPAWN = 6;
 const TILE_BOSS_SPAWN = 7;
+const TILE_BUSH = 8;
+const TILE_WATER = 9;
+const TILE_SKULL = 10;
 
 class World {
     constructor() {
@@ -70,7 +73,14 @@ class World {
         const ty = Math.floor(py / TILE_SIZE);
         if (tx < 0 || ty < 0 || tx >= this.width || ty >= this.height) return true;
         const t = this.tiles[ty][tx];
-        return t === TILE_WALL || t === TILE_BOSS_DOOR;
+        return t === TILE_WALL || t === TILE_BOSS_DOOR || t === TILE_WATER;
+    }
+
+    isBush(px, py) {
+        const tx = Math.floor(px / TILE_SIZE);
+        const ty = Math.floor(py / TILE_SIZE);
+        if (tx < 0 || ty < 0 || tx >= this.width || ty >= this.height) return false;
+        return this.tiles[ty][tx] === TILE_BUSH;
     }
 
     collideRect(rect) {
@@ -88,7 +98,7 @@ class World {
                     continue;
                 }
                 const t = this.tiles[ty][tx];
-                if (t === TILE_WALL || t === TILE_BOSS_DOOR) {
+                if (t === TILE_WALL || t === TILE_BOSS_DOOR || t === TILE_WATER) {
                     collisions.push({ x: tx * TILE_SIZE, y: ty * TILE_SIZE, w: TILE_SIZE, h: TILE_SIZE });
                 }
             }
@@ -114,6 +124,7 @@ class World {
         if (t === 'volcano') return '_drawVolcano';
         if (t === 'pixel') return '_drawPixel';
         if (t === 'space') return '_drawSpace';
+        if (t === 'fruit') return '_drawFruit';
         return '_drawCastle';
     }
 
@@ -128,8 +139,48 @@ class World {
                 const t = this.tiles[y][x];
                 const pos = camera.worldToScreen(x * TILE_SIZE, y * TILE_SIZE);
 
+                if (t === TILE_BUSH || t === TILE_WATER || t === TILE_SKULL) {
+                    this._drawSpecialTile(ctx, t, pos, x, y);
+                    continue;
+                }
                 this[this.getThemeDraw()](ctx, t, pos, x, y);
             }
+        }
+    }
+
+    _drawSpecialTile(ctx, t, pos, x, y) {
+        if (t === TILE_WATER) {
+            const wave = Math.sin((x + y + this.colorTimer * 4) * 0.6) * 2;
+            ctx.fillStyle = '#2B8CFF';
+            ctx.fillRect(pos.x, pos.y + wave * 0.3, TILE_SIZE, TILE_SIZE);
+            ctx.fillStyle = 'rgba(255,255,255,0.22)';
+            ctx.fillRect(pos.x + 3, pos.y + 4, TILE_SIZE - 6, 4);
+            ctx.strokeStyle = 'rgba(0,0,80,0.35)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(pos.x + 0.5, pos.y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+        } else if (t === TILE_BUSH) {
+            ctx.fillStyle = '#3A5';
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            ctx.fillStyle = '#5D8';
+            ctx.beginPath();
+            ctx.arc(pos.x + 10, pos.y + 16, 10, 0, Math.PI * 2);
+            ctx.arc(pos.x + 20, pos.y + 14, 10, 0, Math.PI * 2);
+            ctx.arc(pos.x + 16, pos.y + 8, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(20,60,20,0.4)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(pos.x + 0.5, pos.y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+        } else if (t === TILE_SKULL) {
+            ctx.fillStyle = '#DDE';
+            ctx.beginPath();
+            ctx.arc(pos.x + 16, pos.y + 16, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#111';
+            ctx.beginPath();
+            ctx.arc(pos.x + 13, pos.y + 14, 2, 0, Math.PI * 2);
+            ctx.arc(pos.x + 19, pos.y + 14, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillRect(pos.x + 14, pos.y + 19, 4, 2);
         }
     }
 
@@ -435,6 +486,31 @@ class World {
         }
     }
 
+    _drawFruit(ctx, t, pos, x, y) {
+        if (t === TILE_WALL) {
+            ctx.fillStyle = '#5B3B17';
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            ctx.fillStyle = '#7C5121';
+            ctx.fillRect(pos.x + 4, pos.y + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+        } else if (t === TILE_FLOOR || t === TILE_DOOR || t === TILE_SPAWN || t === TILE_BOSS_SPAWN) {
+            ctx.fillStyle = '#F7D46A';
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+            ctx.fillRect(pos.x + 2, pos.y + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+        } else if (t === TILE_BOSS_DOOR) {
+            this._drawBossDoor(ctx, pos);
+        } else if (t === TILE_WINDOW) {
+            ctx.fillStyle = '#F7D46A';
+            ctx.fillRect(pos.x, pos.y, TILE_SIZE, TILE_SIZE);
+            ctx.fillStyle = '#7C3B0A';
+            ctx.beginPath();
+            ctx.arc(pos.x + 10, pos.y + 11, 4, 0, Math.PI * 2);
+            ctx.arc(pos.x + 21, pos.y + 16, 4, 0, Math.PI * 2);
+            ctx.arc(pos.x + 16, pos.y + 22, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
     _drawDark(ctx, t, pos, x, y) {
         if (t === TILE_WALL) {
             ctx.fillStyle = '#2A2020';
@@ -650,7 +726,61 @@ function generateLevel(width, height, numRooms, seed) {
 
 // ── Level Data ──
 
-const TUTORIAL_LEVEL = generateLevel(25, 20, 6, 999);
+function sprinkleSpecialTiles(map) {
+    const height = map.length;
+    const width = map[0].length;
+    const randI = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+    const place = (type, count, edgeSafe) => {
+        let placed = 0;
+        let guard = 0;
+        while (placed < count && guard < count * 60) {
+            guard++;
+            const x = randI(2, width - 3);
+            const y = randI(2, height - 3);
+            if (x > width - 14 && y > height - 12) continue;
+            if (x < 6 && y < 6) continue;
+            if (edgeSafe && (x < 4 || y < 4 || x > width - 5 || y > height - 5)) continue;
+            if (map[y][x] !== TILE_FLOOR) continue;
+            map[y][x] = type;
+            placed++;
+        }
+    };
+    place(TILE_BUSH, 5, false);
+    place(TILE_WATER, 2, true);
+    place(TILE_SKULL, 3, false);
+}
+
+function createTrainingLevel() {
+    const width = 24;
+    const height = 18;
+    const map = Array.from({ length: height }, () => Array(width).fill(TILE_FLOOR));
+    for (let x = 0; x < width; x++) {
+        map[0][x] = TILE_WALL;
+        map[height - 1][x] = TILE_WALL;
+    }
+    for (let y = 0; y < height; y++) {
+        map[y][0] = TILE_WALL;
+        map[y][width - 1] = TILE_WALL;
+    }
+    for (let x = 4; x < 8; x++) map[4][x] = TILE_BUSH;
+    for (let x = 16; x < 20; x++) map[13][x] = TILE_BUSH;
+    map[8][10] = TILE_WATER;
+    map[8][11] = TILE_WATER;
+    map[9][10] = TILE_WATER;
+    map[9][11] = TILE_WATER;
+    map[10][6] = TILE_SKULL;
+    map[10][17] = TILE_SKULL;
+    map[15][3] = TILE_SPAWN;
+    return map;
+}
+
+function createFruitLevel() {
+    const map = generateLevel(56, 50, 16, 1616);
+    sprinkleSpecialTiles(map);
+    return map;
+}
+
+const TUTORIAL_LEVEL = createTrainingLevel();
 const WORLD1_LEVEL = generateLevel(50, 45, 12, 101);
 const WORLD2_LEVEL = generateLevel(55, 45, 14, 202);
 const WORLD3_LEVEL = generateLevel(50, 42, 13, 303);
@@ -664,3 +794,4 @@ const WORLD12_LEVEL = generateLevel(55, 50, 15, 1212);
 const WORLD13_LEVEL = generateLevel(52, 48, 14, 1313);
 const WORLD14_LEVEL = generateLevel(50, 45, 13, 1414);
 const WORLD15_LEVEL = generateLevel(55, 50, 15, 1515);
+const WORLD16_LEVEL = createFruitLevel();
