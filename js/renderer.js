@@ -3,6 +3,7 @@
 const Renderer = {
     drawHUD(ctx, player, game) {
         ctx.save();
+        const mobile = Input.isMobile;
 
         // ── Hearts (quarter-step with gray for lost quarters) ──
         const heartSize = mobile ? 18 : 22;
@@ -267,7 +268,6 @@ const Renderer = {
         ctx.beginPath();
         ctx.roundRect(10, 10, 104, 28, 8);
         ctx.fill();
-        this._drawCoinIcon(ctx, 24, 24, 10);
         ctx.fillStyle = '#FFF';
         ctx.font = 'bold 13px monospace';
         ctx.textAlign = 'left';
@@ -606,7 +606,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v8.0.4', cw - 8, ch - 6);
+        ctx.fillText('v8.0.5', cw - 8, ch - 6);
 
         ctx.restore();
     },
@@ -654,7 +654,7 @@ const Renderer = {
             const today = game._todayKey ? game._todayKey() : '';
             const claimed = game.dailyRewardClaimDate === today;
             ctx.fillStyle = claimed ? '#999' : '#DDD';
-            ctx.fillText(claimed ? 'Heute schon geholt. Nochmal: 5000 M\u00fcnzen.' : 'Erster Klick heute gratis.', pad + 12, dailyY + 40);
+            ctx.fillText(claimed ? 'Heute schon geholt.' : 'Erster Klick gratis.', pad + 12, dailyY + 40);
             if (game.freeStarTier) {
                 ctx.fillStyle = '#FFD700';
                 ctx.fillText('Freier Stern: ' + game.freeStarTier.toUpperCase(), pad + 12, dailyY + 56);
@@ -689,7 +689,7 @@ const Renderer = {
                 ctx.font = 'bold 11px monospace';
                 ctx.fillText(tier.name, tier.x + 30, tier.y + 16);
                 ctx.fillStyle = '#AAA';
-                ctx.font = '9px monospace';
+                ctx.font = '8px monospace';
                 ctx.fillText(tier.desc, tier.x + 30, tier.y + 30);
                 ctx.textAlign = 'right';
                 ctx.fillStyle = game.freeStarTier === tier.key ? '#FFD700' : '#DDD';
@@ -718,7 +718,7 @@ const Renderer = {
             ctx.fillText('Stufe: ' + ['Scharf', 'Super Scharf', 'Mega Scharf', 'Ultra Scharf'][Math.min(game.shopRandomStarTier || 0, 3)], pad + 36, rsY + 38);
             ctx.fillStyle = '#AAA';
             ctx.font = '9px monospace';
-            ctx.fillText('5 Klicks bis zum Jackpot', pad + 36, rsY + 50);
+            ctx.fillText('5 Klicks bis Jackpot', pad + 36, rsY + 50);
             ctx.fillText('Versuche: ' + (game.shopRandomStarAttempts || 0), pad + 36, rsY + 62);
             this._drawButton(ctx, cw - 118, rsY + 26, 104, 26, 'RANDOM_STAR', 10);
 
@@ -739,7 +739,7 @@ const Renderer = {
             ctx.fillText('Goldene Krone', pad + 12, crownY + 35);
             ctx.fillStyle = '#DDD';
             ctx.font = '9px monospace';
-            ctx.fillText('500 M: 15 Sekunden Schutzschild', pad + 12, crownY + 48);
+            ctx.fillText('500 M: 15s Schild', pad + 12, crownY + 48);
             this._drawButton(ctx, cw - 118, crownY + 20, 104, 24, 'CROWN_ITEM', 10);
 
             this._drawButton(ctx, cw - 104, ch - 34, 92, 24, 'BACK', 10);

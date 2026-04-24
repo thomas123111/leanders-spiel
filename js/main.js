@@ -436,7 +436,7 @@ const Game = {
 
     _spawnWorldContent(worldNum) {
         if (worldNum === 0) {
-            this._spawnTutorial();
+            this._spawnTraining();
         } else if (worldNum === 1) {
             this._spawnWorld1();
         } else if (worldNum === 2) {
