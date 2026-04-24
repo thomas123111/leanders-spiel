@@ -151,7 +151,11 @@ const Game = {
         this.shopRandomStarTier = 0;
         this.shopRandomStarAttempts = 5;
         this.shopRandomStarFinished = false;
+        this.showWorldSelectOverlay(false);
         this.state = 'SHOP';
+        this.buildShopOverlay();
+        this.refreshShopOverlay();
+        this.showShopOverlay(true);
     },
 
     _worldSelectData() {
@@ -199,7 +203,9 @@ const Game = {
 
         const panel = document.createElement('div');
         panel.style.width = 'min(720px, 100%)';
+        panel.style.maxWidth = '100vw';
         panel.style.maxHeight = 'min(92vh, 860px)';
+        panel.style.boxSizing = 'border-box';
         panel.style.border = '1px solid rgba(255,255,255,0.12)';
         panel.style.borderRadius = '18px';
         panel.style.background = 'linear-gradient(180deg, rgba(19, 16, 28, 0.98), rgba(10, 12, 18, 0.98))';
@@ -212,8 +218,8 @@ const Game = {
         header.style.padding = '16px 16px 12px';
         header.style.borderBottom = '1px solid rgba(255,255,255,0.08)';
         header.innerHTML = `
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
-                <div>
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;min-width:0">
+                <div style="min-width:0;overflow-wrap:anywhere">
                     <div style="font-size:20px;font-weight:700;letter-spacing:0.06em">Weltauswahl</div>
                     <div style="font-size:12px;color:#a9b0c0;margin-top:4px">Tippe eine Welt an oder scrolle durch die Liste.</div>
                 </div>
@@ -336,11 +342,230 @@ const Game = {
         this.startWorld(worldNum);
     },
 
+    buildShopOverlay() {
+        if (this.shopOverlay) return;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'shop-overlay';
+        overlay.style.position = 'fixed';
+        overlay.style.inset = '0';
+        overlay.style.display = 'none';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.padding = '12px';
+        overlay.style.background = 'rgba(4, 6, 10, 0.92)';
+        overlay.style.backdropFilter = 'blur(10px)';
+        overlay.style.webkitBackdropFilter = 'blur(10px)';
+        overlay.style.zIndex = '9999';
+        overlay.style.color = '#fff';
+        overlay.style.fontFamily = 'monospace';
+
+        const panel = document.createElement('div');
+        panel.style.width = 'min(720px, 100%)';
+        panel.style.maxHeight = 'min(92vh, 860px)';
+        panel.style.border = '1px solid rgba(255,255,255,0.12)';
+        panel.style.borderRadius = '18px';
+        panel.style.background = 'linear-gradient(180deg, rgba(19, 16, 28, 0.98), rgba(10, 12, 18, 0.98))';
+        panel.style.boxShadow = '0 24px 80px rgba(0,0,0,0.55)';
+        panel.style.display = 'flex';
+        panel.style.flexDirection = 'column';
+        panel.style.overflow = 'hidden';
+
+        const header = document.createElement('div');
+        header.style.padding = '16px 16px 12px';
+        header.style.borderBottom = '1px solid rgba(255,255,255,0.08)';
+        header.innerHTML = `
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+                <div>
+                    <div style="font-size:20px;font-weight:700;letter-spacing:0.06em">SHOP</div>
+                    <div style="font-size:12px;color:#a9b0c0;margin-top:4px">Alles ist antippbar und die Liste kann gescrollt werden.</div>
+                </div>
+                <button data-action="close" style="border:0;border-radius:12px;padding:10px 14px;background:#2a2f3f;color:#fff;font:700 12px monospace">Zurück</button>
+            </div>
+            <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:#c4cad8">
+                <span style="padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.06)">Münzen: <span data-role="coins">0</span></span>
+                <span style="padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.06)">Daily Reward, Sterne und Krone</span>
+            </div>
+        `;
+
+        const list = document.createElement('div');
+        list.style.overflowY = 'auto';
+        list.style.webkitOverflowScrolling = 'touch';
+        list.style.flex = '1 1 auto';
+        list.style.minHeight = '0';
+        list.style.padding = '12px';
+        list.style.display = 'grid';
+        list.style.gap = '12px';
+        list.style.alignContent = 'start';
+
+        const footer = document.createElement('div');
+        footer.style.padding = '12px 16px 16px';
+        footer.style.borderTop = '1px solid rgba(255,255,255,0.08)';
+        footer.style.fontSize = '12px';
+        footer.style.color = '#94a0b8';
+        footer.textContent = 'Tipp: Freier Stern aus dem Daily Reward wird hier direkt sichtbar.';
+
+        panel.appendChild(header);
+        panel.appendChild(list);
+        panel.appendChild(footer);
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+
+        header.querySelector('[data-action="close"]').addEventListener('click', () => this.closeShop());
+
+        this.shopOverlay = overlay;
+        this.shopPanel = panel;
+        this.shopList = list;
+        this.shopCoinsNode = header.querySelector('[data-role="coins"]');
+    },
+
+    refreshShopOverlay() {
+        if (!this.shopList) return;
+        if (this.shopCoinsNode) {
+            this.shopCoinsNode.textContent = String(this.coins || 0);
+        }
+
+        this.shopList.innerHTML = '';
+        const cardStyle = 'padding:14px;border:1px solid rgba(255,255,255,0.10);border-radius:16px;background:rgba(255,255,255,0.05);';
+        const btnStyle = 'border:0;border-radius:12px;padding:10px 14px;font:700 12px monospace;color:#000;background:#FFD700;';
+        const smallBtnStyle = 'border:0;border-radius:10px;padding:8px 12px;font:700 11px monospace;color:#000;background:#FFD700;';
+
+        const makeCard = (title, subtitle) => {
+            const card = document.createElement('div');
+            card.style.cssText = cardStyle;
+            const head = document.createElement('div');
+            head.style.display = 'flex';
+            head.style.justifyContent = 'space-between';
+            head.style.gap = '12px';
+            head.style.alignItems = 'flex-start';
+            head.style.minWidth = '0';
+            head.innerHTML = `
+                <div style="min-width:0;overflow-wrap:anywhere">
+                    <div style="font-size:15px;font-weight:700">${title}</div>
+                    <div style="font-size:11px;color:#a8afbf;margin-top:4px">${subtitle}</div>
+                </div>
+            `;
+            card.appendChild(head);
+            return card;
+        };
+
+        const daily = makeCard('Daily Reward', this.dailyRewardClaimDate === this._todayKey() ? 'Heute bereits geholt oder für 5000 Münzen erneut freischalten.' : 'Erster Klick heute gratis.');
+        if (this.freeStarTier) {
+            const tag = document.createElement('div');
+            tag.style.cssText = 'margin-top:10px;display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;background:rgba(255,215,0,0.12);color:#ffd966;font-size:11px;font-weight:700;';
+            tag.textContent = 'Freier Stern: ' + this.freeStarTier.toUpperCase();
+            daily.appendChild(tag);
+        }
+        const dailyBtn = document.createElement('button');
+        dailyBtn.type = 'button';
+        dailyBtn.textContent = this.dailyRewardClaimDate === this._todayKey() ? 'Nochmal holen (5000 M)' : 'Gratis holen';
+        dailyBtn.style.cssText = btnStyle + 'margin-top:12px;align-self:flex-start;';
+        dailyBtn.addEventListener('click', () => {
+            this._grantDailyReward(false) || this._grantDailyReward(true);
+            this.refreshShopOverlay();
+        });
+        daily.appendChild(dailyBtn);
+        this.shopList.appendChild(daily);
+
+        const market = makeCard('Sternen-Markt', 'Feste Preise, feste Seltenheiten. Kein Zufall hier.');
+        const tiers = [
+            { id: 'green', label: 'Scharf', price: 50, desc: 'kleiner Bonus' },
+            { id: 'yellow', label: 'Super Scharf', price: 150, desc: 'solider Bonus' },
+            { id: 'orange', label: 'Mega Scharf', price: 200, desc: 'starker Bonus' },
+            { id: 'red', label: 'Ultra Scharf', price: 350, desc: 'maximaler Bonus' }
+        ];
+        const grid = document.createElement('div');
+        grid.style.cssText = 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px;';
+        for (const tier of tiers) {
+            const cell = document.createElement('button');
+            cell.type = 'button';
+            cell.style.cssText = 'text-align:left;border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:12px;background:rgba(255,255,255,0.05);color:#fff;min-height:92px;min-width:0;';
+            const free = this.freeStarTier === tier.id;
+            cell.innerHTML = `
+                <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+                    <div style="min-width:0">
+                        <div style="font-size:14px;font-weight:700">${tier.label}</div>
+                        <div style="font-size:11px;color:#a8afbf;margin-top:4px">${tier.desc}</div>
+                    </div>
+                    <div style="font-size:11px;font-weight:700;color:${free ? '#ffd966' : '#fff'}">${free ? 'FREE' : tier.price + ' M'}</div>
+                </div>
+            `;
+            cell.addEventListener('click', () => {
+                const actualTier = free ? this._consumeFreeStar() : tier.id;
+                this._applyStarReward(actualTier, free);
+                this.refreshShopOverlay();
+            });
+            grid.appendChild(cell);
+        }
+        market.appendChild(grid);
+        this.shopList.appendChild(market);
+
+        const random = makeCard('Zufalls-Stern', '5 Versuche, um die Stufe zufällig zu steigern. Preis: 100 Münzen.');
+        const randomMeta = document.createElement('div');
+        randomMeta.style.cssText = 'margin-top:10px;font-size:12px;color:#cfd6e2;line-height:1.5';
+        randomMeta.textContent = 'Stufe: ' + ['Scharf', 'Super Scharf', 'Mega Scharf', 'Ultra Scharf'][Math.min(this.shopRandomStarTier || 0, 3)] + ' | Versuche: ' + (this.shopRandomStarAttempts || 0);
+        random.appendChild(randomMeta);
+        const randomBtn = document.createElement('button');
+        randomBtn.type = 'button';
+        randomBtn.textContent = 'Eine Runde ziehen';
+        randomBtn.style.cssText = smallBtnStyle + 'margin-top:12px;align-self:flex-start;';
+        randomBtn.addEventListener('click', () => {
+            this._advanceRandomStar();
+            this.refreshShopOverlay();
+        });
+        random.appendChild(randomBtn);
+        this.shopList.appendChild(random);
+
+        const crown = makeCard('Goldene Krone', '500 Münzen. Startet jedes Level mit 15 Sekunden Schutzschild.');
+        const crownBtn = document.createElement('button');
+        crownBtn.type = 'button';
+        crownBtn.textContent = this.unlockedCrown ? 'Bereits gekauft' : 'Krone kaufen';
+        crownBtn.style.cssText = smallBtnStyle + 'margin-top:12px;align-self:flex-start;';
+        crownBtn.disabled = !!this.unlockedCrown;
+        crownBtn.addEventListener('click', () => {
+            if (this.coins >= 500) {
+                this.coins -= 500;
+                this.unlockedCrown = true;
+                if (this.player) {
+                    this.player.hasCrown = true;
+                    this.player.startCrownShield();
+                }
+                this.save();
+                this.refreshShopOverlay();
+            }
+        });
+        crown.appendChild(crownBtn);
+        this.shopList.appendChild(crown);
+
+        const quick = makeCard('Navigation', 'Schnelle Bedienung.');
+        const backBtn = document.createElement('button');
+        backBtn.type = 'button';
+        backBtn.textContent = 'Zurück zur Titelseite';
+        backBtn.style.cssText = btnStyle + 'margin-top:12px;align-self:flex-start;';
+        backBtn.addEventListener('click', () => this.closeShop());
+        quick.appendChild(backBtn);
+        this.shopList.appendChild(quick);
+    },
+
+    showShopOverlay(visible) {
+        if (this.shopOverlay) {
+            this.shopOverlay.style.display = visible ? 'flex' : 'none';
+        }
+    },
+
+    closeShop() {
+        this.showShopOverlay(false);
+        this.state = 'TITLE';
+        this.save();
+    },
+
     returnToTitle() {
         if (this.trainingMode) {
             this.trainingCompleted = true;
         }
         this.trainingMode = false;
+        this.showShopOverlay(false);
+        this.showWorldSelectOverlay(false);
         this.state = 'TITLE';
         this.save();
     },
@@ -390,16 +615,13 @@ const Game = {
         if (!free) this.coins -= price;
 
         if (tier === 'green') {
-            this._grantCoins(100);
-        } else if (tier === 'yellow') {
             this.unlockedTripleShot = true;
-            this._grantCoins(75);
-        } else if (tier === 'orange') {
+        } else if (tier === 'yellow') {
             this.unlockedShadowCaster = true;
-            this._grantCoins(150);
+        } else if (tier === 'orange') {
+            this.unlockedGamerPistol = true;
         } else if (tier === 'red') {
             this.unlockedCrown = true;
-            this._grantCoins(250);
         }
         this.save();
         return true;
@@ -648,6 +870,7 @@ const Game = {
         } else if (worldNum === 11) {
             for (let i = 0; i < 20; i++) this.enemies.push(this._spawnAt(PixelGhost));
             this.enemies.push(this._spawnAt(PixelRobot, 300));
+            this.enemies.push(this._spawnAt(KeyGhost, 300));
             for (let i = 0; i < 7; i++) this.chests.push(this._spawnChestAt());
         } else if (worldNum === 12) {
             for (let i = 0; i < 18; i++) this.enemies.push(this._spawnAt(StarKnight));
@@ -656,6 +879,7 @@ const Game = {
         } else if (worldNum === 13) {
             for (let i = 0; i < 16; i++) this.enemies.push(this._spawnAt(SkeletonArcher));
             this.enemies.push(this._spawnAt(BoomerangSkeleton, 300));
+            this.enemies.push(this._spawnAt(KeyGhost, 300));
             for (let i = 0; i < 7; i++) this.chests.push(this._spawnChestAt());
         } else if (worldNum === 14) {
             for (let i = 0; i < 22; i++) this.enemies.push(this._spawnAt(PoisonSnake));
@@ -752,9 +976,7 @@ const Game = {
     _spawnWorld16() {
         for (let i = 0; i < 10; i++) this.enemies.push(this._spawnAt(AppleNinja));
         for (let i = 0; i < 8; i++) this.enemies.push(this._spawnAt(KiwiNinja));
-        const keyApple = this._spawnAt(AppleNinja, 300);
-        keyApple.isKeyGhost = true;
-        this.enemies.push(keyApple);
+        this.enemies.push(this._spawnAt(KeyGhost, 300));
         for (let i = 0; i < 7; i++) this.chests.push(this._spawnChestAt());
         for (let i = 0; i < 6; i++) this.props.push(new SkullProp(this.player.x + 100 + i * 22, this.player.y + 60 + (i % 2) * 18));
     },
@@ -922,6 +1144,10 @@ const Game = {
         if (this.state === 'SHOP') {
             if (Input._key('Escape') || Input._key('Enter')) {
                 this.returnToTitle();
+                Input.postUpdate();
+                return;
+            }
+            if (this.shopOverlay && this.shopOverlay.style.display !== 'none') {
                 Input.postUpdate();
                 return;
             }
