@@ -5,10 +5,10 @@ const Renderer = {
         ctx.save();
 
         // ── Hearts (quarter-step with gray for lost quarters) ──
-        const heartSize = 22;
-        const heartSpacing = 28;
+        const heartSize = mobile ? 18 : 22;
+        const heartSpacing = mobile ? 24 : 28;
         const startX = 14;
-        const startY = 16;
+        const startY = mobile ? 14 : 16;
         const totalHearts = player.maxHp / 4;
         const fullHearts = Math.floor(player.hp / 4);
         const remainder = player.hp % 4;
@@ -16,7 +16,7 @@ const Renderer = {
         // Heart container background
         ctx.fillStyle = 'rgba(0,0,0,0.35)';
         ctx.beginPath();
-        ctx.roundRect(4, 2, totalHearts * heartSpacing + 8, 30, 6);
+        ctx.roundRect(4, 2, totalHearts * heartSpacing + 8, mobile ? 26 : 30, 6);
         ctx.fill();
 
         for (let i = 0; i < totalHearts; i++) {
@@ -69,32 +69,33 @@ const Renderer = {
         const worldColors = ['#AAA', '#A6F', '#F80', '#4D4', '#C66', '#A84', '#8A4', '#8CF', '#F84', '#A0F', '#F80', '#48F', '#FA0', '#EEE', '#4F4', '#AAA', '#F88'];
         const worldIndex = Math.max(0, Math.min(worldNames.length - 1, game.currentWorld || 0));
         ctx.fillStyle = worldColors[worldIndex];
-        ctx.font = 'bold 11px monospace';
+        ctx.font = mobile ? 'bold 10px monospace' : 'bold 11px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText((game.currentWorld === 0 ? 'Training' : 'Welt ' + game.currentWorld) + ': ' + worldNames[worldIndex], ctx.canvas.width - 10, 14);
+        const worldLabel = game.currentWorld === 0 ? 'Training' : 'Welt ' + game.currentWorld;
+        ctx.fillText(mobile ? worldLabel : (worldLabel + ': ' + worldNames[worldIndex]), ctx.canvas.width - 10, mobile ? 13 : 14);
         ctx.textAlign = 'left';
 
         // Coin counter
         ctx.fillStyle = 'rgba(0,0,0,0.35)';
         ctx.beginPath();
-        ctx.roundRect(4, 34, 96, 28, 6);
+        ctx.roundRect(4, 34, mobile ? 88 : 96, mobile ? 24 : 28, 6);
         ctx.fill();
-        this._drawCoinIcon(ctx, 18, 48, 11);
+        this._drawCoinIcon(ctx, 18, mobile ? 46 : 48, mobile ? 10 : 11);
         ctx.fillStyle = '#FFF';
-        ctx.font = 'bold 14px monospace';
+        ctx.font = mobile ? 'bold 12px monospace' : 'bold 14px monospace';
         ctx.textAlign = 'left';
-        ctx.fillText(String(game.coins || 0), 32, 52);
+        ctx.fillText(String(game.coins || 0), 32, mobile ? 50 : 52);
 
         if (game.currentWorld === 0) {
-            this._drawButton(ctx, ctx.canvas.width - 118, 34, 110, 24, 'STARTSEITE', 11);
+            this._drawButton(ctx, ctx.canvas.width - (mobile ? 104 : 118), 34, mobile ? 96 : 110, 24, 'STARTSEITE', mobile ? 10 : 11);
         }
 
         // ── Key indicator ──
         if (game.hasKey) {
-            const kx = ctx.canvas.width - 40;
-            const ky = 30;
+            const kx = ctx.canvas.width - (mobile ? 28 : 40);
+            const ky = mobile ? 28 : 30;
             ctx.fillStyle = '#FFD700';
-            ctx.font = 'bold 14px monospace';
+            ctx.font = mobile ? 'bold 12px monospace' : 'bold 14px monospace';
             ctx.fillText('\uD83D\uDD11', kx, ky);
             ctx.fillRect(kx + 2, ky - 2, 12, 4);
         }
@@ -102,9 +103,9 @@ const Renderer = {
         // ── Boss door hint + arrow ──
         if (game.hasKey && !game.bossActive) {
             ctx.fillStyle = '#FFD700';
-            ctx.font = '12px monospace';
+            ctx.font = mobile ? '10px monospace' : '12px monospace';
             ctx.textAlign = 'center';
-            ctx.fillText('Schl\u00fcssel gefunden! Finde die Boss-T\u00fcr!', ctx.canvas.width / 2, 20);
+            ctx.fillText(mobile ? 'Schl\u00fcssel gefunden! Boss-T\u00fcr suchen!' : 'Schl\u00fcssel gefunden! Finde die Boss-T\u00fcr!', ctx.canvas.width / 2, mobile ? 19 : 20);
             ctx.textAlign = 'left';
 
             // Arrow pointing to boss door
@@ -147,26 +148,26 @@ const Renderer = {
 
         // ── Auto ability indicator ──
         if (player.hasAuto) {
-            const autoX = ctx.canvas.width - 120;
-            const autoY = 45;
+            const autoX = ctx.canvas.width - (mobile ? 110 : 120);
+            const autoY = mobile ? 42 : 45;
             if (player.autoActive) {
                 ctx.fillStyle = '#0FF';
-                ctx.font = 'bold 11px monospace';
+                ctx.font = mobile ? 'bold 10px monospace' : 'bold 11px monospace';
                 ctx.fillText('AUTO: ' + Math.ceil(player.autoTimer) + 's', autoX, autoY);
             } else if (player.autoReady) {
                 ctx.fillStyle = '#0FF';
-                ctx.font = '11px monospace';
+                ctx.font = mobile ? '10px monospace' : '11px monospace';
                 ctx.fillText('[E] Auto bereit!', autoX, autoY);
             } else {
                 // Show charge progress
                 ctx.fillStyle = '#666';
-                ctx.font = '10px monospace';
+                ctx.font = mobile ? '9px monospace' : '10px monospace';
                 ctx.fillText('Auto: ' + player.autoCharges + '/' + player.autoChargesNeeded, autoX, autoY);
             }
         }
 
         // ── Power-ups ──
-        let puY = 40;
+        let puY = mobile ? 60 : 40;
         for (const [key, pu] of Object.entries(player.powerUps)) {
             ctx.fillStyle = key === 'speed' ? '#4AF' : '#F88';
             ctx.font = '11px monospace';
@@ -261,6 +262,7 @@ const Renderer = {
     _drawCoinIcon(ctx, x, y, size) {
         const s = size || 10;
         ctx.save();
+        const mobile = Input.isMobile;
         ctx.fillStyle = 'rgba(0,0,0,0.4)';
         ctx.beginPath();
         ctx.roundRect(10, 10, 104, 28, 8);
@@ -604,7 +606,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v8.0.3', cw - 8, ch - 6);
+        ctx.fillText('v8.0.4', cw - 8, ch - 6);
 
         ctx.restore();
     },
@@ -613,6 +615,7 @@ const Renderer = {
         this._buttons = [];
         const cw = ctx.canvas.width;
         const ch = ctx.canvas.height;
+        const mobile = Input.isMobile;
 
         const bg = ctx.createLinearGradient(0, 0, cw, ch);
         bg.addColorStop(0, '#130f1f');
@@ -630,6 +633,120 @@ const Renderer = {
         ctx.fillStyle = '#AAA';
         ctx.font = '11px monospace';
         ctx.fillText('M\u00fcnzen: ' + (game.coins || 0), 16, 46);
+
+        if (mobile) {
+            const pad = 12;
+
+            // Daily reward card
+            const dailyY = 64;
+            const dailyH = 68;
+            ctx.fillStyle = 'rgba(255,255,255,0.06)';
+            ctx.beginPath();
+            ctx.roundRect(pad, dailyY, cw - pad * 2, dailyH, 12);
+            ctx.fill();
+            ctx.strokeStyle = '#5C4D7A';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = '#FFF';
+            ctx.font = 'bold 13px monospace';
+            ctx.fillText('Daily Reward', pad + 12, dailyY + 22);
+            ctx.font = '10px monospace';
+            const today = game._todayKey ? game._todayKey() : '';
+            const claimed = game.dailyRewardClaimDate === today;
+            ctx.fillStyle = claimed ? '#999' : '#DDD';
+            ctx.fillText(claimed ? 'Heute schon geholt. Nochmal: 5000 M\u00fcnzen.' : 'Erster Klick heute gratis.', pad + 12, dailyY + 40);
+            if (game.freeStarTier) {
+                ctx.fillStyle = '#FFD700';
+                ctx.fillText('Freier Stern: ' + game.freeStarTier.toUpperCase(), pad + 12, dailyY + 56);
+            }
+            this._drawButton(ctx, cw - 118, dailyY + 18, 104, 28, 'DAILY', 12);
+
+            // Star market as 2x2 grid
+            const marketY = 142;
+            ctx.fillStyle = '#FFF';
+            ctx.font = 'bold 13px monospace';
+            ctx.fillText('Sternen-Markt', pad, marketY);
+
+            const gap = 8;
+            const colW = Math.floor((cw - pad * 2 - gap) / 2);
+            const rowH = 68;
+            const tiers = [
+                { id: 'GREEN', key: 'green', name: 'Scharf', color: '#4D4', price: 50, x: pad, y: marketY + 16, desc: 'kleiner Bonus' },
+                { id: 'YELLOW', key: 'yellow', name: 'Super Scharf', color: '#FD0', price: 150, x: pad + colW + gap, y: marketY + 16, desc: 'solider Bonus' },
+                { id: 'ORANGE', key: 'orange', name: 'Mega Scharf', color: '#F80', price: 200, x: pad, y: marketY + 16 + rowH + 8, desc: 'starker Bonus' },
+                { id: 'RED', key: 'red', name: 'Ultra Scharf', color: '#F44', price: 350, x: pad + colW + gap, y: marketY + 16 + rowH + 8, desc: 'maximaler Bonus' }
+            ];
+            for (const tier of tiers) {
+                ctx.fillStyle = 'rgba(255,255,255,0.05)';
+                ctx.beginPath();
+                ctx.roundRect(tier.x, tier.y, colW, rowH, 10);
+                ctx.fill();
+                ctx.strokeStyle = tier.color;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                this._drawStarFace(ctx, tier.x + 16, tier.y + 18, 10, tier.color);
+                ctx.fillStyle = '#FFF';
+                ctx.font = 'bold 11px monospace';
+                ctx.fillText(tier.name, tier.x + 30, tier.y + 16);
+                ctx.fillStyle = '#AAA';
+                ctx.font = '9px monospace';
+                ctx.fillText(tier.desc, tier.x + 30, tier.y + 30);
+                ctx.textAlign = 'right';
+                ctx.fillStyle = game.freeStarTier === tier.key ? '#FFD700' : '#DDD';
+                ctx.fillText(game.freeStarTier === tier.key ? 'FREE' : tier.price + ' M', tier.x + colW - 10, tier.y + 16);
+                ctx.textAlign = 'left';
+                this._drawButton(ctx, tier.x + 8, tier.y + 40, colW - 16, 20, tier.id, 9);
+            }
+
+            // Random star
+            const rsY = 300;
+            ctx.fillStyle = '#FFF';
+            ctx.font = 'bold 13px monospace';
+            ctx.fillText('Zufalls-Stern', pad, rsY);
+            ctx.fillStyle = 'rgba(255,255,255,0.05)';
+            ctx.beginPath();
+            ctx.roundRect(pad, rsY + 18, cw - pad * 2, 58, 12);
+            ctx.fill();
+            ctx.strokeStyle = '#7AA';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            const randomColors = ['#4D4', '#FD0', '#F80', '#F44'];
+            const currentColor = randomColors[Math.min(game.shopRandomStarTier || 0, 3)];
+            this._drawStarFace(ctx, pad + 18, rsY + 46, 13, currentColor);
+            ctx.fillStyle = '#FFF';
+            ctx.font = '11px monospace';
+            ctx.fillText('Stufe: ' + ['Scharf', 'Super Scharf', 'Mega Scharf', 'Ultra Scharf'][Math.min(game.shopRandomStarTier || 0, 3)], pad + 36, rsY + 38);
+            ctx.fillStyle = '#AAA';
+            ctx.font = '9px monospace';
+            ctx.fillText('5 Klicks bis zum Jackpot', pad + 36, rsY + 50);
+            ctx.fillText('Versuche: ' + (game.shopRandomStarAttempts || 0), pad + 36, rsY + 62);
+            this._drawButton(ctx, cw - 118, rsY + 26, 104, 26, 'RANDOM_STAR', 10);
+
+            // Special item
+            const crownY = 370;
+            ctx.fillStyle = '#FFF';
+            ctx.font = 'bold 13px monospace';
+            ctx.fillText('Spezial-Item', pad, crownY);
+            ctx.fillStyle = 'rgba(255,215,0,0.08)';
+            ctx.beginPath();
+            ctx.roundRect(pad, crownY + 18, cw - pad * 2, 50, 12);
+            ctx.fill();
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 11px monospace';
+            ctx.fillText('Goldene Krone', pad + 12, crownY + 35);
+            ctx.fillStyle = '#DDD';
+            ctx.font = '9px monospace';
+            ctx.fillText('500 M: 15 Sekunden Schutzschild', pad + 12, crownY + 48);
+            this._drawButton(ctx, cw - 118, crownY + 20, 104, 24, 'CROWN_ITEM', 10);
+
+            this._drawButton(ctx, cw - 104, ch - 34, 92, 24, 'BACK', 10);
+
+            ctx.restore();
+            return;
+        }
 
         // Daily reward card
         const cardX = 16;
