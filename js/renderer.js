@@ -506,12 +506,26 @@ const Renderer = {
         ctx.fillStyle = '#F88';
         ctx.font = 'bold 14px monospace';
         ctx.fillText('geklauten Erfindungen', cw - 12, 40);
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
+        ctx.beginPath();
+        ctx.roundRect(12, 60, cw * 0.42, ch - 78, 18);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.04)';
+        ctx.beginPath();
+        ctx.roundRect(cw * 0.54, 60, cw * 0.42, ch - 78, 18);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
 
         // ── Left Panel: MARK name + rotatable model ──
         ctx.fillStyle = '#FFF';
         ctx.font = 'bold 20px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('MARK', cw * 0.12, 30);
+        ctx.fillText('MARK', cw * 0.15, 86);
 
         // 360° Mark - drag/touch to rotate
         if (!this._markAngle) this._markAngle = 0;
@@ -525,22 +539,22 @@ const Renderer = {
         }
         // Draw Mark with simulated 3D rotation (scale X = cos)
         const flipX = Math.cos(this._markAngle);
-        const markX = cw * 0.10;
-        const markY = ch * 0.40;
+        const markX = cw * 0.16;
+        const markY = ch * 0.37;
         ctx.save();
         ctx.translate(markX, markY);
         ctx.scale(flipX < 0 ? -2.2 : 2.2, 2.2);
         ctx.translate(0, 0);
         this._drawMarkCharacter(ctx, 0, 0, 1);
         ctx.restore();
-        ctx.fillStyle = '#666';
+        ctx.fillStyle = '#8AA';
         ctx.font = '8px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('\u2194 drehen', markX, ch * 0.62);
+        ctx.fillText('\u2194 drehen', markX, ch * 0.58);
 
         // ── Bio text (right of Mark) ──
-        ctx.fillStyle = '#999';
-        ctx.font = '9px monospace';
+        ctx.fillStyle = '#B7C0D0';
+        ctx.font = '10px monospace';
         ctx.textAlign = 'left';
         const bioLines = [
             'Mark ist ein',
@@ -550,19 +564,19 @@ const Renderer = {
             'er sich verwandelt...',
             'Findet es selbst heraus!'
         ];
-        const bioX = cw * 0.19;
+        const bioX = cw * 0.23;
         for (let i = 0; i < bioLines.length; i++) {
-            ctx.fillText(bioLines[i], bioX, ch * 0.25 + i * 13);
+            ctx.fillText(bioLines[i], bioX, ch * 0.23 + i * 15);
         }
 
         // ── Right Panel: World Select ──
-        const tx = cw * 0.67;
+        const tx = cw * 0.75;
         const btnW = 180;
         const btnH = 36;
-        const startY = ch * 0.40;
+        const startY = ch * 0.34;
         ctx.textAlign = 'center';
         ctx.fillStyle = '#DDD';
-        ctx.font = 'bold 14px monospace';
+        ctx.font = 'bold 15px monospace';
         ctx.fillText('W\u00e4hle einen Startpunkt', tx, startY - 30);
         this._drawButton(ctx, tx - btnW / 2, startY, btnW, btnH, 'SHOP', 16);
         this._drawButton(ctx, tx - btnW / 2, startY + 48, btnW, btnH, 'TRAININGSPLATZ', 13);
