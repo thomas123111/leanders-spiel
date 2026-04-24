@@ -40,17 +40,15 @@ const Input = {
 
         // Mouse
         canvas.addEventListener('mousemove', e => {
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            this.mouse.x = (e.clientX - rect.left) * scaleX;
-            this.mouse.y = (e.clientY - rect.top) * scaleY;
+            this._setMouseFromEvent(e);
         });
         canvas.addEventListener('mousedown', e => {
+            this._setMouseFromEvent(e);
             this.mouse.down = true;
             this.mouse.pressed = true;
         });
         canvas.addEventListener('mouseup', e => {
+            this._setMouseFromEvent(e);
             this.mouse.down = false;
         });
 
@@ -59,6 +57,14 @@ const Input = {
         canvas.addEventListener('touchmove', e => { e.preventDefault(); this._handleTouchMove(e); }, { passive: false });
         canvas.addEventListener('touchend', e => { e.preventDefault(); this._handleTouchEnd(e); }, { passive: false });
         canvas.addEventListener('touchcancel', e => { e.preventDefault(); this._handleTouchEnd(e); }, { passive: false });
+    },
+
+    _setMouseFromEvent(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        this.mouse.x = (e.clientX - rect.left) * scaleX;
+        this.mouse.y = (e.clientY - rect.top) * scaleY;
     },
 
     _handleTouchStart(e) {
