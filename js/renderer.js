@@ -496,6 +496,7 @@ const Renderer = {
         ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
         const cw = ctx.canvas.width;
         const ch = ctx.canvas.height;
+        const mobile = Input.isMobile;
         ctx.save();
 
         // ── Game Title (top right) ──
@@ -571,22 +572,23 @@ const Renderer = {
 
         // ── Right Panel: World Select ──
         const tx = cw * 0.75;
-        const btnW = 180;
-        const btnH = 36;
-        const startY = ch * 0.34;
+        const btnW = mobile ? Math.min(220, cw * 0.36) : 180;
+        const btnH = mobile ? 42 : 36;
+        const startY = mobile ? ch * 0.32 : ch * 0.34;
         ctx.textAlign = 'center';
         ctx.fillStyle = '#DDD';
-        ctx.font = 'bold 15px monospace';
+        ctx.font = mobile ? 'bold 14px monospace' : 'bold 15px monospace';
         ctx.fillText('W\u00e4hle einen Startpunkt', tx, startY - 30);
-        this._drawButton(ctx, tx - btnW / 2, startY, btnW, btnH, 'SHOP', 16);
-        this._drawButton(ctx, tx - btnW / 2, startY + 40, btnW, btnH, 'TRAININGSPLATZ', 13);
-        this._drawButton(ctx, tx - btnW / 2, startY + 80, btnW, btnH, 'VOLLBILD', 16);
-        this._drawButton(ctx, tx - btnW / 2, startY + 120, btnW, btnH, 'PLAY', 16);
+        this._drawButton(ctx, tx - btnW / 2, startY, btnW, btnH, 'SHOP', mobile ? 15 : 16);
+        this._drawButton(ctx, tx - btnW / 2, startY + (mobile ? 48 : 40), btnW, btnH, 'TRAININGSPLATZ', mobile ? 11 : 13);
+        this._drawButton(ctx, tx - btnW / 2, startY + (mobile ? 96 : 80), btnW, btnH, 'VOLLBILD', mobile ? 15 : 16);
+        this._drawButton(ctx, tx - btnW / 2, startY + (mobile ? 144 : 120), btnW, btnH, 'PLAY', mobile ? 15 : 16);
         ctx.fillStyle = '#888';
         ctx.font = '10px monospace';
-        ctx.fillText(Game.trainingCompleted ? 'PLAY = Story-Fortschritt fortsetzen' : 'PLAY startet zuerst den Trainingsplatz', tx, startY + 170);
-        ctx.fillText('VOLLBILD blendet die Browserleiste aus', tx, startY + 186);
-        ctx.fillText('SHOP enth\u00e4lt Tagesbelohnung, Sterne und die Krone', tx, startY + 202);
+        const infoY = mobile ? startY + 194 : startY + 170;
+        ctx.fillText(Game.trainingCompleted ? 'PLAY = Story-Fortschritt fortsetzen' : 'PLAY startet zuerst den Trainingsplatz', tx, infoY);
+        ctx.fillText('VOLLBILD blendet die Browserleiste aus', tx, infoY + 16);
+        ctx.fillText('SHOP enth\u00e4lt Tagesbelohnung, Sterne und die Krone', tx, infoY + 32);
 
         // Controls
         ctx.fillStyle = '#555';
@@ -602,7 +604,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v8.0.2', cw - 8, ch - 6);
+        ctx.fillText('v8.0.3', cw - 8, ch - 6);
 
         ctx.restore();
     },
