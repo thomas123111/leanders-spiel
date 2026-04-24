@@ -55,16 +55,9 @@ const Game = {
         this.resize();
         window.addEventListener('resize', () => this.resize());
 
-        // Request fullscreen on first user interaction
+        // Request fullscreen on first user interaction as a fallback.
         const requestFS = () => {
-            const el = document.documentElement;
-            const rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-            if (rfs) {
-                rfs.call(el).catch(() => {});
-                if (screen.orientation && screen.orientation.lock) {
-                    screen.orientation.lock('landscape').catch(() => {});
-                }
-            }
+            this.enterFullscreen();
             document.removeEventListener('touchstart', requestFS);
             document.removeEventListener('click', requestFS);
         };
@@ -79,6 +72,22 @@ const Game = {
         this.loadSave();
         this.lastTime = performance.now();
         this.gameLoop(this.lastTime);
+    },
+
+    enterFullscreen() {
+        const el = document.documentElement;
+        const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+        if (isFullscreen) return;
+        const request = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+        if (request) {
+            const maybePromise = request.call(el);
+            if (maybePromise && typeof maybePromise.catch === 'function') {
+                maybePromise.catch(() => {});
+            }
+        }
+        if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('landscape').catch(() => {});
+        }
     },
 
     // ── Save System ──
@@ -700,6 +709,10 @@ const Game = {
                 const targetWorld = this.trainingCompleted ? Math.min(16, Math.max(1, this.maxWorldUnlocked)) : 0;
                 this.startWorld(targetWorld);
             }
+            if (Input.keyPressed('KeyF')) {
+                Sound.resume();
+                this.enterFullscreen();
+            }
             if (Input.attackPressed || Input.mouse.pressed) {
                 Sound.resume();
                 const btn = Renderer.getClickedButton(Input.mouse.x, Input.mouse.y);
@@ -710,6 +723,8 @@ const Game = {
                     this.openShop();
                 } else if (btn === 'TRAININGSPLATZ') {
                     this.startWorld(0);
+                } else if (btn === 'VOLLBILD') {
+                    this.enterFullscreen();
                 }
             }
             Input.postUpdate();

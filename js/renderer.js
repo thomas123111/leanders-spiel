@@ -579,12 +579,14 @@ const Renderer = {
         ctx.font = 'bold 15px monospace';
         ctx.fillText('W\u00e4hle einen Startpunkt', tx, startY - 30);
         this._drawButton(ctx, tx - btnW / 2, startY, btnW, btnH, 'SHOP', 16);
-        this._drawButton(ctx, tx - btnW / 2, startY + 48, btnW, btnH, 'TRAININGSPLATZ', 13);
-        this._drawButton(ctx, tx - btnW / 2, startY + 96, btnW, btnH, 'PLAY', 16);
+        this._drawButton(ctx, tx - btnW / 2, startY + 40, btnW, btnH, 'TRAININGSPLATZ', 13);
+        this._drawButton(ctx, tx - btnW / 2, startY + 80, btnW, btnH, 'VOLLBILD', 16);
+        this._drawButton(ctx, tx - btnW / 2, startY + 120, btnW, btnH, 'PLAY', 16);
         ctx.fillStyle = '#888';
         ctx.font = '10px monospace';
-        ctx.fillText(Game.trainingCompleted ? 'PLAY = Story-Fortschritt fortsetzen' : 'PLAY startet zuerst den Trainingsplatz', tx, startY + 150);
-        ctx.fillText('SHOP enth\u00e4lt Tagesbelohnung, Sterne und die Krone', tx, startY + 166);
+        ctx.fillText(Game.trainingCompleted ? 'PLAY = Story-Fortschritt fortsetzen' : 'PLAY startet zuerst den Trainingsplatz', tx, startY + 170);
+        ctx.fillText('VOLLBILD blendet die Browserleiste aus', tx, startY + 186);
+        ctx.fillText('SHOP enth\u00e4lt Tagesbelohnung, Sterne und die Krone', tx, startY + 202);
 
         // Controls
         ctx.fillStyle = '#555';
@@ -600,7 +602,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v8.0.1', cw - 8, ch - 6);
+        ctx.fillText('v8.0.2', cw - 8, ch - 6);
 
         ctx.restore();
     },
