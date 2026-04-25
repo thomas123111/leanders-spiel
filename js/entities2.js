@@ -1059,3 +1059,237 @@ class LavaBall extends Enemy {
         ctx.restore();
     }
 }
+
+class MiniTRex extends Enemy {
+    constructor(x, y) {
+        super(x, y, 26, 22);
+        this.hp = 5;
+        this.maxHp = 5;
+        this.speed = 60;
+        this.damage = 1;
+        this.contactDamage = true;
+        this.lungeTimer = 0;
+    }
+
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+        const dist = vecDist(mc, pc);
+        const a = angleBetween(mc, pc);
+        if (dist < 220) {
+            this._moveWithCollision(Math.cos(a) * this.speed * dt, Math.sin(a) * this.speed * dt, world);
+            this.lungeTimer -= dt;
+            if (this.lungeTimer <= 0 && dist < 120) {
+                this.lungeTimer = 2.5;
+                this._moveWithCollision(Math.cos(a) * 130 * dt, Math.sin(a) * 130 * dt, world);
+            }
+        }
+    }
+
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        if (this.isFlashing()) ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#7C5';
+        ctx.beginPath();
+        ctx.ellipse(cx - 2, cy + 1, 10, 7, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#5A3';
+        ctx.beginPath();
+        ctx.arc(cx + 5, cy - 3, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#222';
+        ctx.fillRect(cx + 1, cy - 2, 5, 2);
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath();
+        ctx.arc(cx + 3, cy - 4, 1.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+class Triceratops extends Enemy {
+    constructor(x, y) {
+        super(x, y, 34, 24);
+        this.hp = 9;
+        this.maxHp = 9;
+        this.speed = 38;
+        this.damage = 2;
+        this.contactDamage = true;
+        this.chargeTimer = 0;
+    }
+
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+        const dist = vecDist(mc, pc);
+        const a = angleBetween(mc, pc);
+        this.chargeTimer -= dt;
+        if (dist < 240) {
+            this._moveWithCollision(Math.cos(a) * this.speed * dt, Math.sin(a) * this.speed * dt, world);
+            if (this.chargeTimer <= 0 && dist < 160) {
+                this.chargeTimer = 3.2;
+                this._moveWithCollision(Math.cos(a) * 150 * dt, Math.sin(a) * 150 * dt, world);
+            }
+        }
+    }
+
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        if (this.isFlashing()) ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#5A9';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 13, 9, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#7BC';
+        ctx.beginPath();
+        ctx.arc(cx + 8, cy - 2, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#3A6';
+        ctx.fillRect(cx - 14, cy + 1, 12, 4);
+        ctx.fillRect(cx - 2, cy + 8, 14, 4);
+        ctx.fillStyle = '#222';
+        ctx.fillRect(cx + 1, cy - 2, 5, 2);
+        ctx.fillRect(cx + 7, cy - 2, 5, 2);
+        ctx.restore();
+    }
+}
+
+class BossStingRex extends Enemy {
+    constructor(x, y) {
+        super(x, y, 120, 96);
+        this.hp = 90;
+        this.maxHp = 90;
+        this.speed = 24;
+        this.damage = 3;
+        this.isBoss = true;
+        this.contactDamage = false;
+        this.state = 'intro';
+        this.introTimer = 2;
+        this.stateTimer = 0;
+        this.roarTimer = 4;
+        this.tailTimer = 3;
+        this.tailActive = 0;
+        this.phase = 1;
+    }
+
+    update(dt, world, player, enemies, particles) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        if (this.hp <= 45 && this.phase === 1) {
+            this.phase = 2;
+            this.speed = 32;
+            this.tailTimer = 2.2;
+        }
+
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+        const a = angleBetween(mc, pc);
+
+        if (this.state === 'intro') {
+            this.introTimer -= dt;
+            if (this.introTimer <= 0) this.state = 'chase';
+            return;
+        }
+
+        if (this.tailActive > 0) {
+            this.tailActive -= dt;
+            const tailX = this.centerX() - 30;
+            const dist = vecDist({ x: tailX, y: this.centerY() }, pc);
+            if (dist < 160) {
+                player.takeDamage(3, angleBetween({ x: tailX, y: this.centerY() }, pc), 400);
+                player.applySlow(1.2, 0.65);
+            }
+            return;
+        }
+
+        this._moveWithCollision(Math.cos(a) * this.speed * dt, Math.sin(a) * this.speed * dt, world);
+
+        this.roarTimer -= dt;
+        this.tailTimer -= dt;
+        if (this.roarTimer <= 0) {
+            this.roarTimer = this.phase === 1 ? 4.5 : 3.2;
+            if (vecDist(mc, pc) < 220) {
+                player.applySlow(2.0, 0.55);
+                player.takeDamage(1, a, 120);
+            }
+            if (particles) {
+                for (let i = 0; i < 10; i++) {
+                    particles.push(new Particle(mc.x, mc.y, randRange(-70, 70), randRange(-70, 70), '#FFDD88', 0.5));
+                }
+            }
+        }
+
+        if (this.tailTimer <= 0) {
+            this.tailTimer = this.phase === 1 ? 3.5 : 2.5;
+            this.tailActive = 0.8;
+            if (typeof Game !== 'undefined') {
+                Game.camera.shake(6, 0.2);
+            }
+        }
+    }
+
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        if (this.isFlashing()) ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#7C4';
+        ctx.beginPath();
+        ctx.ellipse(cx - 8, cy + 6, 42, 24, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#5A3';
+        ctx.beginPath();
+        ctx.arc(cx + 28, cy - 6, 24, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#8DD';
+        ctx.beginPath();
+        ctx.arc(cx + 18, cy - 12, 6, 0, Math.PI * 2);
+        ctx.arc(cx + 30, cy - 12, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#222';
+        ctx.fillRect(cx + 18, cy - 8, 5, 2);
+        ctx.fillRect(cx + 30, cy - 8, 5, 2);
+        ctx.strokeStyle = '#9F5';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(cx - 18, cy + 20);
+        ctx.lineTo(cx - 70, cy + 10);
+        ctx.stroke();
+        if (this.tailActive > 0) {
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(cx - 20, cy + 20);
+            ctx.lineTo(cx - 90, cy + 30);
+            ctx.stroke();
+        }
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('STACHEL-T-REX', cx, pos.y - 46);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        ctx.roundRect(cx - 50, pos.y - 36, 100, 7, 3);
+        ctx.fill();
+        ctx.fillStyle = this.hp > 45 ? '#7C4' : '#F44';
+        ctx.beginPath();
+        ctx.roundRect(cx - 49, pos.y - 35, 98 * (this.hp / this.maxHp), 5, 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}

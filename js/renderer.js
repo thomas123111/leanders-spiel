@@ -66,8 +66,8 @@ const Renderer = {
         }
 
         // ── World indicator ──
-        const worldNames = ['Trainingsplatz', 'Geisterschloss', 'Maschinen-Hof', 'Schleim-Arena', 'Schatten-Burg', 'Pilz-Wald', 'M\u00fccken-Sumpf', 'Antarktis', 'Vulkan-Insel', 'Schatten-Dim.', 'Obst-Paradies', 'Pixel-Welt', 'Sternen-Galaxie', 'Knochen-Tal', 'Gift-Sumpf', 'Steinwelt', 'Obst-Ninja'];
-        const worldColors = ['#AAA', '#A6F', '#F80', '#4D4', '#C66', '#A84', '#8A4', '#8CF', '#F84', '#A0F', '#F80', '#48F', '#FA0', '#EEE', '#4F4', '#AAA', '#F88'];
+        const worldNames = ['Trainingsplatz', 'Geisterschloss', 'Maschinen-Hof', 'Schleim-Arena', 'Schatten-Burg', 'Pilz-Wald', 'M\u00fccken-Sumpf', 'Antarktis', 'Vulkan-Insel', 'Schatten-Dim.', 'Obst-Paradies', 'Pixel-Welt', 'Sternen-Galaxie', 'Knochen-Tal', 'Gift-Sumpf', 'Steinwelt', 'Obst-Ninja', 'Dino-Welt'];
+        const worldColors = ['#AAA', '#A6F', '#F80', '#4D4', '#C66', '#A84', '#8A4', '#8CF', '#F84', '#A0F', '#F80', '#48F', '#FA0', '#EEE', '#4F4', '#AAA', '#F88', '#9C6'];
         const worldIndex = Math.max(0, Math.min(worldNames.length - 1, game.currentWorld || 0));
         ctx.fillStyle = worldColors[worldIndex];
         ctx.font = mobile ? 'bold 10px monospace' : 'bold 11px monospace';
@@ -86,6 +86,15 @@ const Renderer = {
         ctx.font = mobile ? 'bold 12px monospace' : 'bold 14px monospace';
         ctx.textAlign = 'left';
         ctx.fillText(String(game.coins || 0), 32, mobile ? 50 : 52);
+
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.beginPath();
+        ctx.roundRect(4, mobile ? 62 : 66, mobile ? 88 : 96, mobile ? 24 : 28, 6);
+        ctx.fill();
+        this._drawJewelIcon(ctx, 18, mobile ? 74 : 78, mobile ? 9 : 10);
+        ctx.fillStyle = '#FFF';
+        ctx.font = mobile ? 'bold 12px monospace' : 'bold 14px monospace';
+        ctx.fillText(String(game.jewels || 0), 32, mobile ? 78 : 82);
 
         if (game.currentWorld === 0) {
             this._drawButton(ctx, ctx.canvas.width - (mobile ? 104 : 118), 34, mobile ? 96 : 110, 24, 'STARTSEITE', mobile ? 10 : 11);
@@ -209,6 +218,7 @@ const Renderer = {
                 14: { name: 'HYDRA', color: '#4F4' },
                 15: { name: 'STEIN-D\u00c4MON', color: '#AAA' },
                 16: { name: 'FRUCHT-GIGANT', color: '#F88' },
+                17: { name: 'STACHEL-T-REX', color: '#9C6' },
             };
             const boss = bossNames[game.currentWorld] || { name: 'BOSS', color: '#F00' };
             ctx.fillStyle = 'rgba(0,0,0,0.7)';
@@ -263,15 +273,27 @@ const Renderer = {
     _drawCoinIcon(ctx, x, y, size) {
         const s = size || 10;
         ctx.save();
-        const mobile = Input.isMobile;
-        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+
+        // Permanent currency badges
+        ctx.fillStyle = 'rgba(0,0,0,0.38)';
         ctx.beginPath();
-        ctx.roundRect(10, 10, 104, 28, 8);
+        ctx.roundRect(12, 12, 116, 24, 8);
         ctx.fill();
+        this._drawCoinIcon(ctx, 24, 24, 9);
         ctx.fillStyle = '#FFF';
-        ctx.font = 'bold 13px monospace';
+        ctx.font = 'bold 12px monospace';
         ctx.textAlign = 'left';
         ctx.fillText(String(Game.coins || 0), 38, 28);
+
+        ctx.fillStyle = 'rgba(0,0,0,0.38)';
+        ctx.beginPath();
+        ctx.roundRect(12, 40, 116, 24, 8);
+        ctx.fill();
+        this._drawJewelIcon(ctx, 24, 52, 8);
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 12px monospace';
+        ctx.fillText(String(Game.jewels || 0), 38, 56);
+        const mobile = Input.isMobile;
         ctx.fillStyle = '#FFD700';
         ctx.beginPath();
         ctx.arc(x, y, s, 0, Math.PI * 2);
@@ -285,6 +307,31 @@ const Renderer = {
         ctx.beginPath();
         ctx.arc(x, y, s * 0.9, 0, Math.PI * 2);
         ctx.stroke();
+        ctx.restore();
+    },
+
+    _drawJewelIcon(ctx, x, y, size) {
+        const s = size || 10;
+        ctx.save();
+        ctx.fillStyle = '#4FD6FF';
+        ctx.beginPath();
+        ctx.moveTo(x, y - s);
+        ctx.lineTo(x + s, y);
+        ctx.lineTo(x, y + s);
+        ctx.lineTo(x - s, y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#D8FBFF';
+        ctx.beginPath();
+        ctx.moveTo(x, y - s * 0.7);
+        ctx.lineTo(x + s * 0.35, y - s * 0.1);
+        ctx.lineTo(x, y + s * 0.15);
+        ctx.lineTo(x - s * 0.35, y - s * 0.1);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#1A7A99';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(x - s * 0.9, y - s * 0.9, s * 1.8, s * 1.8);
         ctx.restore();
     },
 
@@ -590,7 +637,7 @@ const Renderer = {
         const infoY = mobile ? startY + 194 : startY + 170;
         ctx.fillText('PLAY öffnet die Weltauswahl', tx, infoY);
         ctx.fillText('VOLLBILD blendet die Browserleiste aus', tx, infoY + 16);
-        ctx.fillText('SHOP enth\u00e4lt Tagesbelohnung, Sterne und die Krone', tx, infoY + 32);
+        ctx.fillText('SHOP enth\u00e4lt Tagesbelohnung, Wechselstube, Sterne und die Krone', tx, infoY + 32);
 
         // Controls
         ctx.fillStyle = '#555';
@@ -606,7 +653,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v8.0.8', cw - 8, ch - 6);
+        ctx.fillText('v8.0.9', cw - 8, ch - 6);
 
         ctx.restore();
     },
@@ -720,7 +767,7 @@ const Renderer = {
             ctx.font = '9px monospace';
             ctx.fillText('5 Klicks bis Jackpot', pad + 36, rsY + 50);
             ctx.fillText('Versuche: ' + (game.shopRandomStarAttempts || 0), pad + 36, rsY + 62);
-            this._drawButton(ctx, cw - 118, rsY + 26, 104, 26, 'RANDOM_STAR', 10);
+            this._drawButton(ctx, cw - 118, rsY + 26, 104, 26, 'BÖSE STERNE', 10);
 
             // Special item
             const crownY = 370;
@@ -830,7 +877,7 @@ const Renderer = {
         ctx.font = '10px monospace';
         ctx.fillText('5 Klicks, um die Farbe per Zufall zu steigern', 58, rsY + 54);
         ctx.fillText('Versuche: ' + (game.shopRandomStarAttempts || 0), 58, rsY + 67);
-        this._drawButton(ctx, cw - 152, rsY + 28, 120, 28, 'RANDOM_STAR', 11);
+            this._drawButton(ctx, cw - 152, rsY + 28, 120, 28, 'BÖSE STERNE', 11);
 
         // Special item
         const crownY = 410;
@@ -933,7 +980,8 @@ const Renderer = {
             13: { title: 'KNOCHEN-UPGRADE erhalten!', desc: 'Der Schl\u00e4ger feuert Knochen-Projektile!', color: '#EEE' },
             14: { title: 'SCHLANGE erhalten!', desc: 'Die kleine Schlange sitzt auf Marks Schulter und spuckt Gift!', color: '#4F4' },
             15: { title: 'STEIN DES SHOGUNS!', desc: 'Die Schlange leuchtet violett - Versteinerungs-Gift!', color: '#A0F' },
-            16: { title: 'FRUCHT-GIGANT besiegt!', desc: '1000 Münzen und der finale Sieg in der Obst-Ninja-Welt!', color: '#F88' },
+            16: { title: 'FRUCHT-GIGANT besiegt!', desc: '1000 Münzen beim ersten Sieg!', color: '#F88' },
+            17: { title: 'STACHEL-T-REX besiegt!', desc: '50 Juwelen beim ersten Sieg!', color: '#9C6' },
         };
         const r = rewards[worldNum];
         if (r) {
@@ -979,7 +1027,7 @@ const Renderer = {
 
         ctx.fillStyle = '#FFD700';
         ctx.font = 'bold 32px monospace';
-        ctx.fillText('ALLE 16 WELTEN GESCHAFFT!', cx, cy - 50);
+        ctx.fillText('ALLE 17 WELTEN GESCHAFFT!', cx, cy - 50);
 
         ctx.fillStyle = '#FFF';
         ctx.font = '16px monospace';

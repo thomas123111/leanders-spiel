@@ -33,11 +33,14 @@ const Game = {
     maxWorldUnlocked: 1,
     trainingCompleted: false,
     coins: 0,
+    jewels: 0,
     dailyRewardClaimDate: '',
     freeStarTier: null,
     shopRandomStarTier: 0,
     shopRandomStarAttempts: 5,
     shopRandomStarFinished: false,
+    shopRandomStarRevealReady: false,
+    worldRewardClaims: {},
 
     // Epic Freeze
     epicFreezeActive: false,
@@ -97,9 +100,11 @@ const Game = {
                 world: this.currentWorld,
                 maxWorld: this.maxWorldUnlocked,
                 coins: this.coins,
+                jewels: this.jewels,
                 trainingDone: this.trainingCompleted,
                 dailyRewardClaimDate: this.dailyRewardClaimDate,
                 freeStarTier: this.freeStarTier,
+                worldRewards: this.worldRewardClaims,
                 ranged: this.unlockedRanged,
                 auto: this.unlockedAuto,
                 crown: this.unlockedCrown,
@@ -115,15 +120,17 @@ const Game = {
         try {
             const data = JSON.parse(localStorage.getItem('mark_save'));
             if (data) {
-                this.currentWorld = Math.max(0, Math.min(16, typeof data.world === 'number' ? data.world : 1));
+                this.currentWorld = Math.max(0, Math.min(17, typeof data.world === 'number' ? data.world : 1));
                 const maxWorld = typeof data.maxWorld === 'number'
                     ? data.maxWorld
                     : (typeof data.world === 'number' ? data.world : 1);
-                this.maxWorldUnlocked = Math.min(16, maxWorld);
+                this.maxWorldUnlocked = Math.min(17, maxWorld);
                 this.coins = data.coins || 0;
+                this.jewels = data.jewels || 0;
                 this.trainingCompleted = !!data.trainingDone;
                 this.dailyRewardClaimDate = data.dailyRewardClaimDate || '';
                 this.freeStarTier = data.freeStarTier || null;
+                this.worldRewardClaims = data.worldRewards || {};
                 this.unlockedRanged = !!data.ranged;
                 this.unlockedAuto = !!data.auto;
                 this.unlockedCrown = !!data.crown;
@@ -147,13 +154,32 @@ const Game = {
         return `${y}-${m}-${day}`;
     },
 
+    _worldRewardKey(worldNum) {
+        return `w${worldNum}`;
+    },
+
+    _claimWorldReward(worldNum) {
+        const key = this._worldRewardKey(worldNum);
+        if (this.worldRewardClaims[key]) return null;
+        this.worldRewardClaims[key] = true;
+        if (worldNum === 16) {
+            return { coins: 1000, jewels: 0 };
+        }
+        if (worldNum === 17) {
+            return { coins: 0, jewels: 50 };
+        }
+        return null;
+    },
+
     openShop() {
         this.shopRandomStarTier = 0;
         this.shopRandomStarAttempts = 5;
         this.shopRandomStarFinished = false;
+        this.shopRandomStarRevealReady = false;
         this.showWorldSelectOverlay(false);
         this.state = 'SHOP';
         this.buildShopOverlay();
+        this.buildRandomStarOverlay();
         this.refreshShopOverlay();
         this.showShopOverlay(true);
     },
@@ -176,7 +202,8 @@ const Game = {
             { num: 13, title: 'Knochen-Tal', boss: 'Skelett-Reiter' },
             { num: 14, title: 'Gift-Sumpf', boss: 'Hydra' },
             { num: 15, title: 'Steinwelt', boss: 'Stein-Dämon' },
-            { num: 16, title: 'Obst-Ninja', boss: 'Frucht-Gigant' }
+            { num: 16, title: 'Obst-Ninja', boss: 'Frucht-Gigant' },
+            { num: 17, title: 'Dino-Welt', boss: 'Stachel-T-Rex' }
         ].map(w => ({
             ...w,
             locked: w.num !== 0 && w.num > this.maxWorldUnlocked
@@ -232,20 +259,24 @@ const Game = {
         `;
 
         const list = document.createElement('div');
-        list.style.overflowY = 'auto';
+        list.style.overflowX = 'auto';
+        list.style.overflowY = 'hidden';
         list.style.webkitOverflowScrolling = 'touch';
         list.style.flex = '1 1 auto';
         list.style.minHeight = '0';
         list.style.padding = '12px';
-        list.style.display = 'grid';
-        list.style.gap = '10px';
+        list.style.display = 'flex';
+        list.style.flexDirection = 'row';
+        list.style.gap = '12px';
+        list.style.alignItems = 'stretch';
+        list.style.scrollSnapType = 'x mandatory';
 
         const footer = document.createElement('div');
         footer.style.padding = '12px 16px 16px';
         footer.style.borderTop = '1px solid rgba(255,255,255,0.08)';
         footer.style.fontSize = '12px';
         footer.style.color = '#94a0b8';
-        footer.textContent = 'Scrollen zum Wählen. Tippe eine freigeschaltete Welt an, um direkt zu starten.';
+        footer.textContent = 'Seitlich wischen zum Wählen. Tippe eine freigeschaltete Welt an, um direkt zu starten.';
 
         panel.appendChild(header);
         panel.appendChild(list);
@@ -265,7 +296,7 @@ const Game = {
         const data = this._worldSelectData();
         this.worldSelectList.innerHTML = '';
 
-        const current = Math.max(0, Math.min(16, this.currentWorld || 0));
+        const current = Math.max(0, Math.min(17, this.currentWorld || 0));
 
         for (const world of data) {
             const row = document.createElement('button');
@@ -384,6 +415,7 @@ const Game = {
             </div>
             <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:#c4cad8">
                 <span style="padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.06)">Münzen: <span data-role="coins">0</span></span>
+                <span style="padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.06)">Juwelen: <span data-role="jewels">0</span></span>
                 <span style="padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.06)">Daily Reward, Sterne und Krone</span>
             </div>
         `;
@@ -417,6 +449,253 @@ const Game = {
         this.shopPanel = panel;
         this.shopList = list;
         this.shopCoinsNode = header.querySelector('[data-role="coins"]');
+        this.shopJewelsNode = header.querySelector('[data-role="jewels"]');
+    },
+
+    buildRandomStarOverlay() {
+        if (this.shopStarOverlay) return;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'shop-star-overlay';
+        overlay.style.position = 'fixed';
+        overlay.style.inset = '0';
+        overlay.style.display = 'none';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.padding = '12px';
+        overlay.style.background = 'rgba(2, 4, 10, 0.96)';
+        overlay.style.backdropFilter = 'blur(12px)';
+        overlay.style.webkitBackdropFilter = 'blur(12px)';
+        overlay.style.zIndex = '10000';
+        overlay.style.color = '#fff';
+        overlay.style.fontFamily = 'monospace';
+
+        const panel = document.createElement('div');
+        panel.style.position = 'relative';
+        panel.style.width = 'min(760px, 100%)';
+        panel.style.height = 'min(92vh, 900px)';
+        panel.style.borderRadius = '22px';
+        panel.style.border = '1px solid rgba(255,255,255,0.12)';
+        panel.style.boxShadow = '0 28px 100px rgba(0,0,0,0.58)';
+        panel.style.overflow = 'hidden';
+        panel.style.background = 'linear-gradient(180deg, rgba(30, 18, 10, 0.98), rgba(10, 11, 18, 0.98))';
+
+        const trophyBg = document.createElement('div');
+        trophyBg.style.position = 'absolute';
+        trophyBg.style.inset = '0';
+        trophyBg.style.opacity = '0.18';
+        trophyBg.style.pointerEvents = 'none';
+        trophyBg.style.display = 'grid';
+        trophyBg.style.gridTemplateColumns = 'repeat(8, 1fr)';
+        trophyBg.style.gap = '14px';
+        trophyBg.style.padding = '18px';
+        for (let i = 0; i < 48; i++) {
+            const trophy = document.createElement('div');
+            trophy.style.display = 'flex';
+            trophy.style.alignItems = 'center';
+            trophy.style.justifyContent = 'center';
+            trophy.style.color = '#FFD94A';
+            trophy.style.fontSize = '20px';
+            trophy.style.transform = `rotate(${(i % 5 - 2) * 4}deg)`;
+            trophy.textContent = '🏆';
+            trophyBg.appendChild(trophy);
+        }
+
+        const content = document.createElement('div');
+        content.style.position = 'relative';
+        content.style.zIndex = '1';
+        content.style.display = 'flex';
+        content.style.flexDirection = 'column';
+        content.style.height = '100%';
+        content.style.padding = '14px';
+        content.style.gap = '12px';
+
+        const header = document.createElement('div');
+        header.style.display = 'flex';
+        header.style.justifyContent = 'space-between';
+        header.style.alignItems = 'flex-start';
+        header.style.gap = '12px';
+        header.innerHTML = `
+            <div style="min-width:0">
+                <div style="font-size:20px;font-weight:800;letter-spacing:0.06em">BÖSE STERNE</div>
+                <div style="margin-top:4px;font-size:12px;color:#d7d0c0;line-height:1.4">Tippe den Stern 5x an, um ihn aufzuladen. Danach kannst du ihn öffnen.</div>
+            </div>
+        `;
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.textContent = 'Zurück';
+        close.style.cssText = 'border:0;border-radius:12px;padding:10px 14px;background:#2a2f3f;color:#fff;font:700 12px monospace;flex:0 0 auto;';
+        close.addEventListener('click', () => this.closeRandomStarOverlay());
+        header.appendChild(close);
+
+        const legend = document.createElement('div');
+        legend.style.display = 'grid';
+        legend.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))';
+        legend.style.gap = '8px';
+        legend.style.fontSize = '11px';
+        legend.style.color = '#f4ead1';
+        const legendItems = [
+            ['Scharf', '#47d163'],
+            ['Super Scharf', '#ffeb59'],
+            ['Mega Scharf', '#ff9f2e'],
+            ['Ultra Scharf', '#ff5f5f']
+        ];
+        for (const [label, color] of legendItems) {
+            const item = document.createElement('div');
+            item.style.cssText = 'padding:8px 10px;border-radius:999px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;gap:8px;';
+            item.innerHTML = `<span>${label}</span><span style="width:18px;height:18px;border-radius:999px;background:${color};box-shadow:0 0 14px ${color}"></span>`;
+            legend.appendChild(item);
+        }
+
+        const center = document.createElement('div');
+        center.style.flex = '1 1 auto';
+        center.style.display = 'flex';
+        center.style.alignItems = 'center';
+        center.style.justifyContent = 'center';
+        center.style.padding = '10px 0';
+
+        const starWrap = document.createElement('div');
+        starWrap.style.position = 'relative';
+        starWrap.style.width = 'min(62vw, 360px)';
+        starWrap.style.maxWidth = '360px';
+        starWrap.style.aspectRatio = '1';
+        starWrap.style.display = 'flex';
+        starWrap.style.alignItems = 'center';
+        starWrap.style.justifyContent = 'center';
+
+        const star = document.createElement('button');
+        star.type = 'button';
+        star.style.cssText = [
+            'position:relative',
+            'width:100%',
+            'height:100%',
+            'border:0',
+            'cursor:pointer',
+            'background:linear-gradient(180deg, #ffe76a, #ff9c1f)',
+            'clip-path:polygon(50% 0%,61% 36%,98% 36%,68% 58%,79% 96%,50% 73%,21% 96%,32% 58%,2% 36%,39% 36%)',
+            'box-shadow:0 0 0 4px rgba(0,0,0,0.18) inset, 0 0 40px rgba(255,199,55,0.45)',
+            'padding:0'
+        ].join(';');
+        star.addEventListener('click', () => this._advanceRandomStarStep());
+
+        const eyeStyle = 'position:absolute;width:16px;height:20px;border-radius:999px;background:#10131d;top:38%;';
+        const eyeLeft = document.createElement('span');
+        eyeLeft.style.cssText = eyeStyle + 'left:36%;';
+        const eyeRight = document.createElement('span');
+        eyeRight.style.cssText = eyeStyle + 'right:36%;';
+        const mouth = document.createElement('span');
+        mouth.style.cssText = 'position:absolute;left:50%;top:56%;transform:translateX(-50%);width:42px;height:18px;border-bottom:6px solid #10131d;border-radius:0 0 999px 999px;';
+        const hint = document.createElement('div');
+        hint.style.cssText = 'position:absolute;left:50%;bottom:20%;transform:translateX(-50%);font-size:13px;font-weight:700;color:#10131d;text-shadow:0 1px 0 rgba(255,255,255,0.35);letter-spacing:0.08em;';
+        hint.textContent = 'TIPPEN';
+        star.appendChild(eyeLeft);
+        star.appendChild(eyeRight);
+        star.appendChild(mouth);
+        star.appendChild(hint);
+
+        starWrap.appendChild(star);
+        center.appendChild(starWrap);
+
+        const progress = document.createElement('div');
+        progress.style.display = 'grid';
+        progress.style.gridTemplateColumns = 'repeat(5, minmax(0, 1fr))';
+        progress.style.gap = '10px';
+        progress.style.maxWidth = '420px';
+        progress.style.margin = '0 auto';
+
+        const footer = document.createElement('div');
+        footer.style.display = 'flex';
+        footer.style.flexDirection = 'column';
+        footer.style.alignItems = 'center';
+        footer.style.gap = '10px';
+        footer.style.paddingBottom = '2px';
+
+        const action = document.createElement('button');
+        action.type = 'button';
+        action.style.cssText = 'border:0;border-radius:14px;padding:12px 18px;background:#ffd84a;color:#111;font:800 13px monospace;min-width:210px;';
+        action.addEventListener('click', () => {
+            if (this.shopRandomStarFinished && this.shopRandomStarRevealReady) {
+                this._resolveRandomStarReward();
+                this.closeRandomStarOverlay();
+                this.refreshShopOverlay();
+                return;
+            }
+            this._advanceRandomStarStep();
+        });
+
+        const status = document.createElement('div');
+        status.style.cssText = 'font-size:12px;color:#d7d0c0;text-align:center;line-height:1.5;min-height:2.4em;';
+
+        footer.appendChild(action);
+        footer.appendChild(status);
+
+        content.appendChild(header);
+        content.appendChild(legend);
+        content.appendChild(center);
+        content.appendChild(progress);
+        content.appendChild(footer);
+
+        panel.appendChild(trophyBg);
+        panel.appendChild(content);
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+
+        this.shopStarOverlay = overlay;
+        this.shopStarPanel = panel;
+        this.shopStarProgress = progress;
+        this.shopStarAction = action;
+        this.shopStarStatus = status;
+        this.shopStarHint = hint;
+        this.shopStarNode = star;
+    },
+
+    refreshRandomStarOverlay() {
+        if (!this.shopStarOverlay) return;
+        if (this.shopStarProgress) {
+            this.shopStarProgress.innerHTML = '';
+            const attemptsUsed = 5 - Math.max(0, this.shopRandomStarAttempts || 0);
+            for (let i = 0; i < 5; i++) {
+                const orb = document.createElement('div');
+                const active = i < attemptsUsed;
+                const colors = ['#5eff77', '#ffe75f', '#ffb13d', '#ff6363', '#9a78ff'];
+                orb.style.cssText = 'aspect-ratio:1;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;' +
+                    'border:2px solid ' + (active ? colors[Math.min(i, colors.length - 1)] : 'rgba(255,255,255,0.18)') + ';' +
+                    'background:' + (active ? colors[Math.min(i, colors.length - 1)] : 'rgba(255,255,255,0.05)') + ';' +
+                    'color:' + (active ? '#10131d' : 'rgba(255,255,255,0.55)') + ';';
+                orb.textContent = '?';
+                this.shopStarProgress.appendChild(orb);
+            }
+        }
+        if (this.shopStarAction) {
+            this.shopStarAction.textContent = this.shopRandomStarFinished && this.shopRandomStarRevealReady
+                ? 'ZUM ÖFFNEN TIPPEN'
+                : 'Stern antippen';
+        }
+        if (this.shopStarHint) {
+            const tierLabel = ['Scharf', 'Super Scharf', 'Mega Scharf', 'Ultra Scharf'][Math.min(this.shopRandomStarTier || 0, 3)];
+            this.shopStarHint.textContent = this.shopRandomStarFinished && this.shopRandomStarRevealReady
+                ? 'Der Stern ist voll geladen. Jetzt kannst du ihn öffnen.'
+                : `Stufe: ${tierLabel}`;
+        }
+        if (this.shopStarStatus) {
+            this.shopStarStatus.textContent = `Versuche übrig: ${Math.max(0, this.shopRandomStarAttempts || 0)}. Die Farbe steigt zufällig an.`;
+        }
+    },
+
+    showRandomStarOverlay(visible) {
+        if (this.shopStarOverlay) {
+            this.shopStarOverlay.style.display = visible ? 'flex' : 'none';
+        }
+    },
+
+    openRandomStarOverlay() {
+        this.buildRandomStarOverlay();
+        this.refreshRandomStarOverlay();
+        this.showRandomStarOverlay(true);
+    },
+
+    closeRandomStarOverlay() {
+        this.showRandomStarOverlay(false);
     },
 
     refreshShopOverlay() {
@@ -424,9 +703,12 @@ const Game = {
         if (this.shopCoinsNode) {
             this.shopCoinsNode.textContent = String(this.coins || 0);
         }
+        if (this.shopJewelsNode) {
+            this.shopJewelsNode.textContent = String(this.jewels || 0);
+        }
 
         this.shopList.innerHTML = '';
-        const cardStyle = 'padding:14px;border:1px solid rgba(255,255,255,0.10);border-radius:16px;background:rgba(255,255,255,0.05);';
+        const cardStyle = 'padding:14px;border:1px solid rgba(255,255,255,0.10);border-radius:16px;background:rgba(255,255,255,0.05);flex:0 0 270px;min-width:270px;scroll-snap-align:start;';
         const btnStyle = 'border:0;border-radius:12px;padding:10px 14px;font:700 12px monospace;color:#000;background:#FFD700;';
         const smallBtnStyle = 'border:0;border-radius:10px;padding:8px 12px;font:700 11px monospace;color:#000;background:#FFD700;';
 
@@ -467,6 +749,35 @@ const Game = {
         daily.appendChild(dailyBtn);
         this.shopList.appendChild(daily);
 
+        const exchange = makeCard('Wechselstube', 'Coins und Juwelen tauschen.');
+        const exchangeRows = [
+            { label: '20 J = 100 M', can: this.jewels >= 20, action: () => { if (this._spendJewels(20)) this._grantCoins(100); } },
+            { label: '50 J = 500 M', can: this.jewels >= 50, action: () => { if (this._spendJewels(50)) this._grantCoins(500); } },
+            { label: '100 J = 1000 M', can: this.jewels >= 100, action: () => { if (this._spendJewels(100)) this._grantCoins(1000); } },
+            { label: '150 J = 5000 M', can: this.jewels >= 150, action: () => { if (this._spendJewels(150)) this._grantCoins(5000); } },
+            { label: '500 M = 50 J', can: this.coins >= 500, action: () => { if (this._spendCoins(500)) this._grantJewels(50); } },
+            { label: '1000 M = 100 J', can: this.coins >= 1000, action: () => { if (this._spendCoins(1000)) this._grantJewels(100); } },
+            { label: '3000 M = 500 J', can: this.coins >= 3000, action: () => { if (this._spendCoins(3000)) this._grantJewels(500); } },
+            { label: '5000 M = 800 J', can: this.coins >= 5000, action: () => { if (this._spendCoins(5000)) this._grantJewels(800); } }
+        ];
+        const exchangeGrid = document.createElement('div');
+        exchangeGrid.style.cssText = 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px;';
+        for (const row of exchangeRows) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = row.label;
+            btn.disabled = !row.can;
+            btn.style.cssText = 'border:0;border-radius:10px;padding:8px 10px;font:700 11px monospace;' +
+                (row.can ? 'color:#fff;background:#2A8CFF;' : 'color:#666;background:#2a2a33;');
+            btn.addEventListener('click', () => {
+                row.action();
+                this.refreshShopOverlay();
+            });
+            exchangeGrid.appendChild(btn);
+        }
+        exchange.appendChild(exchangeGrid);
+        this.shopList.appendChild(exchange);
+
         const market = makeCard('Sternen-Markt', 'Feste Preise, feste Seltenheiten. Kein Zufall hier.');
         const tiers = [
             { id: 'green', label: 'Scharf', price: 50, desc: 'kleiner Bonus' },
@@ -500,18 +811,17 @@ const Game = {
         market.appendChild(grid);
         this.shopList.appendChild(market);
 
-        const random = makeCard('Zufalls-Stern', '5 Versuche, um die Stufe zufällig zu steigern. Preis: 100 Münzen.');
+        const random = makeCard('Zufalls-Stern', '5 Versuche im Vollbild-Overlay. Preis: 100 Münzen.');
         const randomMeta = document.createElement('div');
         randomMeta.style.cssText = 'margin-top:10px;font-size:12px;color:#cfd6e2;line-height:1.5';
         randomMeta.textContent = 'Stufe: ' + ['Scharf', 'Super Scharf', 'Mega Scharf', 'Ultra Scharf'][Math.min(this.shopRandomStarTier || 0, 3)] + ' | Versuche: ' + (this.shopRandomStarAttempts || 0);
         random.appendChild(randomMeta);
         const randomBtn = document.createElement('button');
         randomBtn.type = 'button';
-        randomBtn.textContent = 'Eine Runde ziehen';
+        randomBtn.textContent = 'Böse Sterne öffnen';
         randomBtn.style.cssText = smallBtnStyle + 'margin-top:12px;align-self:flex-start;';
         randomBtn.addEventListener('click', () => {
-            this._advanceRandomStar();
-            this.refreshShopOverlay();
+            this.openRandomStarOverlay();
         });
         random.appendChild(randomBtn);
         this.shopList.appendChild(random);
@@ -555,6 +865,7 @@ const Game = {
 
     closeShop() {
         this.showShopOverlay(false);
+        this.closeRandomStarOverlay();
         this.state = 'TITLE';
         this.save();
     },
@@ -565,6 +876,7 @@ const Game = {
         }
         this.trainingMode = false;
         this.showShopOverlay(false);
+        this.closeRandomStarOverlay();
         this.showWorldSelectOverlay(false);
         this.state = 'TITLE';
         this.save();
@@ -572,6 +884,22 @@ const Game = {
 
     _grantCoins(amount) {
         this.coins = Math.max(0, this.coins + amount);
+    },
+
+    _grantJewels(amount) {
+        this.jewels = Math.max(0, this.jewels + amount);
+    },
+
+    _spendCoins(amount) {
+        if (this.coins < amount) return false;
+        this.coins -= amount;
+        return true;
+    },
+
+    _spendJewels(amount) {
+        if (this.jewels < amount) return false;
+        this.jewels -= amount;
+        return true;
     },
 
     _grantDailyReward(forcePay) {
@@ -627,31 +955,45 @@ const Game = {
         return true;
     },
 
-    _advanceRandomStar() {
+    _advanceRandomStarStep() {
         if (this.shopRandomStarFinished) return;
-        if (this.shopRandomStarAttempts <= 0) return;
-        this.shopRandomStarAttempts--;
+        if (this.shopRandomStarAttempts <= 0) {
+            this.shopRandomStarFinished = true;
+            this.shopRandomStarRevealReady = true;
+            this.refreshRandomStarOverlay();
+            return;
+        }
 
+        this.shopRandomStarAttempts--;
         const chances = [0.65, 0.5, 0.35];
         const chance = chances[Math.min(this.shopRandomStarTier, chances.length - 1)];
         if (Math.random() < chance && this.shopRandomStarTier < 3) {
             this.shopRandomStarTier++;
         }
-        if (this.shopRandomStarTier >= 3) {
+        if (this.shopRandomStarTier >= 3 || this.shopRandomStarAttempts <= 0) {
             this.shopRandomStarFinished = true;
+            this.shopRandomStarRevealReady = true;
+        }
+        this.save();
+        this.refreshRandomStarOverlay();
+    },
+
+    _resolveRandomStarReward() {
+        const tier = Math.min(this.shopRandomStarTier || 0, 3);
+        if (tier >= 3) {
             this._grantCoins(1000);
             this.unlockedTripleShot = true;
             this.unlockedShadowCaster = true;
             this.unlockedGamerPistol = true;
             this.unlockedFruitUpgrades = true;
-            this.save();
-            return;
+        } else if (tier === 2) {
+            this.unlockedGamerPistol = true;
+        } else if (tier === 1) {
+            this.unlockedShadowCaster = true;
+        } else {
+            this.unlockedTripleShot = true;
         }
-        if (this.shopRandomStarAttempts <= 0) {
-            this.shopRandomStarFinished = true;
-            this._grantCoins(50);
-            this.save();
-        }
+        this.save();
     },
 
     // ── Hitstop ──
@@ -702,8 +1044,10 @@ const Game = {
         this.maxWorldUnlocked = 0;
         this.trainingCompleted = false;
         this.coins = 0;
+        this.jewels = 0;
         this.dailyRewardClaimDate = '';
         this.freeStarTier = null;
+        this.worldRewardClaims = {};
         this.clearSave();
         this.startWorld(0);
     },
@@ -732,11 +1076,12 @@ const Game = {
             WORLD5_LEVEL, WORLD6_LEVEL, WORLD7_LEVEL, WORLD8_LEVEL,
             generateLevel(50,48,14,909), generateLevel(52,48,14,1010),
             WORLD11_LEVEL, WORLD12_LEVEL, WORLD13_LEVEL, WORLD14_LEVEL, WORLD15_LEVEL,
-            WORLD16_LEVEL];
+            WORLD16_LEVEL, WORLD17_LEVEL];
         const themes = ['castle', 'castle', 'factory', 'cave', 'dark',
             'mushroom', 'swamp', 'ice', 'volcano',
             'dark', 'mushroom', 'pixel', 'space', 'dark', 'swamp', 'ice'];
         themes.push('fruit');
+        themes.push('dino');
         this.world.load(levels[worldNum]);
         this.world.theme = themes[worldNum];
 
@@ -891,6 +1236,11 @@ const Game = {
             for (let i = 0; i < 7; i++) this.chests.push(this._spawnChestAt());
         } else if (worldNum === 16) {
             this._spawnWorld16();
+        } else if (worldNum === 17) {
+            for (let i = 0; i < 16; i++) this.enemies.push(this._spawnAt(MiniTRex));
+            for (let i = 0; i < 6; i++) this.enemies.push(this._spawnAt(Triceratops));
+            this.enemies.push(this._spawnAt(KeyGhost, 300));
+            for (let i = 0; i < 8; i++) this.chests.push(this._spawnChestAt());
         }
     },
 
@@ -1022,6 +1372,8 @@ const Game = {
             boss = new BossStoneDemon(this.world.bossSpawn.x, this.world.bossSpawn.y);
         } else if (this.currentWorld === 16) {
             boss = new BossFruitGiant(this.world.bossSpawn.x, this.world.bossSpawn.y);
+        } else if (this.currentWorld === 17) {
+            boss = new BossStingRex(this.world.bossSpawn.x, this.world.bossSpawn.y);
         } else {
             boss = new BossGhost(this.world.bossSpawn.x, this.world.bossSpawn.y);
             boss.hp = 50; boss.maxHp = 50;
@@ -1039,10 +1391,16 @@ const Game = {
         this.camera.shake(8, 0.5);
         this.vibrate(400);
 
-        this.maxWorldUnlocked = Math.min(16, Math.max(this.maxWorldUnlocked, this.currentWorld + 1));
+        this.maxWorldUnlocked = Math.min(17, Math.max(this.maxWorldUnlocked, this.currentWorld + 1));
         Sound.worldClear();
         this.state = 'WORLD_CLEAR';
         this.worldClearTimer = 60; // wait for button click
+
+        const reward = this._claimWorldReward(this.currentWorld);
+        if (reward) {
+            if (reward.coins) this.coins += reward.coins;
+            if (reward.jewels) this.jewels += reward.jewels;
+        }
 
         if (this.currentWorld === 1) {
             // Progress only
@@ -1065,16 +1423,17 @@ const Game = {
         } else if (this.currentWorld === 15) {
             this.unlockedPetrifyStone = true;
         } else if (this.currentWorld === 16) {
-            this.coins += 1000;
             this.state = 'WIN';
-        } else if (this.currentWorld >= 16) {
+        } else if (this.currentWorld === 17) {
+            this.state = 'WIN';
+        } else if (this.currentWorld >= 17) {
             this.state = 'WIN';
         }
         this.save();
     },
 
     _advanceToNextWorld() {
-        if (this.currentWorld < 16) {
+        if (this.currentWorld < 17) {
             this.startWorld(this.currentWorld + 1);
         }
     },
@@ -1173,8 +1532,8 @@ const Game = {
                     const free = this.freeStarTier === 'red';
                     const tier = free ? this._consumeFreeStar() : 'red';
                     this._applyStarReward(tier, free);
-                } else if (btn === 'RANDOM_STAR') {
-                    this._advanceRandomStar();
+                } else if (btn === 'RANDOM_STAR' || btn === 'BÖSE STERNE') {
+                    this.openRandomStarOverlay();
                 } else if (btn === 'CROWN_ITEM') {
                     if (this.coins >= 500) {
                         this.coins -= 500;
@@ -1266,14 +1625,14 @@ const Game = {
         }
 
         // Enemies
+        const playerBush = this.world && this.world.isBush(this.player.x + this.player.w / 2, this.player.y + this.player.h / 2);
         for (const enemy of this.enemies) {
             if (enemy.dead) {
-                if (!enemy._coinDropped && !enemy.isBoss && this.currentWorld !== 0) {
-                    enemy._coinDropped = true;
-                    const value = Math.max(1, Math.ceil(enemy.maxHp / 2));
-                    this.coinDrops.push(new CoinDrop(enemy.centerX(), enemy.centerY(), value));
-                }
                 enemy.deathTimer -= dt;
+                continue;
+            }
+            const enemyBush = this.world && this.world.isBush(enemy.centerX(), enemy.centerY());
+            if (enemyBush && !playerBush && !enemy.isBoss) {
                 continue;
             }
             if (enemy.isBoss) {
@@ -1418,21 +1777,6 @@ const Game = {
             }
         }
 
-        // Coin drops
-        for (const coin of this.coinDrops) {
-            if (coin.update(dt, this.player)) {
-                this._grantCoins(coin.value);
-                Sound.chest();
-                for (let i = 0; i < 4; i++) {
-                    this.particles.push(new Particle(
-                        coin.x + coin.w / 2, coin.y + coin.h / 2,
-                        randRange(-50, 50), randRange(-70, -10),
-                        '#FFD700', 0.35
-                    ));
-                }
-            }
-        }
-
         // Check for dead key ghost → spawn key
         for (const enemy of this.enemies) {
             if (enemy.isKeyGhost && enemy.dead && !enemy.droppedKey) {
@@ -1515,7 +1859,7 @@ const Game = {
         // Cleanup + particle cap
         this.enemies = this.enemies.filter(e => !(e.dead && e.deathTimer <= 0 && !e.isBoss));
         this.projectiles = this.projectiles.filter(p => !p.dead);
-        this.coinDrops = this.coinDrops.filter(c => !c.collected);
+        this.coinDrops = [];
         this.particles = this.particles.filter(p => !p.dead);
         if (this.particles.length > MAX_PARTICLES) {
             this.particles.splice(0, this.particles.length - MAX_PARTICLES);

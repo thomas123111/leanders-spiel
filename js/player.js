@@ -53,6 +53,12 @@ class Player {
         this.slowTimer = 0;
         this.slowFactor = 1;
 
+        // Jump pads
+        this.jumpPadStandTimer = 0;
+        this.jumpPadCooldown = 0;
+        this.jumpPadLaunchTimer = 0;
+        this.jumpPadLaunchDir = { x: 0, y: 0 };
+
         // Death
         this.deathTimer = 0;
     }
@@ -132,6 +138,19 @@ class Player {
             if (this.slowTimer <= 0) this.slowFactor = 1;
         }
 
+        // Jump pad cooldown / launch
+        if (this.jumpPadCooldown > 0) this.jumpPadCooldown -= dt;
+        if (this.jumpPadLaunchTimer > 0) {
+            this.jumpPadLaunchTimer -= dt;
+            const dx = this.jumpPadLaunchDir.x * 380 * dt;
+            const dy = this.jumpPadLaunchDir.y * 380 * dt;
+            this._moveWithCollision(dx, dy, world);
+            if (this.jumpPadLaunchTimer <= 0) {
+                this.jumpPadCooldown = 3;
+            }
+            return;
+        }
+
         // Auto ability
         if (this.autoActive) {
             this.autoTimer -= dt;
@@ -199,6 +218,26 @@ class Player {
             this.y += dy;
         } else {
             this._moveWithCollision(dx, dy, world);
+        }
+
+        // Jump pad charging
+        const onJumpPad = world && world.isJumpPad && world.isJumpPad(this.x + this.w / 2, this.y + this.h / 2);
+        if (onJumpPad && this.jumpPadCooldown <= 0 && dir.x === 0 && dir.y === 0 && !this.dodging) {
+            this.jumpPadStandTimer += dt;
+            if (this.jumpPadStandTimer >= 5) {
+                const launchAngle = this.facingAngle || 0;
+                this.jumpPadLaunchDir = {
+                    x: Math.cos(launchAngle) || 1,
+                    y: Math.sin(launchAngle)
+                };
+                const len = Math.hypot(this.jumpPadLaunchDir.x, this.jumpPadLaunchDir.y) || 1;
+                this.jumpPadLaunchDir.x /= len;
+                this.jumpPadLaunchDir.y /= len;
+                this.jumpPadLaunchTimer = 0.35;
+                this.jumpPadStandTimer = 0;
+            }
+        } else {
+            this.jumpPadStandTimer = 0;
         }
 
         // Aim angle (right joystick or mouse)
