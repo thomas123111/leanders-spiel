@@ -1057,6 +1057,17 @@ const Game = {
         this.state = 'PLAYING';
         this.trainingMode = worldNum === 0;
         this.hitstopTimer = 0;
+        this.epicFreezeActive = false;
+        this.epicFreezeTimer = 0;
+        this.epicFreezeBoss = null;
+        this.fadeAlpha = 0;
+        this.fadeDir = 0;
+        this.fadeCallback = null;
+        this.shopRandomStarFinished = false;
+        this.shopRandomStarRevealReady = false;
+        this.showShopOverlay(false);
+        this.closeRandomStarOverlay();
+        this.showWorldSelectOverlay(false);
         this.fadeIn();
         this.enemies = [];
         this.projectiles = [];
