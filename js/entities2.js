@@ -895,6 +895,8 @@ class CrocodileKid extends Enemy {
         this.damage = 2;
         this.contactDamage = true;
         this.spitTimer = 0;
+        this.isKeyGhost = true;
+        this.droppedKey = false;
     }
 
     update(dt, world, player) {
@@ -938,6 +940,15 @@ class CrocodileKid extends Enemy {
         ctx.arc(cx - 4, cy - 5, 1.5, 0, Math.PI * 2);
         ctx.arc(cx + 2, cy - 5, 1.5, 0, Math.PI * 2);
         ctx.fill();
+        if (this.isKeyGhost) {
+            ctx.fillStyle = '#FFD700';
+            ctx.globalAlpha = 0.9;
+            ctx.beginPath();
+            ctx.arc(cx, cy - 14, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillRect(cx - 1, cy - 10, 2, 6);
+            ctx.fillRect(cx + 1, cy - 10, 5, 2);
+        }
         ctx.restore();
     }
 }

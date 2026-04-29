@@ -1157,7 +1157,9 @@ const Game = {
         for (let y = 2; y < this.world.height - 2; y++) {
             for (let x = 2; x < this.world.width - 2; x++) {
                 if (this.world.tiles[y][x] === TILE_FLOOR) {
-                    this._floorTiles.push({ x: x * 32 + 16, y: y * 32 + 16 });
+                    if (!this._isBossRoomTile(x, y)) {
+                        this._floorTiles.push({ x: x * 32 + 16, y: y * 32 + 16 });
+                    }
                 }
             }
         }
@@ -1183,6 +1185,14 @@ const Game = {
             }
         }
         return this._floorTiles.pop() || { x: 200, y: 200 };
+    },
+
+    _isBossRoomTile(tx, ty) {
+        if (!this.world) return false;
+        return tx >= this.world.width - 13 &&
+            tx <= this.world.width - 3 &&
+            ty >= this.world.height - 11 &&
+            ty <= this.world.height - 3;
     },
 
     _spawnWorldContent(worldNum) {

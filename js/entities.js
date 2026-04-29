@@ -1805,6 +1805,15 @@ class GiantEgg extends Enemy {
         ctx.font = 'bold 10px monospace';
         ctx.textAlign = 'center';
         ctx.fillText(this.hp + '/' + this.maxHp, cx, pos.y - 6);
+        if (this.isKeyGhost) {
+            ctx.fillStyle = '#FFD700';
+            ctx.globalAlpha = 0.95;
+            ctx.beginPath();
+            ctx.arc(cx + 10, cy - 12, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillRect(cx + 9, cy - 8, 2, 6);
+            ctx.fillRect(cx + 11, cy - 8, 5, 2);
+        }
 
         ctx.restore();
     }
