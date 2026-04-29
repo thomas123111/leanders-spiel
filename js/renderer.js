@@ -15,9 +15,9 @@ const Renderer = {
         const remainder = player.hp % 4;
 
         // Heart container background
-        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.fillStyle = 'rgba(0,0,0,0.08)';
         ctx.beginPath();
-        ctx.roundRect(4, 2, totalHearts * heartSpacing + 8, mobile ? 26 : 30, 6);
+        ctx.roundRect(4, 5, totalHearts * heartSpacing + 6, mobile ? 20 : 22, 6);
         ctx.fill();
 
         for (let i = 0; i < totalHearts; i++) {
@@ -273,27 +273,6 @@ const Renderer = {
     _drawCoinIcon(ctx, x, y, size) {
         const s = size || 10;
         ctx.save();
-
-        // Permanent currency badges
-        ctx.fillStyle = 'rgba(0,0,0,0.38)';
-        ctx.beginPath();
-        ctx.roundRect(12, 12, 116, 24, 8);
-        ctx.fill();
-        this._drawCoinIcon(ctx, 24, 24, 9);
-        ctx.fillStyle = '#FFF';
-        ctx.font = 'bold 12px monospace';
-        ctx.textAlign = 'left';
-        ctx.fillText(String(Game.coins || 0), 38, 28);
-
-        ctx.fillStyle = 'rgba(0,0,0,0.38)';
-        ctx.beginPath();
-        ctx.roundRect(12, 40, 116, 24, 8);
-        ctx.fill();
-        this._drawJewelIcon(ctx, 24, 52, 8);
-        ctx.fillStyle = '#FFF';
-        ctx.font = 'bold 12px monospace';
-        ctx.fillText(String(Game.jewels || 0), 38, 56);
-        const mobile = Input.isMobile;
         ctx.fillStyle = '#FFD700';
         ctx.beginPath();
         ctx.arc(x, y, s, 0, Math.PI * 2);
@@ -653,7 +632,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v8.0.9', cw - 8, ch - 6);
+        ctx.fillText('v8.1.0', cw - 8, ch - 6);
 
         ctx.restore();
     },

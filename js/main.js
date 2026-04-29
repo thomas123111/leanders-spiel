@@ -58,15 +58,6 @@ const Game = {
         this.resize();
         window.addEventListener('resize', () => this.resize());
 
-        // Request fullscreen on first user interaction as a fallback.
-        const requestFS = () => {
-            this.enterFullscreen();
-            document.removeEventListener('touchstart', requestFS);
-            document.removeEventListener('click', requestFS);
-        };
-        document.addEventListener('touchstart', requestFS, { once: true });
-        document.addEventListener('click', requestFS, { once: true });
-
         document.addEventListener('fullscreenchange', () => this.resize());
         document.addEventListener('webkitfullscreenchange', () => this.resize());
 

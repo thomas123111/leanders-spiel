@@ -28,6 +28,16 @@ const Input = {
     init(canvas) {
         this.canvas = canvas;
         this.isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        this.canvas.tabIndex = 0;
+        this.canvas.style.outline = 'none';
+        const focusCanvas = () => {
+            try {
+                this.canvas.focus({ preventScroll: true });
+            } catch (e) {
+                this.canvas.focus();
+            }
+        };
+        focusCanvas();
 
         // Keyboard
         window.addEventListener('keydown', e => {
@@ -46,11 +56,14 @@ const Input = {
             this._setMouseFromEvent(e);
             this.mouse.down = true;
             this.mouse.pressed = true;
+            focusCanvas();
         });
         canvas.addEventListener('mouseup', e => {
             this._setMouseFromEvent(e);
             this.mouse.down = false;
         });
+        canvas.addEventListener('pointerdown', focusCanvas);
+        window.addEventListener('pointerdown', focusCanvas, true);
 
         // Touch
         canvas.addEventListener('touchstart', e => { e.preventDefault(); this._handleTouchStart(e); }, { passive: false });
