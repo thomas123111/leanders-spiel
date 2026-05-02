@@ -637,7 +637,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v8.2.6', cw - 8, ch - 6);
+        ctx.fillText('v8.2.7', cw - 8, ch - 6);
 
         console.log('TITLE_BUTTONS', JSON.stringify(this._buttons));
 

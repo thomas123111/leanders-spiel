@@ -1622,14 +1622,7 @@ const Game = {
             if (Input.attackPressed || Input.mouse.pressed) {
                 Sound.resume();
                 const btn = Renderer.getClickedButton(Input.mouse.x, Input.mouse.y);
-                console.log('TITLE_CLICK', {
-                    btn,
-                    x: Input.mouse.x,
-                    y: Input.mouse.y,
-                    attackPressed: Input.attackPressed,
-                    mousePressed: Input.mouse.pressed,
-                    buttons: Renderer._buttons ? Renderer._buttons.map(b => b.id) : []
-                });
+                document.title = btn ? `CLICK:${btn}` : 'CLICK:none';
                 if (btn === 'PLAY') {
                     this.openWorldSelect();
                 } else if (btn === 'SHOP') {
