@@ -76,6 +76,7 @@ const Game = {
         this.buildWorldSelectOverlay();
         this.buildExtraModeOverlay();
         this.showTitleMenuOverlay(true);
+        this.syncTitleMenuOverlayLayout();
         this.lastTime = performance.now();
         this.gameLoop(this.lastTime);
     },
@@ -126,15 +127,10 @@ const Game = {
         `;
 
         const buttonWrap = document.createElement('div');
-        const mobile = Input.isMobile;
-        const step = mobile ? 48 : 40;
-        const btnH = mobile ? 42 : 36;
         buttonWrap.style.position = 'absolute';
-        buttonWrap.style.left = '75%';
-        buttonWrap.style.top = mobile ? '32%' : '34%';
         buttonWrap.style.transform = 'translateX(-50%)';
-        buttonWrap.style.width = 'min(220px, 36vw)';
-        buttonWrap.style.height = mobile ? '234px' : '196px';
+        buttonWrap.style.width = '220px';
+        buttonWrap.style.height = '234px';
         buttonWrap.style.pointerEvents = 'none';
 
         const makeButton = (label, top, action, opts = {}) => {
@@ -145,7 +141,7 @@ const Game = {
             btn.style.left = '0';
             btn.style.top = top;
             btn.style.width = '100%';
-            btn.style.height = opts.height || `${btnH}px`;
+            btn.style.height = opts.height || '42px';
             btn.style.border = '0';
             btn.style.borderRadius = '12px';
             btn.style.background = opts.background || 'linear-gradient(180deg, #4c5e84, #2b3550)';
@@ -164,26 +160,26 @@ const Game = {
         makeButton('SHOP', '0px', () => this.openShop(), {
             background: 'linear-gradient(180deg, #4b8a7a, #2b4e57)'
         });
-        makeButton('TRAININGSPLATZ', `${step}px`, () => this.startWorld(0), {
+        makeButton('TRAININGSPLATZ', '48px', () => this.startWorld(0), {
             font: '700 12px monospace',
             background: 'linear-gradient(180deg, #7d6544, #4d3d2b)'
         });
-        makeButton('EXTRA', `${step * 2}px`, () => this.openExtraMode(), {
+        makeButton('EXTRA', '96px', () => this.openExtraMode(), {
             background: 'linear-gradient(180deg, #7a4a8e, #412852)'
         });
-        makeButton('VOLLBILD', `${step * 3}px`, () => this.enterFullscreen(), {
+        makeButton('VOLLBILD', '144px', () => this.enterFullscreen(), {
             background: 'linear-gradient(180deg, #63739a, #3a4660)'
         });
-        makeButton('PLAY', `${step * 4}px`, () => this.openWorldSelect(), {
+        makeButton('PLAY', '192px', () => this.openWorldSelect(), {
             background: 'linear-gradient(180deg, #cb8b38, #8f561b)'
         });
 
         const note = document.createElement('div');
         note.style.position = 'absolute';
         note.style.left = '75%';
-        note.style.top = mobile ? 'calc(32% + 252px)' : 'calc(34% + 212px)';
+        note.style.top = '252px';
         note.style.transform = 'translateX(-50%)';
-        note.style.width = 'min(250px, 36vw)';
+        note.style.width = '250px';
         note.style.textAlign = 'center';
         note.style.color = '#9fa7b9';
         note.style.fontSize = '10px';
@@ -203,6 +199,66 @@ const Game = {
     showTitleMenuOverlay(visible) {
         if (this.titleMenuOverlay) {
             this.titleMenuOverlay.style.display = visible ? 'block' : 'none';
+        }
+    },
+
+    syncTitleMenuOverlayLayout() {
+        if (!this.canvas || !this.titleMenuOverlay || !this.titleMenuButtons) return;
+        const rect = this.canvas.getBoundingClientRect();
+        const overlay = this.titleMenuOverlay;
+        overlay.style.left = `${rect.left}px`;
+        overlay.style.top = `${rect.top}px`;
+        overlay.style.width = `${rect.width}px`;
+        overlay.style.height = `${rect.height}px`;
+
+        const { info, buttonWrap, note } = this.titleMenuButtons;
+        const mobile = Input.isMobile;
+        if (info) {
+            info.style.left = '12px';
+            info.style.top = '50px';
+            info.style.width = `${Math.max(220, Math.round(rect.width * 0.34))}px`;
+        }
+        if (buttonWrap) {
+            buttonWrap.style.left = `${Math.round(rect.width * 0.75)}px`;
+            buttonWrap.style.top = `${Math.round(rect.height * (mobile ? 0.32 : 0.34))}px`;
+            buttonWrap.style.width = `${Math.min(220, Math.round(rect.width * 0.36))}px`;
+            buttonWrap.style.height = `${mobile ? 234 : 196}px`;
+        }
+        if (note) {
+            note.style.left = `${Math.round(rect.width * 0.75)}px`;
+            note.style.top = `${Math.round(rect.height * (mobile ? 0.32 : 0.34) + (mobile ? 252 : 212))}px`;
+            note.style.width = `${Math.max(220, Math.round(rect.width * 0.36))}px`;
+        }
+    },
+
+    syncTitleMenuOverlayLayout() {
+        if (!this.canvas || !this.titleMenuOverlay || !this.titleMenuButtons) return;
+        const rect = this.canvas.getBoundingClientRect();
+        const overlay = this.titleMenuOverlay;
+        overlay.style.left = `${rect.left}px`;
+        overlay.style.top = `${rect.top}px`;
+        overlay.style.width = `${rect.width}px`;
+        overlay.style.height = `${rect.height}px`;
+
+        const { info, buttonWrap, note } = this.titleMenuButtons;
+        const mobile = Input.isMobile;
+        if (info) {
+            info.style.left = '12px';
+            info.style.top = '50px';
+            info.style.width = `${Math.max(220, Math.round(rect.width * 0.34))}px`;
+        }
+        if (buttonWrap) {
+            buttonWrap.style.left = `${Math.round(rect.width * 0.75)}px`;
+            buttonWrap.style.top = `${Math.round(rect.height * (mobile ? 0.32 : 0.34))}px`;
+            buttonWrap.style.transform = 'translateX(-50%)';
+            buttonWrap.style.width = `${Math.min(220, Math.round(rect.width * 0.36))}px`;
+            buttonWrap.style.height = `${mobile ? 234 : 196}px`;
+        }
+        if (note) {
+            note.style.left = `${Math.round(rect.width * 0.75)}px`;
+            note.style.top = `${Math.round(rect.height * (mobile ? 0.32 : 0.34) + (mobile ? 252 : 212))}px`;
+            note.style.transform = 'translateX(-50%)';
+            note.style.width = `${Math.max(220, Math.round(rect.width * 0.36))}px`;
         }
     },
 
@@ -1537,6 +1593,7 @@ const Game = {
             this.camera.width = this.canvas.width;
             this.camera.height = this.canvas.height;
         }
+        this.syncTitleMenuOverlayLayout();
     },
 
     startNewGame() {

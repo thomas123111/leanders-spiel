@@ -637,7 +637,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v8.2.8', cw - 8, ch - 6);
+        ctx.fillText('v8.2.9', cw - 8, ch - 6);
 
         ctx.restore();
     },
