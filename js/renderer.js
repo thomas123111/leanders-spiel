@@ -603,27 +603,29 @@ const Renderer = {
             ctx.fillText(bioLines[i], bioX, ch * 0.23 + i * 15);
         }
 
-        const tx = cw * 0.75;
-        const btnW = mobile ? Math.min(220, cw * 0.36) : 180;
-        const btnH = mobile ? 42 : 36;
-        const startY = mobile ? ch * 0.32 : ch * 0.34;
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#DDD';
-        ctx.font = mobile ? 'bold 14px monospace' : 'bold 15px monospace';
-        ctx.fillText('W?hle einen Startpunkt', tx, startY - 30);
-        this._drawButton(ctx, tx - btnW / 2, startY, btnW, btnH, 'SHOP', mobile ? 15 : 16);
-        this._drawButton(ctx, tx - btnW / 2, startY + (mobile ? 48 : 40), btnW, btnH, 'TRAININGSPLATZ', mobile ? 11 : 13);
-        this._drawButton(ctx, tx - btnW / 2, startY + (mobile ? 96 : 80), btnW, btnH, 'EXTRA', mobile ? 15 : 16);
-        this._drawButton(ctx, tx - btnW / 2, startY + (mobile ? 144 : 120), btnW, btnH, 'VOLLBILD', mobile ? 15 : 16);
-        this._drawButton(ctx, tx - btnW / 2, startY + (mobile ? 192 : 160), btnW, btnH, 'PLAY', mobile ? 15 : 16);
+        if (!game.titleMenuOverlay || game.titleMenuOverlay.style.display === 'none') {
+            const tx = cw * 0.75;
+            const btnW = mobile ? Math.min(220, cw * 0.36) : 180;
+            const btnH = mobile ? 42 : 36;
+            const startY = mobile ? ch * 0.32 : ch * 0.34;
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#DDD';
+            ctx.font = mobile ? 'bold 14px monospace' : 'bold 15px monospace';
+            ctx.fillText('W?hle einen Startpunkt', tx, startY - 30);
+            this._drawButton(ctx, tx - btnW / 2, startY, btnW, btnH, 'SHOP', mobile ? 15 : 16);
+            this._drawButton(ctx, tx - btnW / 2, startY + (mobile ? 48 : 40), btnW, btnH, 'TRAININGSPLATZ', mobile ? 11 : 13);
+            this._drawButton(ctx, tx - btnW / 2, startY + (mobile ? 96 : 80), btnW, btnH, 'EXTRA', mobile ? 15 : 16);
+            this._drawButton(ctx, tx - btnW / 2, startY + (mobile ? 144 : 120), btnW, btnH, 'VOLLBILD', mobile ? 15 : 16);
+            this._drawButton(ctx, tx - btnW / 2, startY + (mobile ? 192 : 160), btnW, btnH, 'PLAY', mobile ? 15 : 16);
 
-        ctx.fillStyle = '#888';
-        ctx.font = '10px monospace';
-        const infoY = mobile ? startY + 242 : startY + 210;
-        ctx.fillText('PLAY ?ffnet die Weltauswahl', tx, infoY);
-        ctx.fillText('EXTRA f?hrt zu den Spezial-Modi', tx, infoY + 16);
-        ctx.fillText('VOLLBILD blendet die Browserleiste aus', tx, infoY + 32);
-        ctx.fillText('SHOP enth?lt Sterne, Krone und Daily Reward', tx, infoY + 48);
+            ctx.fillStyle = '#888';
+            ctx.font = '10px monospace';
+            const infoY = mobile ? startY + 242 : startY + 210;
+            ctx.fillText('PLAY ?ffnet die Weltauswahl', tx, infoY);
+            ctx.fillText('EXTRA f?hrt zu den Spezial-Modi', tx, infoY + 16);
+            ctx.fillText('VOLLBILD blendet die Browserleiste aus', tx, infoY + 32);
+            ctx.fillText('SHOP enth?lt Sterne, Krone und Daily Reward', tx, infoY + 48);
+        }
 
         ctx.fillStyle = '#555';
         ctx.font = '10px monospace';
@@ -637,7 +639,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v8.2.9', cw - 8, ch - 6);
+        ctx.fillText('v8.3.0', cw - 8, ch - 6);
 
         ctx.restore();
     },

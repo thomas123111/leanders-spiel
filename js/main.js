@@ -114,7 +114,7 @@ const Game = {
         info.style.position = 'absolute';
         info.style.left = '12px';
         info.style.top = '50px';
-        info.style.width = 'min(38vw, 280px)';
+        info.style.width = 'min(40vw, 290px)';
         info.style.pointerEvents = 'none';
         info.style.color = '#d3d8e6';
         info.style.textShadow = '0 2px 0 rgba(0,0,0,0.65)';
@@ -123,23 +123,38 @@ const Game = {
         info.innerHTML = `
             <div style="font-size:20px;font-weight:800;letter-spacing:0.04em;color:#f4f7ff">MARK</div>
             <div style="margin-top:10px">Mark ist ein Baseballspieler und Geisterjaeger. Er wurde bestohlen und muss seine Erfindungen zurueckholen.</div>
-            <div style="margin-top:10px;color:#98a4bb">Links bleiben die Infotexte sichtbar. Rechts liegen die Startpunkte als echte Buttons.</div>
+            <div style="margin-top:10px;color:#98a4bb">Links bleibt die Biografie sichtbar. Rechts sitzt das Menue als eigener Block.</div>
         `;
 
-        const buttonWrap = document.createElement('div');
-        buttonWrap.style.position = 'absolute';
-        buttonWrap.style.transform = 'translateX(-50%)';
-        buttonWrap.style.width = '220px';
-        buttonWrap.style.height = '234px';
-        buttonWrap.style.pointerEvents = 'none';
+        const panel = document.createElement('div');
+        panel.style.position = 'absolute';
+        panel.style.right = '12px';
+        panel.style.top = '60px';
+        panel.style.width = 'min(250px, 38vw)';
+        panel.style.maxHeight = 'calc(100% - 72px)';
+        panel.style.padding = '12px';
+        panel.style.borderRadius = '18px';
+        panel.style.background = 'linear-gradient(180deg, rgba(11,14,24,0.78), rgba(11,14,24,0.52))';
+        panel.style.border = '1px solid rgba(255,255,255,0.08)';
+        panel.style.boxShadow = '0 18px 50px rgba(0,0,0,0.38), inset 0 0 0 1px rgba(255,255,255,0.03)';
+        panel.style.pointerEvents = 'auto';
+        panel.style.display = 'flex';
+        panel.style.flexDirection = 'column';
+        panel.style.gap = '10px';
 
-        const makeButton = (label, top, action, opts = {}) => {
+        const title = document.createElement('div');
+        title.style.fontSize = '18px';
+        title.style.fontWeight = '800';
+        title.style.color = '#fff';
+        title.style.letterSpacing = '0.04em';
+        title.textContent = 'MENUE';
+        panel.appendChild(title);
+
+        const makeButton = (label, action, opts = {}) => {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.textContent = label;
-            btn.style.position = 'absolute';
-            btn.style.left = '0';
-            btn.style.top = top;
+            btn.style.position = 'relative';
             btn.style.width = '100%';
             btn.style.height = opts.height || '42px';
             btn.style.border = '0';
@@ -153,47 +168,44 @@ const Game = {
             btn.style.touchAction = 'manipulation';
             btn.style.cursor = 'pointer';
             btn.addEventListener('click', action);
-            buttonWrap.appendChild(btn);
+            panel.appendChild(btn);
             return btn;
         };
 
-        makeButton('SHOP', '0px', () => this.openShop(), {
+        makeButton('SHOP', () => this.openShop(), {
             background: 'linear-gradient(180deg, #4b8a7a, #2b4e57)'
         });
-        makeButton('TRAININGSPLATZ', '48px', () => this.startWorld(0), {
+        makeButton('TRAININGSPLATZ', () => this.startWorld(0), {
             font: '700 12px monospace',
             background: 'linear-gradient(180deg, #7d6544, #4d3d2b)'
         });
-        makeButton('EXTRA', '96px', () => this.openExtraMode(), {
+        makeButton('EXTRA', () => this.openExtraMode(), {
             background: 'linear-gradient(180deg, #7a4a8e, #412852)'
         });
-        makeButton('VOLLBILD', '144px', () => this.enterFullscreen(), {
+        makeButton('VOLLBILD', () => this.enterFullscreen(), {
             background: 'linear-gradient(180deg, #63739a, #3a4660)'
         });
-        makeButton('PLAY', '192px', () => this.openWorldSelect(), {
+        makeButton('PLAY', () => this.openWorldSelect(), {
             background: 'linear-gradient(180deg, #cb8b38, #8f561b)'
         });
 
         const note = document.createElement('div');
-        note.style.position = 'absolute';
-        note.style.left = '75%';
-        note.style.top = '252px';
-        note.style.transform = 'translateX(-50%)';
-        note.style.width = '250px';
+        note.style.position = 'relative';
+        note.style.width = '100%';
         note.style.textAlign = 'center';
         note.style.color = '#9fa7b9';
         note.style.fontSize = '10px';
         note.style.lineHeight = '1.4';
         note.style.pointerEvents = 'none';
         note.textContent = 'PLAY oeffnet die Weltauswahl. F blendet Vollbild ein.';
+        panel.appendChild(note);
 
         overlay.appendChild(info);
-        overlay.appendChild(buttonWrap);
-        overlay.appendChild(note);
+        overlay.appendChild(panel);
         document.body.appendChild(overlay);
 
         this.titleMenuOverlay = overlay;
-        this.titleMenuButtons = { info, buttonWrap, note };
+        this.titleMenuButtons = { info, panel, note };
     },
 
     showTitleMenuOverlay(visible) {
@@ -203,63 +215,11 @@ const Game = {
     },
 
     syncTitleMenuOverlayLayout() {
-        if (!this.canvas || !this.titleMenuOverlay || !this.titleMenuButtons) return;
-        const rect = this.canvas.getBoundingClientRect();
-        const overlay = this.titleMenuOverlay;
-        overlay.style.left = `${rect.left}px`;
-        overlay.style.top = `${rect.top}px`;
-        overlay.style.width = `${rect.width}px`;
-        overlay.style.height = `${rect.height}px`;
-
-        const { info, buttonWrap, note } = this.titleMenuButtons;
-        const mobile = Input.isMobile;
-        if (info) {
-            info.style.left = '12px';
-            info.style.top = '50px';
-            info.style.width = `${Math.max(220, Math.round(rect.width * 0.34))}px`;
-        }
-        if (buttonWrap) {
-            buttonWrap.style.left = `${Math.round(rect.width * 0.75)}px`;
-            buttonWrap.style.top = `${Math.round(rect.height * (mobile ? 0.32 : 0.34))}px`;
-            buttonWrap.style.width = `${Math.min(220, Math.round(rect.width * 0.36))}px`;
-            buttonWrap.style.height = `${mobile ? 234 : 196}px`;
-        }
-        if (note) {
-            note.style.left = `${Math.round(rect.width * 0.75)}px`;
-            note.style.top = `${Math.round(rect.height * (mobile ? 0.32 : 0.34) + (mobile ? 252 : 212))}px`;
-            note.style.width = `${Math.max(220, Math.round(rect.width * 0.36))}px`;
-        }
-    },
-
-    syncTitleMenuOverlayLayout() {
-        if (!this.canvas || !this.titleMenuOverlay || !this.titleMenuButtons) return;
-        const rect = this.canvas.getBoundingClientRect();
-        const overlay = this.titleMenuOverlay;
-        overlay.style.left = `${rect.left}px`;
-        overlay.style.top = `${rect.top}px`;
-        overlay.style.width = `${rect.width}px`;
-        overlay.style.height = `${rect.height}px`;
-
-        const { info, buttonWrap, note } = this.titleMenuButtons;
-        const mobile = Input.isMobile;
-        if (info) {
-            info.style.left = '12px';
-            info.style.top = '50px';
-            info.style.width = `${Math.max(220, Math.round(rect.width * 0.34))}px`;
-        }
-        if (buttonWrap) {
-            buttonWrap.style.left = `${Math.round(rect.width * 0.75)}px`;
-            buttonWrap.style.top = `${Math.round(rect.height * (mobile ? 0.32 : 0.34))}px`;
-            buttonWrap.style.transform = 'translateX(-50%)';
-            buttonWrap.style.width = `${Math.min(220, Math.round(rect.width * 0.36))}px`;
-            buttonWrap.style.height = `${mobile ? 234 : 196}px`;
-        }
-        if (note) {
-            note.style.left = `${Math.round(rect.width * 0.75)}px`;
-            note.style.top = `${Math.round(rect.height * (mobile ? 0.32 : 0.34) + (mobile ? 252 : 212))}px`;
-            note.style.transform = 'translateX(-50%)';
-            note.style.width = `${Math.max(220, Math.round(rect.width * 0.36))}px`;
-        }
+        if (!this.titleMenuOverlay) return;
+        this.titleMenuOverlay.style.left = '0';
+        this.titleMenuOverlay.style.top = '0';
+        this.titleMenuOverlay.style.width = '100vw';
+        this.titleMenuOverlay.style.height = '100vh';
     },
 
     buildWorldSelectOverlay() {
