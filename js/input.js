@@ -62,6 +62,29 @@ const Input = {
             this._setMouseFromEvent(e);
             this.mouse.down = false;
         });
+        window.addEventListener('mousedown', e => {
+            if (e.button !== 0) return;
+            this._setMouseFromEvent(e);
+            this.mouse.down = true;
+            this.mouse.pressed = true;
+            focusCanvas();
+        }, true);
+        window.addEventListener('mouseup', e => {
+            if (e.button !== 0) return;
+            this._setMouseFromEvent(e);
+            this.mouse.down = false;
+        }, true);
+        window.addEventListener('pointerdown', e => {
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            if (typeof e.clientX === 'number') this._setMouseFromEvent(e);
+            this.mouse.down = true;
+            this.mouse.pressed = true;
+            focusCanvas();
+        }, true);
+        window.addEventListener('pointerup', e => {
+            if (typeof e.clientX === 'number') this._setMouseFromEvent(e);
+            this.mouse.down = false;
+        }, true);
         canvas.addEventListener('pointerdown', focusCanvas);
         window.addEventListener('pointerdown', focusCanvas, true);
 
@@ -70,6 +93,22 @@ const Input = {
         canvas.addEventListener('touchmove', e => { e.preventDefault(); this._handleTouchMove(e); }, { passive: false });
         canvas.addEventListener('touchend', e => { e.preventDefault(); this._handleTouchEnd(e); }, { passive: false });
         canvas.addEventListener('touchcancel', e => { e.preventDefault(); this._handleTouchEnd(e); }, { passive: false });
+        window.addEventListener('touchstart', e => {
+            if (e.touches && e.touches.length > 0) {
+                this._handleTouchStart(e);
+            }
+        }, { passive: false, capture: true });
+        window.addEventListener('touchmove', e => {
+            if (e.touches && e.touches.length > 0) {
+                this._handleTouchMove(e);
+            }
+        }, { passive: false, capture: true });
+        window.addEventListener('touchend', e => {
+            this._handleTouchEnd(e);
+        }, { passive: false, capture: true });
+        window.addEventListener('touchcancel', e => {
+            this._handleTouchEnd(e);
+        }, { passive: false, capture: true });
     },
 
     _setMouseFromEvent(e) {
