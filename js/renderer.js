@@ -603,7 +603,7 @@ const Renderer = {
             ctx.fillText(bioLines[i], bioX, ch * 0.23 + i * 15);
         }
 
-        if (!game.titleMenuOverlay || game.titleMenuOverlay.style.display === 'none') {
+        if (game.state === 'TITLE' && (!game.titleMenuOverlay || game.titleMenuOverlay.style.display === 'none')) {
             const tx = cw * 0.75;
             const btnW = mobile ? Math.min(220, cw * 0.36) : 180;
             const btnH = mobile ? 42 : 36;
@@ -639,7 +639,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v8.3.0', cw - 8, ch - 6);
+        ctx.fillText('v8.3.1', cw - 8, ch - 6);
 
         ctx.restore();
     },
