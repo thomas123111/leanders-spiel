@@ -150,12 +150,27 @@ class BaseballLauncher {
                 self.damage, 'player', self.knockback
             );
             if (self.poison) p.poison = true;
+            if (self.shadowCaster) p.shadowCaster = true;
+            if (self.gamerPistol) p.gamerPistol = true;
             projectiles.push(p);
         }
 
         if (this.tripleShot) {
-            const spread = 0.2;
-            for (let i = -1; i <= 1; i++) spawnBall(angle + i * spread);
+            const p = new Projectile(
+                cx, cy,
+                Math.cos(angle) * self.projectileSpeed,
+                Math.sin(angle) * self.projectileSpeed,
+                self.damage, 'player', self.knockback
+            );
+            if (self.poison) p.poison = true;
+            if (self.shadowCaster) p.shadowCaster = true;
+            if (self.gamerPistol) p.gamerPistol = true;
+            p.splitBurst = {
+                delay: 0.18,
+                spread: 0.18,
+                done: false
+            };
+            projectiles.push(p);
         } else {
             spawnBall(angle);
         }
@@ -197,10 +212,31 @@ class Projectile {
         this.radius = 5;
         this.dead = false;
         this.lifetime = 3;
+        this.age = 0;
         this.bouncesLeft = owner === 'player' ? 2 : 0;
+        this.splitBurst = null;
     }
 
     update(dt, world) {
+        this.age += dt;
+        if (this.owner === 'player' && this.splitBurst && !this.splitBurst.done && this.age >= this.splitBurst.delay) {
+            this.splitBurst.done = true;
+            if (typeof Game !== 'undefined') {
+                const baseAngle = Math.atan2(this.vy, this.vx);
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                for (let i = -1; i <= 1; i++) {
+                    const a = baseAngle + i * this.splitBurst.spread;
+                    const p = new Projectile(this.x, this.y, Math.cos(a) * speed, Math.sin(a) * speed, this.damage, this.owner, this.knockback);
+                    p.poison = this.poison;
+                    p.shadowCaster = this.shadowCaster;
+                    p.gamerPistol = this.gamerPistol;
+                    p.bouncesLeft = this.bouncesLeft;
+                    Game.projectiles.push(p);
+                }
+            }
+            this.dead = true;
+            return;
+        }
         const newX = this.x + this.vx * dt;
         const newY = this.y + this.vy * dt;
         this.lifetime -= dt;

@@ -132,6 +132,8 @@ class World {
         if (t === 'volcano') return '_drawVolcano';
         if (t === 'pixel') return '_drawPixel';
         if (t === 'space') return '_drawSpace';
+        if (t === 'football') return '_drawSpace';
+        if (t === 'scrap') return '_drawFactory';
         if (t === 'fruit') return '_drawFruit';
         if (t === 'dino') return '_drawDino';
         return '_drawCastle';
@@ -850,6 +852,34 @@ function createDinoLevel() {
     return map;
 }
 
+function createChronoLevel() {
+    const map = generateLevel(56, 48, 16, 1818);
+    sprinkleSpecialTiles(map);
+    for (let x = 6; x < 12; x++) map[9][x] = TILE_JUMP_PAD;
+    return map;
+}
+
+function createShadowSwampLevel() {
+    const map = generateLevel(56, 48, 16, 1919);
+    sprinkleSpecialTiles(map);
+    for (let y = 7; y < 11; y++) map[y][14] = TILE_WATER;
+    return map;
+}
+
+function createFootballArenaLevel() {
+    const map = generateLevel(58, 46, 15, 2020);
+    sprinkleSpecialTiles(map);
+    for (let x = 8; x < 16; x++) map[12][x] = TILE_JUMP_PAD;
+    return map;
+}
+
+function createScrapYardLevel() {
+    const map = generateLevel(56, 48, 16, 2121);
+    sprinkleSpecialTiles(map);
+    for (let x = 7; x < 13; x++) map[11][x] = TILE_SKULL;
+    return map;
+}
+
 const TUTORIAL_LEVEL = createTrainingLevel();
 const WORLD1_LEVEL = generateLevel(50, 45, 12, 101);
 const WORLD2_LEVEL = generateLevel(55, 45, 14, 202);
@@ -866,3 +896,7 @@ const WORLD14_LEVEL = generateLevel(50, 45, 13, 1414);
 const WORLD15_LEVEL = generateLevel(55, 50, 15, 1515);
 const WORLD16_LEVEL = createFruitLevel();
 const WORLD17_LEVEL = createDinoLevel();
+const WORLD18_LEVEL = createChronoLevel();
+const WORLD19_LEVEL = createShadowSwampLevel();
+const WORLD20_LEVEL = createFootballArenaLevel();
+const WORLD21_LEVEL = createScrapYardLevel();

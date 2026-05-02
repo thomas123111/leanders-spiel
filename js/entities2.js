@@ -1304,3 +1304,608 @@ class BossStingRex extends Enemy {
         ctx.restore();
     }
 }
+
+class TimeClock extends Enemy {
+    constructor(x, y, keyHolder = false) {
+        super(x, y, 24, 24);
+        this.hp = 4;
+        this.maxHp = 4;
+        this.speed = 52;
+        this.contactDamage = true;
+        this.detectionRange = 240;
+        this.beamTimer = 0;
+        this.spin = Math.random() * Math.PI * 2;
+        this.isKeyGhost = !!keyHolder;
+        this.droppedKey = false;
+    }
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        this.spin += dt * 4;
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+        const dist = vecDist(mc, pc);
+        if (dist < this.detectionRange) {
+            const a = angleBetween(mc, pc);
+            this._moveWithCollision(Math.cos(a) * this.speed * dt, Math.sin(a) * this.speed * dt, world);
+            this.beamTimer -= dt;
+            if (this.beamTimer <= 0 && typeof Game !== 'undefined') {
+                this.beamTimer = 2.2;
+                const p = new Projectile(mc.x, mc.y, Math.cos(a) * 155, Math.sin(a) * 155, 1, 'enemy', 50);
+                p.slow = true;
+                Game.projectiles.push(p);
+            }
+        }
+    }
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        if (this.isFlashing()) ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#CCD';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#7EF';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#F90';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 12, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - 12);
+        ctx.lineTo(cx + Math.cos(this.spin) * 12, cy - 18);
+        ctx.moveTo(cx, cy - 12);
+        ctx.lineTo(cx + Math.cos(this.spin + Math.PI / 2) * 6, cy - 20);
+        ctx.stroke();
+        if (this.isKeyGhost) {
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(cx - 1, cy - 18, 2, 6);
+            ctx.beginPath();
+            ctx.arc(cx - 1, cy - 20, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+}
+
+class BossTimeSphere extends Enemy {
+    constructor(x, y) {
+        super(x, y, 110, 110);
+        this.hp = 80;
+        this.maxHp = 80;
+        this.speed = 24;
+        this.isBoss = true;
+        this.contactDamage = false;
+        this.state = 'intro';
+        this.introTimer = 2;
+        this.burstTimer = 2.5;
+        this.rollTimer = 4;
+        this.phase = 1;
+        this.spin = 0;
+    }
+    update(dt, world, player, enemies, particles) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        if (this.hp <= 40) this.phase = 2;
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+        if (this.state === 'intro') {
+            this.introTimer -= dt;
+            if (this.introTimer <= 0) this.state = 'chase';
+            return;
+        }
+        this.spin += dt * (this.phase === 1 ? 3 : 5);
+        const a = angleBetween(mc, pc);
+        this._moveWithCollision(Math.cos(a) * this.speed * dt, Math.sin(a) * this.speed * dt, world);
+        this.burstTimer -= dt;
+        if (this.burstTimer <= 0 && typeof Game !== 'undefined') {
+            this.burstTimer = this.phase === 1 ? 2.5 : 1.6;
+            const count = this.phase === 1 ? 8 : 14;
+            for (let i = 0; i < count; i++) {
+                const sa = (Math.PI * 2 * i) / count + this.spin;
+                const p = new Projectile(mc.x, mc.y, Math.cos(sa) * 160, Math.sin(sa) * 160, 1, 'enemy', 55);
+                if (this.phase === 2 && i % 3 === 0) p.slow = true;
+                Game.projectiles.push(p);
+            }
+            if (particles) {
+                for (let i = 0; i < 8; i++) particles.push(new Particle(mc.x, mc.y, randRange(-70, 70), randRange(-70, 70), '#7EF', 0.5));
+            }
+        }
+        this.rollTimer -= dt;
+        if (this.rollTimer <= 0) {
+            this.rollTimer = this.phase === 1 ? 4 : 2.5;
+            if (typeof Game !== 'undefined') Game.camera.shake(5, 0.15);
+        }
+    }
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        if (this.isFlashing()) ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#CCD';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 38, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath();
+        ctx.arc(cx - 12, cy - 10, 8, 0, Math.PI * 2);
+        ctx.arc(cx + 12, cy - 10, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#111';
+        ctx.beginPath();
+        ctx.arc(cx - 12, cy - 10, 3, 0, Math.PI * 2);
+        ctx.arc(cx + 12, cy - 10, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#FF0';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 46 + Math.sin(this.spin) * 2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = '#F90';
+        ctx.font = 'bold 11px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('ZEITKUGEL', cx, pos.y - 46);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        ctx.roundRect(cx - 50, pos.y - 38, 100, 7, 3);
+        ctx.fill();
+        ctx.fillStyle = this.hp > 40 ? '#7EF' : '#F44';
+        ctx.beginPath();
+        ctx.roundRect(cx - 49, pos.y - 37, 98 * (this.hp / this.maxHp), 5, 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+class ShadowCrocodileRunner extends Enemy {
+    constructor(x, y, keyHolder = false) {
+        super(x, y, 28, 22);
+        this.hp = 6;
+        this.maxHp = 6;
+        this.speed = 44;
+        this.contactDamage = true;
+        this.throwTimer = 0;
+        this.spin = 0;
+        this.isKeyGhost = !!keyHolder;
+        this.droppedKey = false;
+    }
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        this.spin += dt * 6;
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+        const dist = vecDist(mc, pc);
+        if (dist < 240) {
+            const a = angleBetween(mc, pc);
+            this._moveWithCollision(Math.cos(a) * this.speed * dt, Math.sin(a) * this.speed * dt, world);
+            this.throwTimer -= dt;
+            if (this.throwTimer <= 0 && typeof Game !== 'undefined') {
+                this.throwTimer = 2.4;
+                const p = new Projectile(mc.x, mc.y, Math.cos(a) * 145, Math.sin(a) * 145, 1, 'enemy', 55);
+                p.bouncesLeft = 1;
+                Game.projectiles.push(p);
+            }
+        }
+    }
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        if (this.isFlashing()) ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#244';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 12, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#556';
+        ctx.beginPath();
+        ctx.arc(cx + 7, cy - 3, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#111';
+        ctx.fillRect(cx + 5, cy - 4, 6, 2);
+        ctx.fillStyle = '#9F9';
+        ctx.beginPath();
+        ctx.arc(cx - 3, cy - 5, 1.4, 0, Math.PI * 2);
+        ctx.arc(cx + 2, cy - 5, 1.4, 0, Math.PI * 2);
+        ctx.fill();
+        if (this.isKeyGhost) {
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.arc(cx, cy - 14, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+}
+
+class BossShadowCrocodile extends Enemy {
+    constructor(x, y) {
+        super(x, y, 118, 86);
+        this.hp = 85;
+        this.maxHp = 85;
+        this.speed = 28;
+        this.isBoss = true;
+        this.contactDamage = false;
+        this.state = 'intro';
+        this.introTimer = 2;
+        this.whirlTimer = 3.5;
+        this.leapTimer = 6;
+        this.phase = 1;
+        this.whirlT = 0;
+    }
+    update(dt, world, player, enemies, particles) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        if (this.hp <= 42) this.phase = 2;
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+        if (this.state === 'intro') {
+            this.introTimer -= dt;
+            if (this.introTimer <= 0) this.state = 'chase';
+            return;
+        }
+        if (this.state === 'whirl') {
+            this.whirlT += dt;
+            if (vecDist(mc, pc) < 100) player.takeDamage(2, angleBetween(mc, pc), 180);
+            if (this.whirlT > 1.5) {
+                this.state = 'chase';
+                this.whirlT = 0;
+            }
+            return;
+        }
+        const a = angleBetween(mc, pc);
+        this._moveWithCollision(Math.cos(a) * this.speed * dt, Math.sin(a) * this.speed * dt, world);
+        this.whirlTimer -= dt;
+        this.leapTimer -= dt;
+        if (this.whirlTimer <= 0 && typeof Game !== 'undefined') {
+            this.whirlTimer = this.phase === 1 ? 3.5 : 2.4;
+            for (let i = 0; i < 6; i++) {
+                const sa = (Math.PI * 2 * i) / 6;
+                Game.projectiles.push(new Projectile(mc.x, mc.y, Math.cos(sa) * 125, Math.sin(sa) * 125, 1, 'enemy', 50));
+            }
+            this.state = 'whirl';
+            this.whirlT = 0;
+        }
+        if (this.leapTimer <= 0 && typeof Game !== 'undefined') {
+            this.leapTimer = this.phase === 1 ? 6 : 4;
+            this.x += Math.cos(a) * 140;
+            this.y += Math.sin(a) * 140;
+            Game.camera.shake(5, 0.15);
+        }
+    }
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        if (this.isFlashing()) ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#345';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 40, 22, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#567';
+        ctx.beginPath();
+        ctx.arc(cx + 20, cy - 6, 18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#F44';
+        ctx.beginPath();
+        ctx.arc(cx + 24, cy - 10, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#9F9';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(cx - 30, cy + 10);
+        ctx.lineTo(cx - 70, cy + 2);
+        ctx.stroke();
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('SCHATTEN-KROKODIL', cx, pos.y - 44);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        ctx.roundRect(cx - 50, pos.y - 36, 100, 7, 3);
+        ctx.fill();
+        ctx.fillStyle = this.hp > 42 ? '#4F4' : '#F44';
+        ctx.beginPath();
+        ctx.roundRect(cx - 49, pos.y - 35, 98 * (this.hp / this.maxHp), 5, 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+class FootballEnemy extends Enemy {
+    constructor(x, y, keyHolder = false) {
+        super(x, y, 22, 22);
+        this.hp = 4;
+        this.maxHp = 4;
+        this.speed = 60;
+        this.rollT = 0;
+        this.contactDamage = true;
+        this.isKeyGhost = !!keyHolder;
+        this.droppedKey = false;
+    }
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+        const dist = vecDist(mc, pc);
+        if (dist < 250) {
+            const a = angleBetween(mc, pc);
+            this.rollT += dt * 9;
+            this._moveWithCollision(Math.cos(a) * this.speed * dt + Math.sin(this.rollT) * 10 * dt, Math.sin(a) * this.speed * dt, world);
+            if (dist < 90 && typeof Game !== 'undefined') {
+                player.takeDamage(1, a, 140);
+                Game.camera.shake(2, 0.08);
+            }
+        }
+    }
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        if (this.isFlashing()) ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#F90';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#F55';
+        ctx.beginPath();
+        ctx.arc(cx, cy - 9, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FFF';
+        ctx.fillRect(cx - 4, cy - 2, 8, 2);
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        ctx.arc(cx - 3, cy - 2, 1.3, 0, Math.PI * 2);
+        ctx.arc(cx + 3, cy - 2, 1.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+class BossFootball extends Enemy {
+    constructor(x, y) {
+        super(x, y, 128, 92);
+        this.hp = 90;
+        this.maxHp = 90;
+        this.speed = 20;
+        this.isBoss = true;
+        this.contactDamage = false;
+        this.state = 'intro';
+        this.introTimer = 2;
+        this.popTimer = 2.8;
+        this.rollTimer = 1.4;
+        this.inflate = 1;
+        this.phase = 1;
+    }
+    update(dt, world, player, enemies, particles) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        if (this.hp <= 45) this.phase = 2;
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+        if (this.state === 'intro') {
+            this.introTimer -= dt;
+            if (this.introTimer <= 0) this.state = 'chase';
+            return;
+        }
+        if (this.state === 'pop') {
+            this.inflate += dt * 3;
+            if (this.inflate > 1.35) {
+                this.state = 'chase';
+                this.popTimer = this.phase === 1 ? 2.8 : 1.9;
+            }
+            return;
+        }
+        const a = angleBetween(mc, pc);
+        this._moveWithCollision(Math.cos(a) * this.speed * dt + Math.sin(Date.now() / 180) * 18 * dt, Math.sin(a) * this.speed * dt, world);
+        this.rollTimer -= dt;
+        this.popTimer -= dt;
+        if (this.popTimer <= 0 && typeof Game !== 'undefined') {
+            this.state = 'pop';
+            this.inflate = 0.9;
+            for (let i = 0; i < (this.phase === 1 ? 6 : 10); i++) {
+                const sa = (Math.PI * 2 * i) / (this.phase === 1 ? 6 : 10);
+                Game.projectiles.push(new Projectile(mc.x, mc.y, Math.cos(sa) * 150, Math.sin(sa) * 150, 1, 'enemy', 50));
+            }
+            if (particles) {
+                for (let i = 0; i < 8; i++) particles.push(new Particle(mc.x, mc.y, randRange(-80, 80), randRange(-80, 80), '#F55', 0.4));
+            }
+        }
+        if (this.rollTimer <= 0) {
+            this.rollTimer = this.phase === 1 ? 1.4 : 0.9;
+            this.x += randRange(-24, 24);
+            this.y += randRange(-24, 24);
+            if (typeof Game !== 'undefined') Game.camera.shake(4, 0.1);
+        }
+    }
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        if (this.isFlashing()) ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#8B2';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 46 * this.inflate, 34 * this.inflate, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#D22';
+        ctx.beginPath();
+        ctx.arc(cx, cy - 28, 16 * this.inflate, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FFF';
+        ctx.fillRect(cx - 14, cy - 2, 28, 4);
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        ctx.arc(cx - 8, cy - 6, 2, 0, Math.PI * 2);
+        ctx.arc(cx + 8, cy - 6, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('FUßBALL', cx, pos.y - 44);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        ctx.roundRect(cx - 50, pos.y - 36, 100, 7, 3);
+        ctx.fill();
+        ctx.fillStyle = this.hp > 45 ? '#F90' : '#F44';
+        ctx.beginPath();
+        ctx.roundRect(cx - 49, pos.y - 35, 98 * (this.hp / this.maxHp), 5, 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+class ScrapRaccoon extends Enemy {
+    constructor(x, y, keyHolder = false) {
+        super(x, y, 24, 20);
+        this.hp = 4;
+        this.maxHp = 4;
+        this.speed = 54;
+        this.throwTimer = 0;
+        this.contactDamage = true;
+        this.isKeyGhost = !!keyHolder;
+        this.droppedKey = false;
+    }
+    update(dt, world, player) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+        const dist = vecDist(mc, pc);
+        if (dist < 260) {
+            const a = angleBetween(mc, pc);
+            this._moveWithCollision(Math.cos(a) * this.speed * dt, Math.sin(a) * this.speed * dt, world);
+            this.throwTimer -= dt;
+            if (this.throwTimer <= 0 && typeof Game !== 'undefined') {
+                this.throwTimer = 2.2;
+                const p = new Projectile(mc.x, mc.y, Math.cos(a) * 155, Math.sin(a) * 155, 1, 'enemy', 50);
+                p.bouncesLeft = 0;
+                Game.projectiles.push(p);
+            }
+        }
+    }
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        if (this.isFlashing()) ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#A98';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 10, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#EEE';
+        ctx.beginPath();
+        ctx.arc(cx + 5, cy - 4, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#222';
+        ctx.fillRect(cx + 3, cy - 5, 4, 2);
+        ctx.fillStyle = '#111';
+        ctx.beginPath();
+        ctx.arc(cx - 3, cy - 4, 1.3, 0, Math.PI * 2);
+        ctx.arc(cx + 1, cy - 4, 1.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+class BossScrapRaccoon extends Enemy {
+    constructor(x, y) {
+        super(x, y, 120, 88);
+        this.hp = 80;
+        this.maxHp = 80;
+        this.speed = 26;
+        this.isBoss = true;
+        this.contactDamage = false;
+        this.state = 'intro';
+        this.introTimer = 2;
+        this.throwTimer = 2;
+        this.rushTimer = 5;
+        this.phase = 1;
+    }
+    update(dt, world, player, enemies, particles) {
+        this.baseUpdate(dt, world);
+        if (this.dead) return;
+        if (this.hp <= 40) this.phase = 2;
+        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+        const mc = { x: this.centerX(), y: this.centerY() };
+        if (this.state === 'intro') {
+            this.introTimer -= dt;
+            if (this.introTimer <= 0) this.state = 'chase';
+            return;
+        }
+        const a = angleBetween(mc, pc);
+        this._moveWithCollision(Math.cos(a) * this.speed * dt, Math.sin(a) * this.speed * dt, world);
+        this.throwTimer -= dt;
+        this.rushTimer -= dt;
+        if (this.throwTimer <= 0 && typeof Game !== 'undefined') {
+            this.throwTimer = this.phase === 1 ? 2 : 1.3;
+            for (let i = -1; i <= 1; i++) {
+                const sa = a + i * 0.18;
+                const p = new Projectile(mc.x, mc.y, Math.cos(sa) * 170, Math.sin(sa) * 170, 1, 'enemy', 55);
+                Game.projectiles.push(p);
+            }
+            if (particles) {
+                for (let i = 0; i < 8; i++) particles.push(new Particle(mc.x, mc.y, randRange(-70, 70), randRange(-70, 70), '#A98', 0.4));
+            }
+        }
+        if (this.rushTimer <= 0) {
+            this.rushTimer = this.phase === 1 ? 5 : 3.5;
+            this.x += randRange(-60, 60);
+            this.y += randRange(-40, 40);
+            if (typeof Game !== 'undefined') Game.camera.shake(5, 0.15);
+        }
+    }
+    draw(ctx, camera) {
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        if (this.dead) return;
+        ctx.save();
+        if (this.isFlashing()) ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#8A7';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 42, 28, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#DCC';
+        ctx.beginPath();
+        ctx.arc(cx + 22, cy - 6, 18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('WASCHBÄR', cx, pos.y - 42);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        ctx.roundRect(cx - 50, pos.y - 34, 100, 7, 3);
+        ctx.fill();
+        ctx.fillStyle = this.hp > 40 ? '#A9F' : '#F44';
+        ctx.beginPath();
+        ctx.roundRect(cx - 49, pos.y - 33, 98 * (this.hp / this.maxHp), 5, 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}

@@ -36,11 +36,14 @@ const Game = {
     jewels: 0,
     dailyRewardClaimDate: '',
     freeStarTier: null,
+    boseStarUses: 0,
     shopRandomStarTier: 0,
     shopRandomStarAttempts: 5,
     shopRandomStarFinished: false,
     shopRandomStarRevealReady: false,
     worldRewardClaims: {},
+    rewardValues: {},
+    activeMode: null,
 
     // Epic Freeze
     epicFreezeActive: false,
@@ -95,7 +98,9 @@ const Game = {
                 trainingDone: this.trainingCompleted,
                 dailyRewardClaimDate: this.dailyRewardClaimDate,
                 freeStarTier: this.freeStarTier,
+                boseStarUses: this.boseStarUses,
                 worldRewards: this.worldRewardClaims,
+                rewardValues: this.rewardValues,
                 ranged: this.unlockedRanged,
                 auto: this.unlockedAuto,
                 crown: this.unlockedCrown,
@@ -111,17 +116,19 @@ const Game = {
         try {
             const data = JSON.parse(localStorage.getItem('mark_save'));
             if (data) {
-                this.currentWorld = Math.max(0, Math.min(17, typeof data.world === 'number' ? data.world : 1));
+                this.currentWorld = Math.max(0, Math.min(21, typeof data.world === 'number' ? data.world : 1));
                 const maxWorld = typeof data.maxWorld === 'number'
                     ? data.maxWorld
                     : (typeof data.world === 'number' ? data.world : 1);
-                this.maxWorldUnlocked = Math.min(17, maxWorld);
+                this.maxWorldUnlocked = Math.min(21, maxWorld);
                 this.coins = data.coins || 0;
                 this.jewels = data.jewels || 0;
                 this.trainingCompleted = !!data.trainingDone;
                 this.dailyRewardClaimDate = data.dailyRewardClaimDate || '';
                 this.freeStarTier = data.freeStarTier || null;
+                this.boseStarUses = data.boseStarUses || 0;
                 this.worldRewardClaims = data.worldRewards || {};
+                this.rewardValues = data.rewardValues || {};
                 this.unlockedRanged = !!data.ranged;
                 this.unlockedAuto = !!data.auto;
                 this.unlockedCrown = !!data.crown;
@@ -149,17 +156,52 @@ const Game = {
         return `w${worldNum}`;
     },
 
+    _worldRewardTable() {
+        return {
+            1: { label: 'Kein Bonus', coins: 0, jewels: 0 },
+            2: { label: 'BASEBALL-WERFER', coins: 0, jewels: 0, item: 'unlockedRanged' },
+            3: { label: 'AUTO', coins: 0, jewels: 0, item: 'unlockedAuto' },
+            4: { label: 'KRONE', coins: 0, jewels: 0, item: 'unlockedCrown' },
+            5: { label: 'Kein Bonus', coins: 0, jewels: 0 },
+            6: { label: 'Juri', coins: 0, jewels: 0 },
+            7: { label: 'Schatten-Krokodil', coins: 0, jewels: 0 },
+            8: { label: 'Kein Bonus', coins: 0, jewels: 0 },
+            9: { label: 'SCHATTEN-WERFER', coins: 0, jewels: 0, item: 'unlockedShadowCaster' },
+            10: { label: 'OBST-UPGRADES', coins: 0, jewels: 0, item: 'unlockedFruitUpgrades' },
+            11: { label: 'GAMER-PISTOLE', coins: 0, jewels: 0, item: 'unlockedGamerPistol' },
+            12: { label: 'Kein Bonus', coins: 0, jewels: 0 },
+            13: { label: 'KNOCHEN-UPGRADE', coins: 0, jewels: 0 },
+            14: { label: 'SCHLANGE', coins: 0, jewels: 0 },
+            15: { label: 'STEIN-GIFT', coins: 0, jewels: 0 },
+            16: { label: '1000 MUENZEN', coins: 1000, jewels: 0 },
+            17: { label: '50 JUWELEN', coins: 0, jewels: 50 },
+            18: { label: '1 BOESER STERN', coins: 0, jewels: 0, star: 'green' },
+            19: { label: '1 SCHATTEN-MEISTER-STERN', coins: 0, jewels: 0, star: 'yellow' },
+            20: { label: '3 BOESE STERNE', coins: 0, jewels: 0, starPack: 3 },
+            21: { label: '500 MUENZEN', coins: 500, jewels: 0 }
+        };
+    },
+
     _claimWorldReward(worldNum) {
         const key = this._worldRewardKey(worldNum);
         if (this.worldRewardClaims[key]) return null;
         this.worldRewardClaims[key] = true;
-        if (worldNum === 16) {
-            return { coins: 1000, jewels: 0 };
-        }
-        if (worldNum === 17) {
-            return { coins: 0, jewels: 50 };
-        }
-        return null;
+        const reward = this._worldRewardTable()[worldNum];
+        if (!reward) return null;
+        this.rewardValues[key] = 0;
+        if (reward.star) this.boseStarUses = (this.boseStarUses || 0) + 1;
+        if (reward.starPack) this.boseStarUses = (this.boseStarUses || 0) + reward.starPack;
+        return { ...reward, rewardValue: 0 };
+    },
+
+    _getWorldReward(worldNum) {
+        const key = this._worldRewardKey(worldNum);
+        const reward = this._worldRewardTable()[worldNum] || { label: 'Kein Bonus', coins: 0, jewels: 0 };
+        return {
+            ...reward,
+            rewardValue: this.worldRewardClaims[key] ? 0 : (reward.coins || reward.jewels || reward.starPack || 0),
+            claimed: !!this.worldRewardClaims[key]
+        };
     },
 
     openShop() {
@@ -169,65 +211,38 @@ const Game = {
         this.shopRandomStarRevealReady = false;
         this.showWorldSelectOverlay(false);
         this.state = 'SHOP';
-        this.buildShopOverlay();
-        this.buildRandomStarOverlay();
-        this.refreshShopOverlay();
+        this.buildShopOverlay2();
+        this.buildRandomStarOverlay2();
+        this.refreshShopOverlay2();
         this.showShopOverlay(true);
     },
 
-    _worldSelectData() {
-        return [
-            { num: 0, title: 'Trainingsplatz', boss: 'Tutorial', locked: false },
-            { num: 1, title: 'Geisterschloss', boss: 'Ritter-Boss' },
-            { num: 2, title: 'Maschinen-Hof', boss: 'Mega-Roboter' },
-            { num: 3, title: 'Schleim-Arena', boss: 'Riesen-Slime' },
-            { num: 4, title: 'Dunkle Burg', boss: 'Fledermaus-Ritter' },
-            { num: 5, title: 'Pilz-Wald', boss: 'Pilz-König' },
-            { num: 6, title: 'Mücken-Sumpf', boss: 'Sumpf-Monster' },
-            { num: 7, title: 'Antarktis', boss: 'Eis-Drache' },
-            { num: 8, title: 'Vulkan-Insel', boss: 'Lava-Golem' },
-            { num: 9, title: 'Schatten-Dimension', boss: 'Schatten-Meister' },
-            { num: 10, title: 'Obst-Paradies', boss: 'Frucht-König' },
-            { num: 11, title: 'Pixel-Welt', boss: 'Star-Knight' },
-            { num: 12, title: 'Sternen-Galaxie', boss: 'Alien-Overlord' },
-            { num: 13, title: 'Knochen-Tal', boss: 'Skelett-Reiter' },
-            { num: 14, title: 'Gift-Sumpf', boss: 'Hydra' },
-            { num: 15, title: 'Steinwelt', boss: 'Stein-Dämon' },
-            { num: 16, title: 'Obst-Ninja', boss: 'Frucht-Gigant' },
-            { num: 17, title: 'Dino-Welt', boss: 'Stachel-T-Rex' }
-        ].map(w => ({
-            ...w,
-            locked: w.num !== 0 && w.num > this.maxWorldUnlocked
-        }));
-    },
-
-    buildWorldSelectOverlay() {
-        if (this.worldSelectOverlay) return;
+    buildShopOverlay2() {
+        if (this.shopOverlay) return;
 
         const overlay = document.createElement('div');
-        overlay.id = 'world-select-overlay';
+        overlay.id = 'shop-overlay';
         overlay.style.position = 'fixed';
         overlay.style.inset = '0';
         overlay.style.display = 'none';
         overlay.style.alignItems = 'center';
         overlay.style.justifyContent = 'center';
         overlay.style.padding = '12px';
-        overlay.style.background = 'rgba(4, 6, 10, 0.92)';
-        overlay.style.backdropFilter = 'blur(10px)';
-        overlay.style.webkitBackdropFilter = 'blur(10px)';
+        overlay.style.background = 'linear-gradient(135deg, rgba(18, 20, 58, 0.96), rgba(8, 10, 28, 0.98) 55%, rgba(15, 30, 56, 0.96))';
+        overlay.style.backdropFilter = 'blur(12px)';
+        overlay.style.webkitBackdropFilter = 'blur(12px)';
         overlay.style.zIndex = '9999';
         overlay.style.color = '#fff';
         overlay.style.fontFamily = 'monospace';
 
         const panel = document.createElement('div');
-        panel.style.width = 'min(720px, 100%)';
-        panel.style.maxWidth = '100vw';
-        panel.style.maxHeight = 'min(92vh, 860px)';
-        panel.style.boxSizing = 'border-box';
+        panel.style.position = 'relative';
+        panel.style.width = 'min(960px, 100%)';
+        panel.style.height = '100%';
         panel.style.border = '1px solid rgba(255,255,255,0.12)';
         panel.style.borderRadius = '18px';
-        panel.style.background = 'linear-gradient(180deg, rgba(19, 16, 28, 0.98), rgba(10, 12, 18, 0.98))';
-        panel.style.boxShadow = '0 24px 80px rgba(0,0,0,0.55)';
+        panel.style.background = 'linear-gradient(180deg, rgba(37, 42, 116, 0.92), rgba(14, 15, 33, 0.98))';
+        panel.style.boxShadow = '0 24px 80px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.04)';
         panel.style.display = 'flex';
         panel.style.flexDirection = 'column';
         panel.style.overflow = 'hidden';
@@ -235,133 +250,215 @@ const Game = {
         const header = document.createElement('div');
         header.style.padding = '16px 16px 12px';
         header.style.borderBottom = '1px solid rgba(255,255,255,0.08)';
+        header.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0))';
         header.innerHTML = `
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;min-width:0">
-                <div style="min-width:0;overflow-wrap:anywhere">
-                    <div style="font-size:20px;font-weight:700;letter-spacing:0.06em">Weltauswahl</div>
-                    <div style="font-size:12px;color:#a9b0c0;margin-top:4px">Tippe eine Welt an oder scrolle durch die Liste.</div>
-                </div>
-                <button data-action="close" style="border:0;border-radius:12px;padding:10px 14px;background:#2a2f3f;color:#fff;font:700 12px monospace">Zurück</button>
-            </div>
-            <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:#c4cad8">
-                <span style="padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.06)">Welt 0 = Trainingsplatz</span>
-                <span style="padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.06)">Freigeschaltete Welten sind normal aktiv</span>
+            <div style="min-width:0">
+                <div style="font-size:20px;font-weight:800;letter-spacing:0.06em">BOESE STERNE</div>
+                <div style="margin-top:4px;font-size:12px;color:#d7d0c0;line-height:1.4">Swipe ueber den Stern. Nach 5 Versuchen kannst du ihn antippen.</div>
             </div>
         `;
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.textContent = 'Zurueck';
+        close.style.cssText = 'border:0;border-radius:12px;padding:10px 14px;background:#2a2f3f;color:#fff;font:700 12px monospace;flex:0 0 auto;';
+        close.addEventListener('click', () => this.closeRandomStarOverlay2());
+        header.appendChild(close);
 
-        const list = document.createElement('div');
-        list.style.overflowX = 'auto';
-        list.style.overflowY = 'hidden';
-        list.style.webkitOverflowScrolling = 'touch';
-        list.style.flex = '1 1 auto';
-        list.style.minHeight = '0';
-        list.style.padding = '12px';
-        list.style.display = 'flex';
-        list.style.flexDirection = 'row';
-        list.style.gap = '12px';
-        list.style.alignItems = 'stretch';
-        list.style.scrollSnapType = 'x mandatory';
+        const legend = document.createElement('div');
+        legend.style.display = 'grid';
+        legend.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))';
+        legend.style.gap = '8px';
+        legend.style.fontSize = '11px';
+        legend.style.color = '#f4ead1';
+        const legendItems = [
+            ['Scharf', '#47d163'],
+            ['Super Scharf', '#ffeb59'],
+            ['Mega Scharf', '#ff9f2e'],
+            ['Ultrascharf', '#ff5f5f']
+        ];
+        for (const [label, color] of legendItems) {
+            const item = document.createElement('div');
+            item.style.cssText = 'padding:8px 10px;border-radius:999px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;gap:8px;';
+            item.innerHTML = `<span>${label}</span><span style="width:18px;height:18px;border-radius:999px;background:${color};box-shadow:0 0 14px ${color}"></span>`;
+            legend.appendChild(item);
+        }
+
+        const center = document.createElement('div');
+        center.style.flex = '1 1 auto';
+        center.style.display = 'flex';
+        center.style.alignItems = 'center';
+        center.style.justifyContent = 'center';
+        center.style.padding = '10px 0';
+
+        const starWrap = document.createElement('div');
+        starWrap.style.position = 'relative';
+        starWrap.style.width = 'min(62vw, 360px)';
+        starWrap.style.maxWidth = '360px';
+        starWrap.style.aspectRatio = '1';
+        starWrap.style.display = 'flex';
+        starWrap.style.alignItems = 'center';
+        starWrap.style.justifyContent = 'center';
+
+        const star = document.createElement('button');
+        star.type = 'button';
+        star.style.cssText = [
+            'position:relative',
+            'width:100%',
+            'height:100%',
+            'border:0',
+            'cursor:pointer',
+            'background:linear-gradient(180deg, #ffe76a, #ff9c1f)',
+            'clip-path:polygon(50% 0%,61% 36%,98% 36%,68% 58%,79% 96%,50% 73%,21% 96%,32% 58%,2% 36%,39% 36%)',
+            'box-shadow:0 0 0 4px rgba(0,0,0,0.18) inset, 0 0 40px rgba(255,199,55,0.45)',
+            'padding:0'
+        ].join(';');
+        star.dataset.swipes = '0';
+
+        const eyeStyle = 'position:absolute;width:16px;height:20px;border-radius:999px;background:#10131d;top:38%;';
+        const eyeLeft = document.createElement('span');
+        eyeLeft.style.cssText = eyeStyle + 'left:36%;';
+        const eyeRight = document.createElement('span');
+        eyeRight.style.cssText = eyeStyle + 'right:36%;';
+        const mouth = document.createElement('span');
+        mouth.style.cssText = 'position:absolute;left:50%;top:56%;transform:translateX(-50%);width:42px;height:18px;border-bottom:6px solid #10131d;border-radius:0 0 999px 999px;';
+        const hint = document.createElement('div');
+        hint.style.cssText = 'position:absolute;left:50%;bottom:20%;transform:translateX(-50%);font-size:13px;font-weight:700;color:#10131d;text-shadow:0 1px 0 rgba(255,255,255,0.35);letter-spacing:0.08em;';
+        hint.textContent = 'SWIPE';
+        star.appendChild(eyeLeft);
+        star.appendChild(eyeRight);
+        star.appendChild(mouth);
+        star.appendChild(hint);
+
+        let swipeStart = null;
+        const onPointerDown = e => {
+            swipeStart = { x: e.clientX, y: e.clientY, t: Date.now() };
+            star.setPointerCapture?.(e.pointerId);
+        };
+        const onPointerUp = e => {
+            if (!swipeStart) return;
+            const dx = e.clientX - swipeStart.x;
+            const dy = e.clientY - swipeStart.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 28) {
+                this._advanceRandomStarStep2();
+            }
+            swipeStart = null;
+        };
+        star.addEventListener('pointerdown', onPointerDown);
+        star.addEventListener('pointerup', onPointerUp);
+        star.addEventListener('pointercancel', () => { swipeStart = null; });
+
+        starWrap.appendChild(star);
+        center.appendChild(starWrap);
+
+        const progress = document.createElement('div');
+        progress.style.display = 'grid';
+        progress.style.gridTemplateColumns = 'repeat(5, minmax(0, 1fr))';
+        progress.style.gap = '10px';
+        progress.style.maxWidth = '420px';
+        progress.style.margin = '0 auto';
 
         const footer = document.createElement('div');
-        footer.style.padding = '12px 16px 16px';
-        footer.style.borderTop = '1px solid rgba(255,255,255,0.08)';
-        footer.style.fontSize = '12px';
-        footer.style.color = '#94a0b8';
-        footer.textContent = 'Seitlich wischen zum Wählen. Tippe eine freigeschaltete Welt an, um direkt zu starten.';
+        footer.style.display = 'flex';
+        footer.style.flexDirection = 'column';
+        footer.style.alignItems = 'center';
+        footer.style.gap = '10px';
+        footer.style.paddingBottom = '2px';
 
-        panel.appendChild(header);
-        panel.appendChild(list);
-        panel.appendChild(footer);
+        const action = document.createElement('button');
+        action.type = 'button';
+        action.style.cssText = 'border:0;border-radius:14px;padding:12px 18px;background:#ffd84a;color:#111;font:800 13px monospace;min-width:210px;';
+        action.addEventListener('click', () => {
+            if (this.shopRandomStarFinished && this.shopRandomStarRevealReady) {
+                this._resolveRandomStarReward();
+                this.closeRandomStarOverlay2();
+                this.returnToTitle();
+                return;
+            }
+            this._advanceRandomStarStep2();
+        });
+
+        const status = document.createElement('div');
+        status.style.cssText = 'font-size:12px;color:#d7d0c0;text-align:center;line-height:1.5;min-height:2.4em;';
+
+        footer.appendChild(action);
+        footer.appendChild(status);
+
+        content.appendChild(header);
+        content.appendChild(legend);
+        content.appendChild(center);
+        content.appendChild(progress);
+        content.appendChild(footer);
+
+        panel.appendChild(trophyBg);
+        panel.appendChild(content);
         overlay.appendChild(panel);
         document.body.appendChild(overlay);
 
-        header.querySelector('[data-action="close"]').addEventListener('click', () => this.closeWorldSelect());
-
-        this.worldSelectOverlay = overlay;
-        this.worldSelectPanel = panel;
-        this.worldSelectList = list;
+        this.shopStarOverlay = overlay;
+        this.shopStarPanel = panel;
+        this.shopStarProgress = progress;
+        this.shopStarAction = action;
+        this.shopStarStatus = status;
+        this.shopStarHint = hint;
+        this.shopStarNode = star;
+        this.shopStarSwipes = 0;
     },
 
-    refreshWorldSelectOverlay() {
-        if (!this.worldSelectList) return;
-        const data = this._worldSelectData();
-        this.worldSelectList.innerHTML = '';
-
-        const current = Math.max(0, Math.min(17, this.currentWorld || 0));
-
-        for (const world of data) {
-            const row = document.createElement('button');
-            row.type = 'button';
-            row.disabled = world.locked;
-            const active = world.num === current;
-            row.style.display = 'flex';
-            row.style.alignItems = 'center';
-            row.style.justifyContent = 'space-between';
-            row.style.gap = '12px';
-            row.style.width = '100%';
-            row.style.border = '1px solid ' + (world.locked ? 'rgba(255,255,255,0.08)' : (active ? '#FFD700' : 'rgba(255,255,255,0.12)'));
-            row.style.borderRadius = '14px';
-            row.style.padding = '12px 14px';
-            row.style.background = world.locked
-                ? 'rgba(255,255,255,0.03)'
-                : active
-                    ? 'rgba(255,215,0,0.12)'
-                    : 'rgba(255,255,255,0.05)';
-            row.style.color = world.locked ? '#8892a6' : '#fff';
-            row.style.textAlign = 'left';
-            row.style.font = 'inherit';
-            row.style.boxShadow = active ? '0 0 0 1px rgba(255,215,0,0.25) inset' : 'none';
-
-            row.innerHTML = `
-                <div style="min-width:0;flex:1">
-                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                        <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;background:${world.locked ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.2)'};font-weight:700">${world.num}</span>
-                        <span style="font-size:14px;font-weight:700">${world.title}</span>
-                        ${active ? '<span style="font-size:11px;color:#FFD700">aktuell</span>' : ''}
-                        ${world.locked ? '<span style="font-size:11px;color:#ff8f8f">gesperrt</span>' : ''}
-                    </div>
-                    <div style="font-size:11px;color:${world.locked ? '#7d8799' : '#a8afbf'};margin-top:4px">${world.boss}</div>
-                </div>
-                <div style="font-size:11px;font-weight:700;color:${world.locked ? '#7d8799' : '#ffd700'}">${world.locked ? 'LOCK' : 'START'}</div>
-            `;
-
-            row.addEventListener('click', () => {
-                if (world.locked) return;
-                this.startWorldFromSelect(world.num);
-            });
-            this.worldSelectList.appendChild(row);
+    refreshRandomStarOverlay2() {
+        if (!this.shopStarOverlay) return;
+        if (this.shopStarProgress) {
+            this.shopStarProgress.innerHTML = '';
+            const attemptsUsed = 5 - Math.max(0, this.shopRandomStarAttempts || 0);
+            for (let i = 0; i < 5; i++) {
+                const orb = document.createElement('div');
+                const active = i < attemptsUsed;
+                const colors = ['#5eff77', '#ffe75f', '#ffb13d', '#ff6363', '#9a78ff'];
+                orb.style.cssText = 'aspect-ratio:1;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;' +
+                    'border:2px solid ' + (active ? colors[Math.min(i, colors.length - 1)] : 'rgba(255,255,255,0.18)') + ';' +
+                    'background:' + (active ? colors[Math.min(i, colors.length - 1)] : 'rgba(255,255,255,0.05)') + ';' +
+                    'color:' + (active ? '#10131d' : 'rgba(255,255,255,0.55)') + ';';
+                orb.textContent = '?';
+                this.shopStarProgress.appendChild(orb);
+            }
         }
-
-        const target = data.find(w => w.num === this.currentWorld) || data[0];
-        const nodes = Array.from(this.worldSelectList.children);
-        const idx = data.indexOf(target);
-        if (idx >= 0 && nodes[idx]) {
-            nodes[idx].scrollIntoView({ block: 'center' });
+        if (this.shopStarAction) {
+            this.shopStarAction.textContent = this.shopRandomStarFinished && this.shopRandomStarRevealReady
+                ? 'ZUM OEFFNEN TIPPEN'
+                : 'Swipe den Stern';
+        }
+        if (this.shopStarHint) {
+            const tierLabel = ['Scharf', 'Super Scharf', 'Mega Scharf', 'Ultrascharf'][Math.min(this.shopRandomStarTier || 0, 3)];
+            this.shopStarHint.textContent = this.shopRandomStarFinished && this.shopRandomStarRevealReady
+                ? 'Der Stern ist fertig geladen. Jetzt tippen!'
+                : `Schaerfegrad: ${tierLabel}`;
+        }
+        if (this.shopStarStatus) {
+            this.shopStarStatus.textContent = `Versuche uebrig: ${Math.max(0, this.shopRandomStarAttempts || 0)}.`;
         }
     },
 
-    showWorldSelectOverlay(visible) {
-        if (this.worldSelectOverlay) {
-            this.worldSelectOverlay.style.display = visible ? 'flex' : 'none';
+    _advanceRandomStarStep2() {
+        if (this.shopRandomStarFinished) return;
+        if (this.shopRandomStarAttempts <= 0) {
+            this.shopRandomStarFinished = true;
+            this.shopRandomStarRevealReady = true;
+            this.refreshRandomStarOverlay2();
+            return;
         }
-    },
 
-    openWorldSelect() {
-        this.buildWorldSelectOverlay();
-        this.refreshWorldSelectOverlay();
-        this.state = 'WORLD_SELECT';
-        this.showWorldSelectOverlay(true);
-    },
-
-    closeWorldSelect() {
-        this.showWorldSelectOverlay(false);
-        this.state = 'TITLE';
+        this.shopRandomStarAttempts--;
+        const chances = [0.65, 0.5, 0.35];
+        const chance = chances[Math.min(this.shopRandomStarTier, chances.length - 1)];
+        if (Math.random() < chance && this.shopRandomStarTier < 3) {
+            this.shopRandomStarTier++;
+        }
+        if (this.shopRandomStarTier >= 3 || this.shopRandomStarAttempts <= 0) {
+            this.shopRandomStarFinished = true;
+            this.shopRandomStarRevealReady = true;
+        }
         this.save();
-    },
-
-    startWorldFromSelect(worldNum) {
-        this.showWorldSelectOverlay(false);
-        this.startWorld(worldNum);
+        this.refreshRandomStarOverlay2();
     },
 
     buildShopOverlay() {
@@ -402,10 +499,10 @@ const Game = {
                     <div style="font-size:20px;font-weight:700;letter-spacing:0.06em">SHOP</div>
                     <div style="font-size:12px;color:#a9b0c0;margin-top:4px">Alles ist antippbar und die Liste kann gescrollt werden.</div>
                 </div>
-                <button data-action="close" style="border:0;border-radius:12px;padding:10px 14px;background:#2a2f3f;color:#fff;font:700 12px monospace">Zurück</button>
+                <button data-action="close" style="border:0;border-radius:12px;padding:10px 14px;background:#2a2f3f;color:#fff;font:700 12px monospace">Zurueck</button>
             </div>
             <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:#c4cad8">
-                <span style="padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.06)">Münzen: <span data-role="coins">0</span></span>
+                <span style="padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.06)">Muenzen: <span data-role="coins">0</span></span>
                 <span style="padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.06)">Juwelen: <span data-role="jewels">0</span></span>
                 <span style="padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.06)">Daily Reward, Sterne und Krone</span>
             </div>
@@ -529,7 +626,7 @@ const Game = {
             ['Scharf', '#47d163'],
             ['Super Scharf', '#ffeb59'],
             ['Mega Scharf', '#ff9f2e'],
-            ['Ultra Scharf', '#ff5f5f']
+            ['Ultrascharf', '#ff5f5f']
         ];
         for (const [label, color] of legendItems) {
             const item = document.createElement('div');
@@ -608,7 +705,7 @@ const Game = {
             if (this.shopRandomStarFinished && this.shopRandomStarRevealReady) {
                 this._resolveRandomStarReward();
                 this.closeRandomStarOverlay();
-                this.refreshShopOverlay();
+                this.refreshShopOverlay2();
                 return;
             }
             this._advanceRandomStarStep();
@@ -722,7 +819,7 @@ const Game = {
             return card;
         };
 
-        const daily = makeCard('Daily Reward', this.dailyRewardClaimDate === this._todayKey() ? 'Heute bereits geholt oder für 5000 Münzen erneut freischalten.' : 'Erster Klick heute gratis.');
+        const daily = makeCard('Daily Reward', this.dailyRewardClaimDate === this._todayKey() ? 'Heute bereits geholt oder fuer 5000 Muenzen erneut freischalten.' : 'Erster Klick heute gratis.');
         if (this.freeStarTier) {
             const tag = document.createElement('div');
             tag.style.cssText = 'margin-top:10px;display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;background:rgba(255,215,0,0.12);color:#ffd966;font-size:11px;font-weight:700;';
@@ -735,7 +832,7 @@ const Game = {
         dailyBtn.style.cssText = btnStyle + 'margin-top:12px;align-self:flex-start;';
         dailyBtn.addEventListener('click', () => {
             this._grantDailyReward(false) || this._grantDailyReward(true);
-            this.refreshShopOverlay();
+            this.refreshShopOverlay2();
         });
         daily.appendChild(dailyBtn);
         this.shopList.appendChild(daily);
@@ -762,7 +859,7 @@ const Game = {
                 (row.can ? 'color:#fff;background:#2A8CFF;' : 'color:#666;background:#2a2a33;');
             btn.addEventListener('click', () => {
                 row.action();
-                this.refreshShopOverlay();
+                this.refreshShopOverlay2();
             });
             exchangeGrid.appendChild(btn);
         }
@@ -795,7 +892,7 @@ const Game = {
             cell.addEventListener('click', () => {
                 const actualTier = free ? this._consumeFreeStar() : tier.id;
                 this._applyStarReward(actualTier, free);
-                this.refreshShopOverlay();
+                this.refreshShopOverlay2();
             });
             grid.appendChild(cell);
         }
@@ -812,7 +909,7 @@ const Game = {
         randomBtn.textContent = 'Böse Sterne öffnen';
         randomBtn.style.cssText = smallBtnStyle + 'margin-top:12px;align-self:flex-start;';
         randomBtn.addEventListener('click', () => {
-            this.openRandomStarOverlay();
+            this.openRandomStarOverlay2();
         });
         random.appendChild(randomBtn);
         this.shopList.appendChild(random);
@@ -832,7 +929,7 @@ const Game = {
                     this.player.startCrownShield();
                 }
                 this.save();
-                this.refreshShopOverlay();
+                this.refreshShopOverlay2();
             }
         });
         crown.appendChild(crownBtn);
@@ -856,7 +953,7 @@ const Game = {
 
     closeShop() {
         this.showShopOverlay(false);
-        this.closeRandomStarOverlay();
+        this.closeRandomStarOverlay2();
         this.state = 'TITLE';
         this.save();
     },
@@ -866,9 +963,11 @@ const Game = {
             this.trainingCompleted = true;
         }
         this.trainingMode = false;
+        this.activeMode = null;
         this.showShopOverlay(false);
-        this.closeRandomStarOverlay();
+        this.closeRandomStarOverlay2();
         this.showWorldSelectOverlay(false);
+        this.closeExtraMode();
         this.state = 'TITLE';
         this.save();
     },
@@ -1039,6 +1138,7 @@ const Game = {
         this.dailyRewardClaimDate = '';
         this.freeStarTier = null;
         this.worldRewardClaims = {};
+        this.activeMode = null;
         this.clearSave();
         this.startWorld(0);
     },
@@ -1078,12 +1178,16 @@ const Game = {
             WORLD5_LEVEL, WORLD6_LEVEL, WORLD7_LEVEL, WORLD8_LEVEL,
             generateLevel(50,48,14,909), generateLevel(52,48,14,1010),
             WORLD11_LEVEL, WORLD12_LEVEL, WORLD13_LEVEL, WORLD14_LEVEL, WORLD15_LEVEL,
-            WORLD16_LEVEL, WORLD17_LEVEL];
+            WORLD16_LEVEL, WORLD17_LEVEL, WORLD18_LEVEL, WORLD19_LEVEL, WORLD20_LEVEL, WORLD21_LEVEL];
         const themes = ['castle', 'castle', 'factory', 'cave', 'dark',
             'mushroom', 'swamp', 'ice', 'volcano',
             'dark', 'mushroom', 'pixel', 'space', 'dark', 'swamp', 'ice'];
         themes.push('fruit');
         themes.push('dino');
+        themes.push('space');
+        themes.push('swamp');
+        themes.push('football');
+        themes.push('factory');
         this.world.load(levels[worldNum]);
         this.world.theme = themes[worldNum];
 
@@ -1253,6 +1357,26 @@ const Game = {
             for (let i = 0; i < 6; i++) this.enemies.push(this._spawnAt(Triceratops));
             this.enemies.push(this._spawnAt(KeyGhost, 300));
             for (let i = 0; i < 8; i++) this.chests.push(this._spawnChestAt());
+        } else if (worldNum === 18) {
+            for (let i = 0; i < 14; i++) this.enemies.push(this._spawnAt(TimeClock));
+            this.enemies.push(this._spawnAt(TimeClock, 300));
+            this.enemies[this.enemies.length - 1].isKeyGhost = true;
+            for (let i = 0; i < 6; i++) this.chests.push(this._spawnChestAt());
+        } else if (worldNum === 19) {
+            for (let i = 0; i < 16; i++) this.enemies.push(this._spawnAt(ShadowCrocodileRunner));
+            this.enemies.push(this._spawnAt(ShadowCrocodileRunner, 300));
+            this.enemies[this.enemies.length - 1].isKeyGhost = true;
+            for (let i = 0; i < 7; i++) this.chests.push(this._spawnChestAt());
+        } else if (worldNum === 20) {
+            for (let i = 0; i < 18; i++) this.enemies.push(this._spawnAt(FootballEnemy));
+            this.enemies.push(this._spawnAt(FootballEnemy, 300));
+            this.enemies[this.enemies.length - 1].isKeyGhost = true;
+            for (let i = 0; i < 7; i++) this.chests.push(this._spawnChestAt());
+        } else if (worldNum === 21) {
+            for (let i = 0; i < 16; i++) this.enemies.push(this._spawnAt(ScrapRaccoon));
+            this.enemies.push(this._spawnAt(ScrapRaccoon, 300));
+            this.enemies[this.enemies.length - 1].isKeyGhost = true;
+            for (let i = 0; i < 7; i++) this.chests.push(this._spawnChestAt());
         }
     },
 
@@ -1386,6 +1510,14 @@ const Game = {
             boss = new BossFruitGiant(this.world.bossSpawn.x, this.world.bossSpawn.y);
         } else if (this.currentWorld === 17) {
             boss = new BossStingRex(this.world.bossSpawn.x, this.world.bossSpawn.y);
+        } else if (this.currentWorld === 18) {
+            boss = new BossTimeSphere(this.world.bossSpawn.x, this.world.bossSpawn.y);
+        } else if (this.currentWorld === 19) {
+            boss = new BossShadowCrocodile(this.world.bossSpawn.x, this.world.bossSpawn.y);
+        } else if (this.currentWorld === 20) {
+            boss = new BossFootball(this.world.bossSpawn.x, this.world.bossSpawn.y);
+        } else if (this.currentWorld === 21) {
+            boss = new BossScrapRaccoon(this.world.bossSpawn.x, this.world.bossSpawn.y);
         } else {
             boss = new BossGhost(this.world.bossSpawn.x, this.world.bossSpawn.y);
             boss.hp = 50; boss.maxHp = 50;
@@ -1403,7 +1535,7 @@ const Game = {
         this.camera.shake(8, 0.5);
         this.vibrate(400);
 
-        this.maxWorldUnlocked = Math.min(17, Math.max(this.maxWorldUnlocked, this.currentWorld + 1));
+        this.maxWorldUnlocked = Math.min(21, Math.max(this.maxWorldUnlocked, this.currentWorld + 1));
         Sound.worldClear();
         this.state = 'WORLD_CLEAR';
         this.worldClearTimer = 60; // wait for button click
@@ -1438,14 +1570,14 @@ const Game = {
             this.state = 'WIN';
         } else if (this.currentWorld === 17) {
             this.state = 'WIN';
-        } else if (this.currentWorld >= 17) {
+        } else if (this.currentWorld >= 21) {
             this.state = 'WIN';
         }
         this.save();
     },
 
     _advanceToNextWorld() {
-        if (this.currentWorld < 17) {
+        if (this.currentWorld < 21) {
             this.startWorld(this.currentWorld + 1);
         }
     },
@@ -1496,6 +1628,8 @@ const Game = {
                     this.openShop();
                 } else if (btn === 'TRAININGSPLATZ') {
                     this.startWorld(0);
+                } else if (btn === 'EXTRA') {
+                    this.openExtraMode();
                 } else if (btn === 'VOLLBILD') {
                     this.enterFullscreen();
                 }
@@ -1507,6 +1641,14 @@ const Game = {
         if (this.state === 'WORLD_SELECT') {
             if (Input._key('Escape') || Input._key('Backspace')) {
                 this.closeWorldSelect();
+            }
+            Input.postUpdate();
+            return;
+        }
+
+        if (this.state === 'EXTRA_MENU') {
+            if (Input._key('Escape') || Input._key('Backspace')) {
+                this.closeExtraMode();
             }
             Input.postUpdate();
             return;
@@ -1544,8 +1686,8 @@ const Game = {
                     const free = this.freeStarTier === 'red';
                     const tier = free ? this._consumeFreeStar() : 'red';
                     this._applyStarReward(tier, free);
-                } else if (btn === 'RANDOM_STAR' || btn === 'BÖSE STERNE') {
-                    this.openRandomStarOverlay();
+                } else if (btn === 'RANDOM_STAR' || btn === 'BOESE STERNE') {
+                    this.openRandomStarOverlay2();
                 } else if (btn === 'CROWN_ITEM') {
                     if (this.coins >= 500) {
                         this.coins -= 500;
@@ -1889,8 +2031,8 @@ const Game = {
         const ctx = this.ctx;
         ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        if (this.state === 'TITLE' || this.state === 'WORLD_SELECT') {
-            Renderer.drawTitleScreen(ctx);
+        if (this.state === 'TITLE' || this.state === 'WORLD_SELECT' || this.state === 'EXTRA_MENU') {
+            Renderer.drawTitleScreen(ctx, this);
             return;
         }
 

@@ -518,23 +518,20 @@ const Renderer = {
         ctx.restore();
     },
 
-    drawTitleScreen(ctx) {
+    drawTitleScreen(ctx, game) {
         this._buttons = [];
-        ctx.fillStyle = '#111';
-        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
         const cw = ctx.canvas.width;
         const ch = ctx.canvas.height;
         const mobile = Input.isMobile;
-        ctx.save();
 
-        // ── Game Title (top right) ──
-        ctx.fillStyle = '#4A9';
-        ctx.font = 'bold 16px monospace';
-        ctx.textAlign = 'right';
-        ctx.fillText('Mark und die', cw - 12, 22);
-        ctx.fillStyle = '#F88';
-        ctx.font = 'bold 14px monospace';
-        ctx.fillText('geklauten Erfindungen', cw - 12, 40);
+        const bg = ctx.createLinearGradient(0, 0, cw, ch);
+        bg.addColorStop(0, '#090b14');
+        bg.addColorStop(0.52, '#11172a');
+        bg.addColorStop(1, '#08131f');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, cw, ch);
+
+        ctx.save();
         ctx.fillStyle = 'rgba(255,255,255,0.05)';
         ctx.beginPath();
         ctx.roundRect(12, 60, cw * 0.42, ch - 78, 18);
@@ -550,45 +547,53 @@ const Renderer = {
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // ── Left Panel: MARK name + rotatable model ──
+        ctx.fillStyle = '#4A9';
+        ctx.font = 'bold 16px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText('Mark und die', cw - 12, 22);
+        ctx.fillStyle = '#F88';
+        ctx.font = 'bold 14px monospace';
+        ctx.fillText('geklauten Erfindungen', cw - 12, 40);
+
         ctx.fillStyle = '#FFF';
         ctx.font = 'bold 20px monospace';
         ctx.textAlign = 'center';
         ctx.fillText('MARK', cw * 0.15, 86);
 
-        // 360° Mark - drag/touch to rotate
+        ctx.textAlign = 'left';
+        this._drawCoinIcon(ctx, 22, 24, mobile ? 9 : 10);
+        ctx.fillStyle = '#FFD700';
+        ctx.font = 'bold 11px monospace';
+        ctx.fillText(String(game.coins || 0), 34, 28);
+        this._drawJewelIcon(ctx, 68, 24, mobile ? 8 : 9);
+        ctx.fillStyle = '#7FE7FF';
+        ctx.fillText(String(game.jewels || 0), 80, 28);
+
         if (!this._markAngle) this._markAngle = 0;
-        // Track drag on left side of screen for rotation
-        if (Input.mouse.down && Input.mouse.x < cw * 0.3) {
-            this._markAngle += 0.08;
-        } else if (Input.joystick.active && Input.joystick.baseX < cw * 0.3) {
-            this._markAngle += 0.08;
-        } else {
-            this._markAngle += 0.005; // slow idle spin
-        }
-        // Draw Mark with simulated 3D rotation (scale X = cos)
+        if (Input.mouse.down && Input.mouse.x < cw * 0.3) this._markAngle += 0.08;
+        else if (Input.joystick.active && Input.joystick.baseX < cw * 0.3) this._markAngle += 0.08;
+        else this._markAngle += 0.005;
+
         const flipX = Math.cos(this._markAngle);
         const markX = cw * 0.16;
         const markY = ch * 0.37;
         ctx.save();
         ctx.translate(markX, markY);
         ctx.scale(flipX < 0 ? -2.2 : 2.2, 2.2);
-        ctx.translate(0, 0);
         this._drawMarkCharacter(ctx, 0, 0, 1);
         ctx.restore();
         ctx.fillStyle = '#8AA';
         ctx.font = '8px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('\u2194 drehen', markX, ch * 0.58);
+        ctx.fillText('? drehen', markX, ch * 0.58);
 
-        // ── Bio text (right of Mark) ──
         ctx.fillStyle = '#B7C0D0';
         ctx.font = '10px monospace';
         ctx.textAlign = 'left';
         const bioLines = [
             'Mark ist ein',
             'Baseballspieler und',
-            'Geisterj\u00e4ger. Seit er',
+            'Geisterj?ger. Seit er',
             'bestohlen wurde, hat',
             'er sich verwandelt...',
             'Findet es selbst heraus!'
@@ -598,7 +603,6 @@ const Renderer = {
             ctx.fillText(bioLines[i], bioX, ch * 0.23 + i * 15);
         }
 
-        // ── Right Panel: World Select ──
         const tx = cw * 0.75;
         const btnW = mobile ? Math.min(220, cw * 0.36) : 180;
         const btnH = mobile ? 42 : 36;
@@ -606,19 +610,21 @@ const Renderer = {
         ctx.textAlign = 'center';
         ctx.fillStyle = '#DDD';
         ctx.font = mobile ? 'bold 14px monospace' : 'bold 15px monospace';
-        ctx.fillText('W\u00e4hle einen Startpunkt', tx, startY - 30);
+        ctx.fillText('W?hle einen Startpunkt', tx, startY - 30);
         this._drawButton(ctx, tx - btnW / 2, startY, btnW, btnH, 'SHOP', mobile ? 15 : 16);
         this._drawButton(ctx, tx - btnW / 2, startY + (mobile ? 48 : 40), btnW, btnH, 'TRAININGSPLATZ', mobile ? 11 : 13);
-        this._drawButton(ctx, tx - btnW / 2, startY + (mobile ? 96 : 80), btnW, btnH, 'VOLLBILD', mobile ? 15 : 16);
-        this._drawButton(ctx, tx - btnW / 2, startY + (mobile ? 144 : 120), btnW, btnH, 'PLAY', mobile ? 15 : 16);
+        this._drawButton(ctx, tx - btnW / 2, startY + (mobile ? 96 : 80), btnW, btnH, 'EXTRA', mobile ? 15 : 16);
+        this._drawButton(ctx, tx - btnW / 2, startY + (mobile ? 144 : 120), btnW, btnH, 'VOLLBILD', mobile ? 15 : 16);
+        this._drawButton(ctx, tx - btnW / 2, startY + (mobile ? 192 : 160), btnW, btnH, 'PLAY', mobile ? 15 : 16);
+
         ctx.fillStyle = '#888';
         ctx.font = '10px monospace';
-        const infoY = mobile ? startY + 194 : startY + 170;
-        ctx.fillText('PLAY öffnet die Weltauswahl', tx, infoY);
-        ctx.fillText('VOLLBILD blendet die Browserleiste aus', tx, infoY + 16);
-        ctx.fillText('SHOP enth\u00e4lt Tagesbelohnung, Wechselstube, Sterne und die Krone', tx, infoY + 32);
+        const infoY = mobile ? startY + 242 : startY + 210;
+        ctx.fillText('PLAY ?ffnet die Weltauswahl', tx, infoY);
+        ctx.fillText('EXTRA f?hrt zu den Spezial-Modi', tx, infoY + 16);
+        ctx.fillText('VOLLBILD blendet die Browserleiste aus', tx, infoY + 32);
+        ctx.fillText('SHOP enth?lt Sterne, Krone und Daily Reward', tx, infoY + 48);
 
-        // Controls
         ctx.fillStyle = '#555';
         ctx.font = '10px monospace';
         ctx.textAlign = 'center';
@@ -628,11 +634,10 @@ const Renderer = {
             ctx.fillText('Links = Bewegen | Rechts = Zielen & Angreifen', cw / 2, ch * 0.92);
         }
 
-        // Version number
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('v8.1.0', cw - 8, ch - 6);
+        ctx.fillText('v8.2.1', cw - 8, ch - 6);
 
         ctx.restore();
     },
@@ -961,6 +966,10 @@ const Renderer = {
             15: { title: 'STEIN DES SHOGUNS!', desc: 'Die Schlange leuchtet violett - Versteinerungs-Gift!', color: '#A0F' },
             16: { title: 'FRUCHT-GIGANT besiegt!', desc: '1000 Münzen beim ersten Sieg!', color: '#F88' },
             17: { title: 'STACHEL-T-REX besiegt!', desc: '50 Juwelen beim ersten Sieg!', color: '#9C6' },
+            18: { title: 'ZEITKUGEL besiegt!', desc: '1 Böser Stern beim ersten Sieg!', color: '#7EF' },
+            19: { title: 'SCHATTEN-KROKODIL besiegt!', desc: '1 Schatten-Meister-Stern beim ersten Sieg!', color: '#8F8' },
+            20: { title: 'FUSSBALL geknackt!', desc: '3 Böse Sterne beim ersten Sieg!', color: '#FA0' },
+            21: { title: 'WASCHBAER besiegt!', desc: '500 Muenzen beim ersten Sieg!', color: '#BBB' },
         };
         const r = rewards[worldNum];
         if (r) {
@@ -1006,7 +1015,7 @@ const Renderer = {
 
         ctx.fillStyle = '#FFD700';
         ctx.font = 'bold 32px monospace';
-        ctx.fillText('ALLE 17 WELTEN GESCHAFFT!', cx, cy - 50);
+        ctx.fillText('ALLE 21 WELTEN GESCHAFFT!', cx, cy - 50);
 
         ctx.fillStyle = '#FFF';
         ctx.font = '16px monospace';
