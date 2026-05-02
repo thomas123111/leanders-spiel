@@ -21,6 +21,11 @@ const Game = {
     bossDefeated: false,
     worldClearTimer: 0,
     lastTime: 0,
+    titleMenuOverlay: null,
+    worldSelectOverlay: null,
+    worldSelectList: null,
+    extraModeOverlay: null,
+    extraModeList: null,
 
     // Persistent unlocks
     unlockedRanged: false,
@@ -67,6 +72,10 @@ const Game = {
         Sound.init();
         Input.init(this.canvas);
         this.loadSave();
+        this.buildTitleMenuOverlay();
+        this.buildWorldSelectOverlay();
+        this.buildExtraModeOverlay();
+        this.showTitleMenuOverlay(true);
         this.lastTime = performance.now();
         this.gameLoop(this.lastTime);
     },
@@ -88,6 +97,408 @@ const Game = {
     },
 
     // ── Save System ──
+    buildTitleMenuOverlay() {
+        if (this.titleMenuOverlay) return;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'title-menu-overlay';
+        overlay.style.position = 'fixed';
+        overlay.style.inset = '0';
+        overlay.style.zIndex = '9998';
+        overlay.style.pointerEvents = 'none';
+        overlay.style.display = 'none';
+        overlay.style.fontFamily = 'monospace';
+
+        const info = document.createElement('div');
+        info.style.position = 'absolute';
+        info.style.left = '12px';
+        info.style.top = '50px';
+        info.style.width = 'min(38vw, 280px)';
+        info.style.pointerEvents = 'none';
+        info.style.color = '#d3d8e6';
+        info.style.textShadow = '0 2px 0 rgba(0,0,0,0.65)';
+        info.style.fontSize = '11px';
+        info.style.lineHeight = '1.45';
+        info.innerHTML = `
+            <div style="font-size:20px;font-weight:800;letter-spacing:0.04em;color:#f4f7ff">MARK</div>
+            <div style="margin-top:10px">Mark ist ein Baseballspieler und Geisterjaeger. Er wurde bestohlen und muss seine Erfindungen zurueckholen.</div>
+            <div style="margin-top:10px;color:#98a4bb">Links bleiben die Infotexte sichtbar. Rechts liegen die Startpunkte als echte Buttons.</div>
+        `;
+
+        const buttonWrap = document.createElement('div');
+        const mobile = Input.isMobile;
+        const step = mobile ? 48 : 40;
+        const btnH = mobile ? 42 : 36;
+        buttonWrap.style.position = 'absolute';
+        buttonWrap.style.left = '75%';
+        buttonWrap.style.top = mobile ? '32%' : '34%';
+        buttonWrap.style.transform = 'translateX(-50%)';
+        buttonWrap.style.width = 'min(220px, 36vw)';
+        buttonWrap.style.height = mobile ? '234px' : '196px';
+        buttonWrap.style.pointerEvents = 'none';
+
+        const makeButton = (label, top, action, opts = {}) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = label;
+            btn.style.position = 'absolute';
+            btn.style.left = '0';
+            btn.style.top = top;
+            btn.style.width = '100%';
+            btn.style.height = opts.height || `${btnH}px`;
+            btn.style.border = '0';
+            btn.style.borderRadius = '12px';
+            btn.style.background = opts.background || 'linear-gradient(180deg, #4c5e84, #2b3550)';
+            btn.style.color = '#fff';
+            btn.style.font = opts.font || '700 14px monospace';
+            btn.style.letterSpacing = '0.04em';
+            btn.style.boxShadow = '0 8px 20px rgba(0,0,0,0.28), inset 0 0 0 1px rgba(255,255,255,0.12)';
+            btn.style.pointerEvents = 'auto';
+            btn.style.touchAction = 'manipulation';
+            btn.style.cursor = 'pointer';
+            btn.addEventListener('click', action);
+            buttonWrap.appendChild(btn);
+            return btn;
+        };
+
+        makeButton('SHOP', '0px', () => this.openShop(), {
+            background: 'linear-gradient(180deg, #4b8a7a, #2b4e57)'
+        });
+        makeButton('TRAININGSPLATZ', `${step}px`, () => this.startWorld(0), {
+            font: '700 12px monospace',
+            background: 'linear-gradient(180deg, #7d6544, #4d3d2b)'
+        });
+        makeButton('EXTRA', `${step * 2}px`, () => this.openExtraMode(), {
+            background: 'linear-gradient(180deg, #7a4a8e, #412852)'
+        });
+        makeButton('VOLLBILD', `${step * 3}px`, () => this.enterFullscreen(), {
+            background: 'linear-gradient(180deg, #63739a, #3a4660)'
+        });
+        makeButton('PLAY', `${step * 4}px`, () => this.openWorldSelect(), {
+            background: 'linear-gradient(180deg, #cb8b38, #8f561b)'
+        });
+
+        const note = document.createElement('div');
+        note.style.position = 'absolute';
+        note.style.left = '75%';
+        note.style.top = mobile ? 'calc(32% + 252px)' : 'calc(34% + 212px)';
+        note.style.transform = 'translateX(-50%)';
+        note.style.width = 'min(250px, 36vw)';
+        note.style.textAlign = 'center';
+        note.style.color = '#9fa7b9';
+        note.style.fontSize = '10px';
+        note.style.lineHeight = '1.4';
+        note.style.pointerEvents = 'none';
+        note.textContent = 'PLAY oeffnet die Weltauswahl. F blendet Vollbild ein.';
+
+        overlay.appendChild(info);
+        overlay.appendChild(buttonWrap);
+        overlay.appendChild(note);
+        document.body.appendChild(overlay);
+
+        this.titleMenuOverlay = overlay;
+        this.titleMenuButtons = { info, buttonWrap, note };
+    },
+
+    showTitleMenuOverlay(visible) {
+        if (this.titleMenuOverlay) {
+            this.titleMenuOverlay.style.display = visible ? 'block' : 'none';
+        }
+    },
+
+    buildWorldSelectOverlay() {
+        if (this.worldSelectOverlay) return;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'world-select-overlay';
+        overlay.style.position = 'fixed';
+        overlay.style.inset = '0';
+        overlay.style.display = 'none';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.padding = '12px';
+        overlay.style.background = 'linear-gradient(180deg, rgba(8, 12, 24, 0.96), rgba(15, 10, 30, 0.98))';
+        overlay.style.zIndex = '9999';
+        overlay.style.pointerEvents = 'auto';
+        overlay.style.color = '#fff';
+        overlay.style.fontFamily = 'monospace';
+
+        const panel = document.createElement('div');
+        panel.style.width = 'min(760px, 100%)';
+        panel.style.height = 'min(92vh, 860px)';
+        panel.style.borderRadius = '20px';
+        panel.style.border = '1px solid rgba(255,255,255,0.12)';
+        panel.style.background = 'linear-gradient(180deg, rgba(20, 26, 54, 0.98), rgba(8, 9, 18, 0.98))';
+        panel.style.boxShadow = '0 26px 100px rgba(0,0,0,0.58)';
+        panel.style.display = 'flex';
+        panel.style.flexDirection = 'column';
+        panel.style.overflow = 'hidden';
+
+        const header = document.createElement('div');
+        header.style.padding = '16px 16px 12px';
+        header.style.borderBottom = '1px solid rgba(255,255,255,0.08)';
+        header.innerHTML = `
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+                <div style="min-width:0">
+                    <div style="font-size:20px;font-weight:800;letter-spacing:0.06em">WELTWAHL</div>
+                    <div style="font-size:12px;color:#a9b0c0;margin-top:4px">Tippe eine freigeschaltete Welt an. Ein ? wuerfelt eine zufaellige freigeschaltete Map.</div>
+                </div>
+                <button data-action="close" style="border:0;border-radius:12px;padding:10px 14px;background:#2a2f3f;color:#fff;font:700 12px monospace">Zurueck</button>
+            </div>
+            <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:#c4cad8">
+                <span style="padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.06)">Freigeschaltet: <span data-role="max-world">0</span></span>
+                <span style="padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.06)">Random: ?</span>
+            </div>
+        `;
+
+        const list = document.createElement('div');
+        list.style.flex = '1 1 auto';
+        list.style.minHeight = '0';
+        list.style.overflowY = 'auto';
+        list.style.webkitOverflowScrolling = 'touch';
+        list.style.padding = '12px';
+        list.style.display = 'grid';
+        list.style.gridTemplateColumns = 'repeat(auto-fit, minmax(180px, 1fr))';
+        list.style.gap = '12px';
+        list.style.alignContent = 'start';
+
+        const footer = document.createElement('div');
+        footer.style.padding = '12px 16px 16px';
+        footer.style.borderTop = '1px solid rgba(255,255,255,0.08)';
+        footer.style.fontSize = '12px';
+        footer.style.color = '#94a0b8';
+        footer.textContent = 'Die Liste ist scrollbar, damit auch viele Welten auf dem Handy gut erreichbar bleiben.';
+
+        panel.appendChild(header);
+        panel.appendChild(list);
+        panel.appendChild(footer);
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+
+        header.querySelector('[data-action="close"]').addEventListener('click', () => this.closeWorldSelect());
+
+        this.worldSelectOverlay = overlay;
+        this.worldSelectList = list;
+        this.worldSelectMaxNode = header.querySelector('[data-role="max-world"]');
+    },
+
+    refreshWorldSelectOverlay() {
+        if (!this.worldSelectList) return;
+        if (this.worldSelectMaxNode) {
+            this.worldSelectMaxNode.textContent = String(this.maxWorldUnlocked || 0);
+        }
+        this.worldSelectList.innerHTML = '';
+
+        const addCard = (title, subtitle, action, disabled = false, accent = '#4da3ff') => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.disabled = disabled;
+            btn.style.cssText = [
+                'text-align:left',
+                'border:1px solid rgba(255,255,255,0.10)',
+                'border-radius:16px',
+                'padding:14px',
+                'min-height:96px',
+                'color:#fff',
+                'background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04))',
+                'box-shadow:0 0 0 1px rgba(77,163,255,0.32), 0 0 18px rgba(77,163,255,0.22)',
+                'cursor:pointer'
+            ].join(';');
+            btn.innerHTML = `
+                <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+                    <div style="min-width:0">
+                        <div style="font-size:14px;font-weight:800">${title}</div>
+                        <div style="font-size:11px;color:#c9d4e8;margin-top:4px;line-height:1.4">${subtitle}</div>
+                    </div>
+                    <div style="width:24px;height:24px;border-radius:999px;background:${accent};box-shadow:0 0 12px ${accent};flex:0 0 auto"></div>
+                </div>
+            `;
+            btn.style.opacity = disabled ? '0.45' : '1';
+            btn.addEventListener('click', action);
+            this.worldSelectList.appendChild(btn);
+        };
+
+        addCard('?', 'Zufaellige freigeschaltete Map.', () => {
+            const max = Math.max(0, this.maxWorldUnlocked || 0);
+            const min = this.trainingCompleted ? 1 : 0;
+            const range = Math.max(min, max);
+            const pick = Math.floor(Math.random() * (range - min + 1)) + min;
+            this.startWorld(pick);
+        }, (this.maxWorldUnlocked || 0) <= 0, '#83bfff');
+
+        for (let i = 1; i <= 21; i++) {
+            const reward = this._getWorldReward(i);
+            const locked = i > (this.maxWorldUnlocked || 0);
+            const name = ['Trainingsplatz','Geisterschloss','Maschinen-Hof','Schleim-Arena','Schatten-Burg','Pilz-Wald','Muecken-Sumpf','Antarktis','Vulkan-Insel','Schatten-Dimension','Obst-Paradies','Pixel-Welt','Sternen-Galaxie','Knochen-Tal','Gift-Sumpf','Steinwelt','Obst-Ninja','Dino-Welt','Chrono-Sphaere','Schatten-Suempfe','Fussball-Arena','Schrottplatz'][i - 1] || `Welt ${i}`;
+            const sub = locked
+                ? 'Gesperrt'
+                : `${reward.label}${reward.claimed ? ' | Belohnung schon geholt' : ''}`;
+            addCard(`Welt ${i}: ${name}`, sub, () => this.startWorld(i), locked, locked ? '#6f7788' : '#5ae0ff');
+        }
+    },
+
+    showWorldSelectOverlay(visible) {
+        if (this.worldSelectOverlay) {
+            this.worldSelectOverlay.style.display = visible ? 'flex' : 'none';
+        }
+    },
+
+    openWorldSelect() {
+        Sound.resume();
+        this.showTitleMenuOverlay(false);
+        this.showShopOverlay(false);
+        this.closeRandomStarOverlay2();
+        this.showExtraModeOverlay(false);
+        this.state = 'WORLD_SELECT';
+        this.buildWorldSelectOverlay();
+        this.refreshWorldSelectOverlay();
+        this.showTitleMenuOverlay(false);
+        this.showWorldSelectOverlay(true);
+    },
+
+    closeWorldSelect() {
+        this.showWorldSelectOverlay(false);
+        this.state = 'TITLE';
+        this.showTitleMenuOverlay(true);
+        this.save();
+    },
+
+    buildExtraModeOverlay() {
+        if (this.extraModeOverlay) return;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'extra-mode-overlay';
+        overlay.style.position = 'fixed';
+        overlay.style.inset = '0';
+        overlay.style.display = 'none';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.padding = '12px';
+        overlay.style.background = 'linear-gradient(180deg, rgba(10, 8, 24, 0.96), rgba(18, 8, 12, 0.98))';
+        overlay.style.zIndex = '9999';
+        overlay.style.pointerEvents = 'auto';
+        overlay.style.color = '#fff';
+        overlay.style.fontFamily = 'monospace';
+
+        const panel = document.createElement('div');
+        panel.style.width = 'min(760px, 100%)';
+        panel.style.height = 'min(92vh, 860px)';
+        panel.style.borderRadius = '20px';
+        panel.style.border = '1px solid rgba(255,255,255,0.12)';
+        panel.style.background = 'linear-gradient(180deg, rgba(40, 16, 42, 0.98), rgba(10, 10, 18, 0.98))';
+        panel.style.boxShadow = '0 26px 100px rgba(0,0,0,0.58)';
+        panel.style.display = 'flex';
+        panel.style.flexDirection = 'column';
+        panel.style.overflow = 'hidden';
+
+        const header = document.createElement('div');
+        header.style.padding = '16px 16px 12px';
+        header.style.borderBottom = '1px solid rgba(255,255,255,0.08)';
+        header.innerHTML = `
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+                <div style="min-width:0">
+                    <div style="font-size:20px;font-weight:800;letter-spacing:0.06em">EXTRA MODUS</div>
+                    <div style="font-size:12px;color:#a9b0c0;margin-top:4px">Die Spezial-Modi sind hier gesammelt. Das ist als eigene Menuebene vorbereitet.</div>
+                </div>
+                <button data-action="close" style="border:0;border-radius:12px;padding:10px 14px;background:#2a2f3f;color:#fff;font:700 12px monospace">Zurueck</button>
+            </div>
+        `;
+
+        const list = document.createElement('div');
+        list.style.flex = '1 1 auto';
+        list.style.minHeight = '0';
+        list.style.overflowY = 'auto';
+        list.style.webkitOverflowScrolling = 'touch';
+        list.style.padding = '12px';
+        list.style.display = 'grid';
+        list.style.gap = '12px';
+
+        const footer = document.createElement('div');
+        footer.style.padding = '12px 16px 16px';
+        footer.style.borderTop = '1px solid rgba(255,255,255,0.08)';
+        footer.style.fontSize = '12px';
+        footer.style.color = '#94a0b8';
+        footer.textContent = 'Hinweis: Dieser Bereich wird jetzt ueber echte Buttons erreichbar.';
+
+        panel.appendChild(header);
+        panel.appendChild(list);
+        panel.appendChild(footer);
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+
+        header.querySelector('[data-action="close"]').addEventListener('click', () => this.closeExtraMode());
+
+        this.extraModeOverlay = overlay;
+        this.extraModeList = list;
+    },
+
+    refreshExtraModeOverlay() {
+        if (!this.extraModeList) return;
+        this.extraModeList.innerHTML = '';
+
+        const addCard = (title, subtitle, action, accent) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.style.cssText = [
+                'text-align:left',
+                'border:1px solid rgba(255,255,255,0.10)',
+                'border-radius:16px',
+                'padding:14px',
+                'min-height:96px',
+                'color:#fff',
+                'background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04))',
+                'box-shadow:0 0 0 1px ' + accent + ', 0 0 18px rgba(255,255,255,0.08)',
+                'cursor:pointer'
+            ].join(';');
+            btn.innerHTML = `
+                <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+                    <div style="min-width:0">
+                        <div style="font-size:14px;font-weight:800">${title}</div>
+                        <div style="font-size:11px;color:#c9d4e8;margin-top:4px;line-height:1.4">${subtitle}</div>
+                    </div>
+                    <div style="width:24px;height:24px;border-radius:999px;background:${accent};box-shadow:0 0 12px ${accent};flex:0 0 auto"></div>
+                </div>
+            `;
+            btn.addEventListener('click', action);
+            this.extraModeList.appendChild(btn);
+        };
+
+        addCard('Ultra-Kampf', 'Der geplante Boss-Modus wird hier spaeter eingebaut.', () => {
+            this.startWorld(Math.min(this.maxWorldUnlocked || 1, 21));
+        }, '#ff5d7b');
+        addCard('Sumpf-Parkour', 'Feuer-Fallen, Seen und schmale Bruecken als Challenge.', () => {
+            this.startWorld(Math.min(this.maxWorldUnlocked || 1, 20));
+        }, '#69d26a');
+        addCard('Juwelenjagd', 'Der Sammelmodus wird als eigener Play-Pfad vorbereitet.', () => {
+            this.startWorld(Math.min(this.maxWorldUnlocked || 1, 19));
+        }, '#6db8ff');
+    },
+
+    showExtraModeOverlay(visible) {
+        if (this.extraModeOverlay) {
+            this.extraModeOverlay.style.display = visible ? 'flex' : 'none';
+        }
+    },
+
+    openExtraMode() {
+        Sound.resume();
+        this.showTitleMenuOverlay(false);
+        this.showShopOverlay(false);
+        this.closeRandomStarOverlay2();
+        this.showWorldSelectOverlay(false);
+        this.state = 'EXTRA_MENU';
+        this.buildExtraModeOverlay();
+        this.refreshExtraModeOverlay();
+        this.showExtraModeOverlay(true);
+    },
+
+    closeExtraMode() {
+        this.showExtraModeOverlay(false);
+        this.state = 'TITLE';
+        this.showTitleMenuOverlay(true);
+        this.save();
+    },
+
     save() {
         try {
             localStorage.setItem('mark_save', JSON.stringify({
@@ -209,7 +620,9 @@ const Game = {
         this.shopRandomStarAttempts = 5;
         this.shopRandomStarFinished = false;
         this.shopRandomStarRevealReady = false;
+        this.showTitleMenuOverlay(false);
         this.showWorldSelectOverlay(false);
+        this.showExtraModeOverlay(false);
         this.state = 'SHOP';
         this.buildShopOverlay2();
         this.buildRandomStarOverlay2();
@@ -955,6 +1368,7 @@ const Game = {
         this.showShopOverlay(false);
         this.closeRandomStarOverlay2();
         this.state = 'TITLE';
+        this.showTitleMenuOverlay(true);
         this.save();
     },
 
@@ -969,6 +1383,7 @@ const Game = {
         this.showWorldSelectOverlay(false);
         this.closeExtraMode();
         this.state = 'TITLE';
+        this.showTitleMenuOverlay(true);
         this.save();
     },
 
@@ -1144,6 +1559,7 @@ const Game = {
     },
 
     startWorld(worldNum) {
+        this.showTitleMenuOverlay(false);
         this.currentWorld = worldNum;
         this.state = 'PLAYING';
         this.trainingMode = worldNum === 0;
@@ -1159,6 +1575,7 @@ const Game = {
         this.showShopOverlay(false);
         this.closeRandomStarOverlay();
         this.showWorldSelectOverlay(false);
+        this.showExtraModeOverlay(false);
         this.fadeIn();
         this.enemies = [];
         this.projectiles = [];
@@ -1622,7 +2039,6 @@ const Game = {
             if (Input.attackPressed || Input.mouse.pressed) {
                 Sound.resume();
                 const btn = Renderer.getClickedButton(Input.mouse.x, Input.mouse.y);
-                document.title = btn ? `CLICK:${btn}` : 'CLICK:none';
                 if (btn === 'PLAY') {
                     this.openWorldSelect();
                 } else if (btn === 'SHOP') {
@@ -1712,7 +2128,7 @@ const Game = {
             if (Input.attackPressed || Input.mouse.pressed) {
                 const btn = Renderer.getClickedButton(Input.mouse.x, Input.mouse.y);
                 if (btn === 'NOCHMAL') this.startWorld(this.currentWorld);
-                else if (btn === 'STARTSEITE') { this.trainingMode = false; this.state = 'TITLE'; }
+                else if (btn === 'STARTSEITE') { this.trainingMode = false; this.state = 'TITLE'; this.showTitleMenuOverlay(true); }
             }
             Input.postUpdate();
             return;
@@ -1725,7 +2141,7 @@ const Game = {
             if (Input.attackPressed || Input.mouse.pressed) {
                 const btn = Renderer.getClickedButton(Input.mouse.x, Input.mouse.y);
                 if (btn === 'WEITER') this._advanceToNextWorld();
-                else if (btn === 'STARTSEITE') { this.trainingMode = false; this.state = 'TITLE'; }
+                else if (btn === 'STARTSEITE') { this.trainingMode = false; this.state = 'TITLE'; this.showTitleMenuOverlay(true); }
             }
             Input.postUpdate();
             return;
@@ -1735,6 +2151,7 @@ const Game = {
             if (Input.attackPressed || Input._key('Enter') || Input._key('Space')) {
                 this.trainingMode = false;
                 this.state = 'TITLE';
+                this.showTitleMenuOverlay(true);
             }
             Input.postUpdate();
             return;
