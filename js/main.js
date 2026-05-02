@@ -2466,8 +2466,16 @@ const Game = {
         const ctx = this.ctx;
         ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        if (this.state === 'TITLE' || this.state === 'WORLD_SELECT' || this.state === 'EXTRA_MENU') {
+        if (this.state === 'TITLE') {
             Renderer.drawTitleScreen(ctx, this);
+            return;
+        }
+
+        if (this.state === 'WORLD_SELECT' || this.state === 'EXTRA_MENU') {
+            ctx.fillStyle = '#09111b';
+            ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            ctx.fillStyle = 'rgba(255,255,255,0.05)';
+            ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
             return;
         }
 
