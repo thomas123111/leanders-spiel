@@ -214,6 +214,20 @@ const Game = {
         }
     },
 
+    destroyTitleMenuOverlay() {
+        if (this.titleMenuOverlay && this.titleMenuOverlay.parentNode) {
+            this.titleMenuOverlay.parentNode.removeChild(this.titleMenuOverlay);
+        }
+        this.titleMenuOverlay = null;
+        this.titleMenuButtons = null;
+    },
+
+    ensureTitleMenuOverlay() {
+        if (!this.titleMenuOverlay) {
+            this.buildTitleMenuOverlay();
+        }
+    },
+
     syncTitleMenuOverlayLayout() {
         if (!this.titleMenuOverlay) return;
         this.titleMenuOverlay.style.left = '0';
@@ -361,20 +375,20 @@ const Game = {
 
     openWorldSelect() {
         Sound.resume();
-        this.showTitleMenuOverlay(false);
+        this.destroyTitleMenuOverlay();
         this.showShopOverlay(false);
         this.closeRandomStarOverlay2();
         this.showExtraModeOverlay(false);
         this.state = 'WORLD_SELECT';
         this.buildWorldSelectOverlay();
         this.refreshWorldSelectOverlay();
-        this.showTitleMenuOverlay(false);
         this.showWorldSelectOverlay(true);
     },
 
     closeWorldSelect() {
         this.showWorldSelectOverlay(false);
         this.state = 'TITLE';
+        this.ensureTitleMenuOverlay();
         this.showTitleMenuOverlay(true);
         this.save();
     },
@@ -511,6 +525,7 @@ const Game = {
     closeExtraMode() {
         this.showExtraModeOverlay(false);
         this.state = 'TITLE';
+        this.ensureTitleMenuOverlay();
         this.showTitleMenuOverlay(true);
         this.save();
     },
@@ -1384,6 +1399,7 @@ const Game = {
         this.showShopOverlay(false);
         this.closeRandomStarOverlay2();
         this.state = 'TITLE';
+        this.ensureTitleMenuOverlay();
         this.showTitleMenuOverlay(true);
         this.save();
     },
@@ -1399,6 +1415,7 @@ const Game = {
         this.showWorldSelectOverlay(false);
         this.closeExtraMode();
         this.state = 'TITLE';
+        this.ensureTitleMenuOverlay();
         this.showTitleMenuOverlay(true);
         this.save();
     },
