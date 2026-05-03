@@ -110,22 +110,6 @@ const Game = {
         overlay.style.display = 'none';
         overlay.style.fontFamily = 'monospace';
 
-        const info = document.createElement('div');
-        info.style.position = 'absolute';
-        info.style.left = '12px';
-        info.style.top = '50px';
-        info.style.width = 'min(40vw, 290px)';
-        info.style.pointerEvents = 'none';
-        info.style.color = '#d3d8e6';
-        info.style.textShadow = '0 2px 0 rgba(0,0,0,0.65)';
-        info.style.fontSize = '11px';
-        info.style.lineHeight = '1.45';
-        info.innerHTML = `
-            <div style="font-size:20px;font-weight:800;letter-spacing:0.04em;color:#f4f7ff">MARK</div>
-            <div style="margin-top:10px">Mark ist ein Baseballspieler und Geisterjaeger. Er wurde bestohlen und muss seine Erfindungen zurueckholen.</div>
-            <div style="margin-top:10px;color:#98a4bb">Links bleibt die Biografie sichtbar. Rechts sitzt das Menue als eigener Block.</div>
-        `;
-
         const panel = document.createElement('div');
         panel.style.position = 'absolute';
         panel.style.right = '12px';
@@ -167,7 +151,11 @@ const Game = {
             btn.style.pointerEvents = 'auto';
             btn.style.touchAction = 'manipulation';
             btn.style.cursor = 'pointer';
-            btn.addEventListener('click', action);
+            btn.addEventListener('click', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                action(e);
+            });
             panel.appendChild(btn);
             return btn;
         };
@@ -200,12 +188,11 @@ const Game = {
         note.textContent = 'PLAY oeffnet die Weltauswahl. F blendet Vollbild ein.';
         panel.appendChild(note);
 
-        overlay.appendChild(info);
         overlay.appendChild(panel);
         document.body.appendChild(overlay);
 
         this.titleMenuOverlay = overlay;
-        this.titleMenuButtons = { info, panel, note };
+        this.titleMenuButtons = { panel, note };
     },
 
     showTitleMenuOverlay(visible) {
@@ -489,7 +476,11 @@ const Game = {
                     <div style="width:24px;height:24px;border-radius:999px;background:${accent};box-shadow:0 0 12px ${accent};flex:0 0 auto"></div>
                 </div>
             `;
-            btn.addEventListener('click', action);
+            btn.addEventListener('click', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                action(e);
+            });
             this.extraModeList.appendChild(btn);
         };
 
@@ -512,7 +503,7 @@ const Game = {
 
     openExtraMode() {
         Sound.resume();
-        this.showTitleMenuOverlay(false);
+        this.destroyTitleMenuOverlay();
         this.showShopOverlay(false);
         this.closeRandomStarOverlay2();
         this.showWorldSelectOverlay(false);
