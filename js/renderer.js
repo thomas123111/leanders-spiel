@@ -66,8 +66,8 @@ const Renderer = {
         }
 
         // ── World indicator ──
-        const worldNames = ['Trainingsplatz', 'Geisterschloss', 'Maschinen-Hof', 'Schleim-Arena', 'Schatten-Burg', 'Pilz-Wald', 'M\u00fccken-Sumpf', 'Antarktis', 'Vulkan-Insel', 'Schatten-Dim.', 'Obst-Paradies', 'Pixel-Welt', 'Sternen-Galaxie', 'Knochen-Tal', 'Gift-Sumpf', 'Steinwelt', 'Obst-Ninja', 'Dino-Welt'];
-        const worldColors = ['#AAA', '#A6F', '#F80', '#4D4', '#C66', '#A84', '#8A4', '#8CF', '#F84', '#A0F', '#F80', '#48F', '#FA0', '#EEE', '#4F4', '#AAA', '#F88', '#9C6'];
+        const worldNames = ['Trainingsplatz', 'Geisterschloss', 'Maschinen-Hof', 'Schleim-Arena', 'Schatten-Burg', 'Pilz-Wald', 'M\u00fccken-Sumpf', 'Antarktis', 'Vulkan-Insel', 'Schatten-Dim.', 'Obst-Paradies', 'Pixel-Welt', 'Sternen-Galaxie', 'Knochen-Tal', 'Gift-Sumpf', 'Steinwelt', 'Obst-Ninja', 'Dino-Welt', 'Chrono-Sph\u00e4re', 'Schatten-S\u00fcmpfe', 'Fu\u00dfball-Arena', 'Schrottplatz'];
+        const worldColors = ['#AAA', '#A6F', '#F80', '#4D4', '#C66', '#A84', '#8A4', '#8CF', '#F84', '#A0F', '#F80', '#48F', '#FA0', '#EEE', '#4F4', '#AAA', '#F88', '#9C6', '#7EF', '#8F8', '#FA0', '#BBB'];
         const worldIndex = Math.max(0, Math.min(worldNames.length - 1, game.currentWorld || 0));
         ctx.fillStyle = worldColors[worldIndex];
         ctx.font = mobile ? 'bold 10px monospace' : 'bold 11px monospace';
@@ -219,6 +219,10 @@ const Renderer = {
                 15: { name: 'STEIN-D\u00c4MON', color: '#AAA' },
                 16: { name: 'FRUCHT-GIGANT', color: '#F88' },
                 17: { name: 'STACHEL-T-REX', color: '#9C6' },
+                18: { name: 'RIESEN-ZEITKUGEL', color: '#7EF' },
+                19: { name: 'SCHATTEN-KROKODIL', color: '#8F8' },
+                20: { name: 'RIESEN-FUSSBALL', color: '#FA0' },
+                21: { name: 'RIESEN-WASCHBÄR', color: '#BBB' },
             };
             const boss = bossNames[game.currentWorld] || { name: 'BOSS', color: '#F00' };
             ctx.fillStyle = 'rgba(0,0,0,0.7)';
@@ -639,7 +643,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-ctx.fillText('v8.3.6', cw - 8, ch - 6);
+ctx.fillText('v8.3.7', cw - 8, ch - 6);
 
         ctx.restore();
     },
@@ -970,8 +974,8 @@ ctx.fillText('v8.3.6', cw - 8, ch - 6);
             17: { title: 'STACHEL-T-REX besiegt!', desc: '50 Juwelen beim ersten Sieg!', color: '#9C6' },
             18: { title: 'ZEITKUGEL besiegt!', desc: '1 Böser Stern beim ersten Sieg!', color: '#7EF' },
             19: { title: 'SCHATTEN-KROKODIL besiegt!', desc: '1 Schatten-Meister-Stern beim ersten Sieg!', color: '#8F8' },
-            20: { title: 'FUSSBALL geknackt!', desc: '3 Böse Sterne beim ersten Sieg!', color: '#FA0' },
-            21: { title: 'WASCHBAER besiegt!', desc: '500 Muenzen beim ersten Sieg!', color: '#BBB' },
+            20: { title: 'RIESEN-FUSSBALL besiegt!', desc: '3 Böse Sterne beim ersten Sieg!', color: '#FA0' },
+            21: { title: 'RIESEN-WASCHBÄR besiegt!', desc: '500 Münzen beim ersten Sieg!', color: '#BBB' },
         };
         const r = rewards[worldNum];
         if (r) {

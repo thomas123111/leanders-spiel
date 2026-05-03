@@ -346,7 +346,7 @@ const Game = {
         for (let i = 1; i <= 21; i++) {
             const reward = this._getWorldReward(i);
             const locked = i > (this.maxWorldUnlocked || 0);
-            const name = ['Trainingsplatz','Geisterschloss','Maschinen-Hof','Schleim-Arena','Schatten-Burg','Pilz-Wald','Mücken-Sumpf','Antarktis','Vulkan-Insel','Schatten-Dimension','Obst-Paradies','Pixel-Welt','Sternen-Galaxie','Knochen-Tal','Gift-Sumpf','Steinwelt','Obst-Ninja','Dino-Welt','Chrono-Sphäre','Schatten-Sümpfe','Fußball-Arena','Schrottplatz'][i - 1] || `Welt ${i}`;
+            const name = ['Geisterschloss','Maschinen-Hof','Schleim-Arena','Schatten-Burg','Pilz-Wald','Mücken-Sumpf','Antarktis','Vulkan-Insel','Schatten-Dimension','Obst-Paradies','Pixel-Welt','Sternen-Galaxie','Knochen-Tal','Gift-Sumpf','Steinwelt','Obst-Ninja','Dino-Welt','Chrono-Sphäre','Schatten-Sümpfe','Fußball-Arena','Schrottplatz'][i - 1] || `Welt ${i}`;
             const sub = locked
                 ? 'Gesperrt'
                 : `${reward.label}${reward.claimed ? ' | Belohnung schon geholt' : ''}`;
