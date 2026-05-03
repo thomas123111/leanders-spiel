@@ -873,6 +873,22 @@ const Game = {
         }
     },
 
+    showRandomStarOverlay2(visible) {
+        if (this.shopStarOverlay) {
+            this.shopStarOverlay.style.display = visible ? 'flex' : 'none';
+        }
+    },
+
+    openRandomStarOverlay2() {
+        this.buildRandomStarOverlay2();
+        this.refreshRandomStarOverlay2();
+        this.showRandomStarOverlay2(true);
+    },
+
+    closeRandomStarOverlay2() {
+        this.showRandomStarOverlay2(false);
+    },
+
     _advanceRandomStarStep2() {
         if (this.shopRandomStarFinished) return;
         if (this.shopRandomStarAttempts <= 0) {
