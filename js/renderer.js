@@ -1,4 +1,4 @@
-// ── Renderer / HUD ──
+﻿// ── Renderer / HUD ──
 
 const Renderer = {
     drawHUD(ctx, player, game) {
@@ -585,7 +585,7 @@ const Renderer = {
         ctx.fillStyle = '#8AA';
         ctx.font = '8px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('? drehen', markX, ch * 0.58);
+        ctx.fillText('drehen', markX, ch * 0.58);
 
         ctx.fillStyle = '#B7C0D0';
         ctx.font = '10px monospace';
@@ -593,7 +593,7 @@ const Renderer = {
         const bioLines = [
             'Mark ist ein',
             'Baseballspieler und',
-            'Geisterj?ger. Seit er',
+            'Geisterjäger. Seit er',
             'bestohlen wurde, hat',
             'er sich verwandelt...',
             'Findet es selbst heraus!'
@@ -611,7 +611,7 @@ const Renderer = {
             ctx.textAlign = 'center';
             ctx.fillStyle = '#DDD';
             ctx.font = mobile ? 'bold 14px monospace' : 'bold 15px monospace';
-            ctx.fillText('W?hle einen Startpunkt', tx, startY - 30);
+            ctx.fillText('Wähle einen Startpunkt', tx, startY - 30);
             this._drawButton(ctx, tx - btnW / 2, startY, btnW, btnH, 'SHOP', mobile ? 15 : 16);
             this._drawButton(ctx, tx - btnW / 2, startY + (mobile ? 48 : 40), btnW, btnH, 'TRAININGSPLATZ', mobile ? 11 : 13);
             this._drawButton(ctx, tx - btnW / 2, startY + (mobile ? 96 : 80), btnW, btnH, 'EXTRA', mobile ? 15 : 16);
@@ -621,10 +621,10 @@ const Renderer = {
             ctx.fillStyle = '#888';
             ctx.font = '10px monospace';
             const infoY = mobile ? startY + 242 : startY + 210;
-            ctx.fillText('PLAY ?ffnet die Weltauswahl', tx, infoY);
-            ctx.fillText('EXTRA f?hrt zu den Spezial-Modi', tx, infoY + 16);
+            ctx.fillText('PLAY öffnet die Weltauswahl', tx, infoY);
+            ctx.fillText('EXTRA führt zu den Spezial-Modi', tx, infoY + 16);
             ctx.fillText('VOLLBILD blendet die Browserleiste aus', tx, infoY + 32);
-            ctx.fillText('SHOP enth?lt Sterne, Krone und Daily Reward', tx, infoY + 48);
+            ctx.fillText('SHOP enthält Sterne, Krone und Daily Reward', tx, infoY + 48);
         }
 
         ctx.fillStyle = '#555';
@@ -639,7 +639,7 @@ const Renderer = {
         ctx.fillStyle = '#444';
         ctx.font = '9px monospace';
         ctx.textAlign = 'right';
-ctx.fillText('v8.3.5', cw - 8, ch - 6);
+ctx.fillText('v8.3.6', cw - 8, ch - 6);
 
         ctx.restore();
     },

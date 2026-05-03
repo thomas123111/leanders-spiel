@@ -1,4 +1,4 @@
-// ── Main Game ──
+﻿// ── Main Game ──
 
 const Game = {
     canvas: null,
@@ -131,7 +131,7 @@ const Game = {
         title.style.fontWeight = '800';
         title.style.color = '#fff';
         title.style.letterSpacing = '0.04em';
-        title.textContent = 'MENUE';
+        title.textContent = 'MENÜ';
         panel.appendChild(title);
 
         const makeButton = (label, action, opts = {}) => {
@@ -185,7 +185,7 @@ const Game = {
         note.style.fontSize = '10px';
         note.style.lineHeight = '1.4';
         note.style.pointerEvents = 'none';
-        note.textContent = 'PLAY oeffnet die Weltauswahl. F blendet Vollbild ein.';
+        note.textContent = 'PLAY öffnet die Weltauswahl. F blendet Vollbild ein.';
         panel.appendChild(note);
 
         overlay.appendChild(panel);
@@ -258,9 +258,9 @@ const Game = {
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
                 <div style="min-width:0">
                     <div style="font-size:20px;font-weight:800;letter-spacing:0.06em">WELTWAHL</div>
-                    <div style="font-size:12px;color:#a9b0c0;margin-top:4px">Tippe eine freigeschaltete Welt an. Ein ? wuerfelt eine zufaellige freigeschaltete Map.</div>
+                    <div style="font-size:12px;color:#a9b0c0;margin-top:4px">Tippe eine freigeschaltete Welt an. Ein ? würfelt eine zufällige freigeschaltete Map.</div>
                 </div>
-                <button data-action="close" style="border:0;border-radius:12px;padding:10px 14px;background:#2a2f3f;color:#fff;font:700 12px monospace">Zurueck</button>
+                <button data-action="close" style="border:0;border-radius:12px;padding:10px 14px;background:#2a2f3f;color:#fff;font:700 12px monospace">Zurück</button>
             </div>
             <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:#c4cad8">
                 <span style="padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.06)">Freigeschaltet: <span data-role="max-world">0</span></span>
@@ -335,7 +335,7 @@ const Game = {
             this.worldSelectList.appendChild(btn);
         };
 
-        addCard('?', 'Zufaellige freigeschaltete Map.', () => {
+        addCard('?', 'Zufällige freigeschaltete Map.', () => {
             const max = Math.max(0, this.maxWorldUnlocked || 0);
             const min = this.trainingCompleted ? 1 : 0;
             const range = Math.max(min, max);
@@ -346,7 +346,7 @@ const Game = {
         for (let i = 1; i <= 21; i++) {
             const reward = this._getWorldReward(i);
             const locked = i > (this.maxWorldUnlocked || 0);
-            const name = ['Trainingsplatz','Geisterschloss','Maschinen-Hof','Schleim-Arena','Schatten-Burg','Pilz-Wald','Muecken-Sumpf','Antarktis','Vulkan-Insel','Schatten-Dimension','Obst-Paradies','Pixel-Welt','Sternen-Galaxie','Knochen-Tal','Gift-Sumpf','Steinwelt','Obst-Ninja','Dino-Welt','Chrono-Sphaere','Schatten-Suempfe','Fussball-Arena','Schrottplatz'][i - 1] || `Welt ${i}`;
+            const name = ['Trainingsplatz','Geisterschloss','Maschinen-Hof','Schleim-Arena','Schatten-Burg','Pilz-Wald','Mücken-Sumpf','Antarktis','Vulkan-Insel','Schatten-Dimension','Obst-Paradies','Pixel-Welt','Sternen-Galaxie','Knochen-Tal','Gift-Sumpf','Steinwelt','Obst-Ninja','Dino-Welt','Chrono-Sphäre','Schatten-Sümpfe','Fußball-Arena','Schrottplatz'][i - 1] || `Welt ${i}`;
             const sub = locked
                 ? 'Gesperrt'
                 : `${reward.label}${reward.claimed ? ' | Belohnung schon geholt' : ''}`;
@@ -415,9 +415,9 @@ const Game = {
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
                 <div style="min-width:0">
                     <div style="font-size:20px;font-weight:800;letter-spacing:0.06em">EXTRA MODUS</div>
-                    <div style="font-size:12px;color:#a9b0c0;margin-top:4px">Die Spezial-Modi sind hier gesammelt. Das ist als eigene Menuebene vorbereitet.</div>
+                    <div style="font-size:12px;color:#a9b0c0;margin-top:4px">Die Spezial-Modi sind hier gesammelt. Das ist als eigene Menüebene vorbereitet.</div>
                 </div>
-                <button data-action="close" style="border:0;border-radius:12px;padding:10px 14px;background:#2a2f3f;color:#fff;font:700 12px monospace">Zurueck</button>
+                <button data-action="close" style="border:0;border-radius:12px;padding:10px 14px;background:#2a2f3f;color:#fff;font:700 12px monospace">Zurück</button>
             </div>
         `;
 
@@ -435,7 +435,7 @@ const Game = {
         footer.style.borderTop = '1px solid rgba(255,255,255,0.08)';
         footer.style.fontSize = '12px';
         footer.style.color = '#94a0b8';
-        footer.textContent = 'Hinweis: Dieser Bereich wird jetzt ueber echte Buttons erreichbar.';
+        footer.textContent = 'Hinweis: Dieser Bereich wird jetzt über echte Buttons erreichbar.';
 
         panel.appendChild(header);
         panel.appendChild(list);
@@ -484,10 +484,10 @@ const Game = {
             this.extraModeList.appendChild(btn);
         };
 
-        addCard('Ultra-Kampf', 'Der geplante Boss-Modus wird hier spaeter eingebaut.', () => {
+        addCard('Ultra-Kampf', 'Der geplante Boss-Modus wird hier später eingebaut.', () => {
             this.startWorld(Math.min(this.maxWorldUnlocked || 1, 21));
         }, '#ff5d7b');
-        addCard('Sumpf-Parkour', 'Feuer-Fallen, Seen und schmale Bruecken als Challenge.', () => {
+        addCard('Sumpf-Parkour', 'Feuer-Fallen, Seen und schmale Brücken als Challenge.', () => {
             this.startWorld(Math.min(this.maxWorldUnlocked || 1, 20));
         }, '#69d26a');
         addCard('Juwelenjagd', 'Der Sammelmodus wird als eigener Play-Pfad vorbereitet.', () => {
@@ -646,9 +646,9 @@ const Game = {
         this.showWorldSelectOverlay(false);
         this.showExtraModeOverlay(false);
         this.state = 'SHOP';
-        this.buildShopOverlay2();
-        this.buildRandomStarOverlay2();
-        this.refreshShopOverlay2();
+        this.buildShopOverlay();
+        this.buildRandomStarOverlay();
+        this.refreshShopOverlay();
         this.showShopOverlay(true);
     },
 
@@ -688,13 +688,13 @@ const Game = {
         header.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0))';
         header.innerHTML = `
             <div style="min-width:0">
-                <div style="font-size:20px;font-weight:800;letter-spacing:0.06em">BOESE STERNE</div>
-                <div style="margin-top:4px;font-size:12px;color:#d7d0c0;line-height:1.4">Swipe ueber den Stern. Nach 5 Versuchen kannst du ihn antippen.</div>
+                <div style="font-size:20px;font-weight:800;letter-spacing:0.06em">BÖSE STERNE</div>
+                <div style="margin-top:4px;font-size:12px;color:#d7d0c0;line-height:1.4">Swipe über den Stern. Nach 5 Versuchen kannst du ihn antippen.</div>
             </div>
         `;
         const close = document.createElement('button');
         close.type = 'button';
-        close.textContent = 'Zurueck';
+        close.textContent = 'Zurück';
         close.style.cssText = 'border:0;border-radius:12px;padding:10px 14px;background:#2a2f3f;color:#fff;font:700 12px monospace;flex:0 0 auto;';
         close.addEventListener('click', () => this.closeRandomStarOverlay2());
         header.appendChild(close);
@@ -859,17 +859,17 @@ const Game = {
         }
         if (this.shopStarAction) {
             this.shopStarAction.textContent = this.shopRandomStarFinished && this.shopRandomStarRevealReady
-                ? 'ZUM OEFFNEN TIPPEN'
+                ? 'ZUM ÖFFNEN TIPPEN'
                 : 'Swipe den Stern';
         }
         if (this.shopStarHint) {
             const tierLabel = ['Scharf', 'Super Scharf', 'Mega Scharf', 'Ultrascharf'][Math.min(this.shopRandomStarTier || 0, 3)];
             this.shopStarHint.textContent = this.shopRandomStarFinished && this.shopRandomStarRevealReady
                 ? 'Der Stern ist fertig geladen. Jetzt tippen!'
-                : `Schaerfegrad: ${tierLabel}`;
+                : `Schärfegrad: ${tierLabel}`;
         }
         if (this.shopStarStatus) {
-            this.shopStarStatus.textContent = `Versuche uebrig: ${Math.max(0, this.shopRandomStarAttempts || 0)}.`;
+            this.shopStarStatus.textContent = `Versuche übrig: ${Math.max(0, this.shopRandomStarAttempts || 0)}.`;
         }
     },
 
@@ -887,6 +887,14 @@ const Game = {
 
     closeRandomStarOverlay2() {
         this.showRandomStarOverlay2(false);
+    },
+
+    buildRandomStarOverlay2() {
+        this.buildRandomStarOverlay();
+    },
+
+    refreshShopOverlay2() {
+        this.refreshShopOverlay();
     },
 
     _advanceRandomStarStep2() {
@@ -923,7 +931,7 @@ const Game = {
         overlay.style.alignItems = 'center';
         overlay.style.justifyContent = 'center';
         overlay.style.padding = '12px';
-        overlay.style.background = 'rgba(4, 6, 10, 0.92)';
+        overlay.style.background = 'linear-gradient(180deg, rgba(8, 12, 24, 0.96), rgba(15, 10, 30, 0.98))';
         overlay.style.backdropFilter = 'blur(10px)';
         overlay.style.webkitBackdropFilter = 'blur(10px)';
         overlay.style.zIndex = '9999';
@@ -931,12 +939,12 @@ const Game = {
         overlay.style.fontFamily = 'monospace';
 
         const panel = document.createElement('div');
-        panel.style.width = 'min(720px, 100%)';
+        panel.style.width = 'min(760px, 100%)';
         panel.style.maxHeight = 'min(92vh, 860px)';
         panel.style.border = '1px solid rgba(255,255,255,0.12)';
-        panel.style.borderRadius = '18px';
-        panel.style.background = 'linear-gradient(180deg, rgba(19, 16, 28, 0.98), rgba(10, 12, 18, 0.98))';
-        panel.style.boxShadow = '0 24px 80px rgba(0,0,0,0.55)';
+        panel.style.borderRadius = '20px';
+        panel.style.background = 'linear-gradient(180deg, rgba(20, 26, 54, 0.98), rgba(8, 9, 18, 0.98))';
+        panel.style.boxShadow = '0 26px 100px rgba(0,0,0,0.58)';
         panel.style.display = 'flex';
         panel.style.flexDirection = 'column';
         panel.style.overflow = 'hidden';
@@ -947,13 +955,13 @@ const Game = {
         header.innerHTML = `
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
                 <div>
-                    <div style="font-size:20px;font-weight:700;letter-spacing:0.06em">SHOP</div>
-                    <div style="font-size:12px;color:#a9b0c0;margin-top:4px">Alles ist antippbar und die Liste kann gescrollt werden.</div>
+                    <div style="font-size:20px;font-weight:800;letter-spacing:0.06em">SHOP</div>
+                    <div style="font-size:12px;color:#a9b0c0;margin-top:4px">Daily Reward, Wechselstube und Sterne im gleichen Kartenstil wie die anderen Menüs.</div>
                 </div>
-                <button data-action="close" style="border:0;border-radius:12px;padding:10px 14px;background:#2a2f3f;color:#fff;font:700 12px monospace">Zurueck</button>
+                <button data-action="close" style="border:0;border-radius:12px;padding:10px 14px;background:#2a2f3f;color:#fff;font:700 12px monospace">Zurück</button>
             </div>
             <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:#c4cad8">
-                <span style="padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.06)">Muenzen: <span data-role="coins">0</span></span>
+                <span style="padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.06)">Münzen: <span data-role="coins">0</span></span>
                 <span style="padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.06)">Juwelen: <span data-role="jewels">0</span></span>
                 <span style="padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.06)">Daily Reward, Sterne und Krone</span>
             </div>
@@ -974,7 +982,7 @@ const Game = {
         footer.style.borderTop = '1px solid rgba(255,255,255,0.08)';
         footer.style.fontSize = '12px';
         footer.style.color = '#94a0b8';
-        footer.textContent = 'Tipp: Freier Stern aus dem Daily Reward wird hier direkt sichtbar.';
+        footer.textContent = 'Tipp: Auf dem Handy bleibt alles vertikal scrollbar, damit die Karten gut erreichbar bleiben.';
 
         panel.appendChild(header);
         panel.appendChild(list);
@@ -1247,9 +1255,9 @@ const Game = {
         }
 
         this.shopList.innerHTML = '';
-        const cardStyle = 'padding:14px;border:1px solid rgba(255,255,255,0.10);border-radius:16px;background:rgba(255,255,255,0.05);flex:0 0 270px;min-width:270px;scroll-snap-align:start;';
-        const btnStyle = 'border:0;border-radius:12px;padding:10px 14px;font:700 12px monospace;color:#000;background:#FFD700;';
-        const smallBtnStyle = 'border:0;border-radius:10px;padding:8px 12px;font:700 11px monospace;color:#000;background:#FFD700;';
+        const cardStyle = 'padding:16px;border:1px solid rgba(255,255,255,0.10);border-radius:16px;background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));box-shadow:0 0 0 1px rgba(77,163,255,0.22), 0 0 18px rgba(77,163,255,0.14);min-width:0;';
+        const btnStyle = 'border:0;border-radius:12px;padding:10px 14px;font:700 12px monospace;color:#fff;background:linear-gradient(180deg, #2f8ef8, #1d4aa8);box-shadow:0 10px 24px rgba(12,34,86,0.35);';
+        const smallBtnStyle = 'border:0;border-radius:10px;padding:8px 12px;font:700 11px monospace;color:#fff;background:linear-gradient(180deg, #2f8ef8, #1d4aa8);box-shadow:0 8px 18px rgba(12,34,86,0.3);';
 
         const makeCard = (title, subtitle) => {
             const card = document.createElement('div');
@@ -1270,7 +1278,7 @@ const Game = {
             return card;
         };
 
-        const daily = makeCard('Daily Reward', this.dailyRewardClaimDate === this._todayKey() ? 'Heute bereits geholt oder fuer 5000 Muenzen erneut freischalten.' : 'Erster Klick heute gratis.');
+        const daily = makeCard('Daily Reward', this.dailyRewardClaimDate === this._todayKey() ? 'Heute bereits geholt oder für 5000 Münzen erneut freischalten.' : 'Erster Klick heute gratis.');
         if (this.freeStarTier) {
             const tag = document.createElement('div');
             tag.style.cssText = 'margin-top:10px;display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;background:rgba(255,215,0,0.12);color:#ffd966;font-size:11px;font-weight:700;';
@@ -1288,7 +1296,7 @@ const Game = {
         daily.appendChild(dailyBtn);
         this.shopList.appendChild(daily);
 
-        const exchange = makeCard('Wechselstube', 'Coins und Juwelen tauschen.');
+        const exchange = makeCard('Wechselstube', 'Münzen und Juwelen tauschen.');
         const exchangeRows = [
             { label: '20 J = 100 M', can: this.jewels >= 20, action: () => { if (this._spendJewels(20)) this._grantCoins(100); } },
             { label: '50 J = 500 M', can: this.jewels >= 50, action: () => { if (this._spendJewels(50)) this._grantCoins(500); } },
@@ -1307,7 +1315,7 @@ const Game = {
             btn.textContent = row.label;
             btn.disabled = !row.can;
             btn.style.cssText = 'border:0;border-radius:10px;padding:8px 10px;font:700 11px monospace;' +
-                (row.can ? 'color:#fff;background:#2A8CFF;' : 'color:#666;background:#2a2a33;');
+                (row.can ? 'color:#fff;background:linear-gradient(180deg, #2f8ef8, #1d4aa8);box-shadow:0 8px 18px rgba(12,34,86,0.25);' : 'color:#666;background:#2a2a33;');
             btn.addEventListener('click', () => {
                 row.action();
                 this.refreshShopOverlay2();
@@ -1329,7 +1337,7 @@ const Game = {
         for (const tier of tiers) {
             const cell = document.createElement('button');
             cell.type = 'button';
-            cell.style.cssText = 'text-align:left;border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:12px;background:rgba(255,255,255,0.05);color:#fff;min-height:92px;min-width:0;';
+            cell.style.cssText = 'text-align:left;border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:12px;background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));box-shadow:0 0 0 1px rgba(90,224,255,0.18), 0 0 16px rgba(90,224,255,0.12);color:#fff;min-height:92px;min-width:0;';
             const free = this.freeStarTier === tier.id;
             cell.innerHTML = `
                 <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
