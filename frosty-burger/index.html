@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+    <meta name="theme-color" content="#062b46">
+    <title>Frosty Burger</title>
+    <link rel="stylesheet" href="styles.css?v=1.0.0">
+</head>
+<body>
+    <main id="game-shell">
+        <canvas id="game" width="960" height="540" aria-label="Frosty Burger Spiel"></canvas>
+
+        <section id="hud" class="hidden" aria-live="polite">
+            <div class="hud-pill money"><span>€</span><strong id="money">0</strong></div>
+            <div class="hud-pill day"><span>TAG 1</span><strong id="day-time">3:00</strong></div>
+            <div class="hud-pill target"><span>ZIEL</span><strong>60 €</strong></div>
+            <div id="order-card">
+                <div class="order-head">
+                    <span>BESTELLUNG</span>
+                    <strong id="customer-time">0:45</strong>
+                </div>
+                <div id="order-name">Burger</div>
+                <div id="recipe"></div>
+            </div>
+            <div id="instruction">Tippe auf eine Zutat.</div>
+        </section>
+
+        <section id="start-screen" class="screen-card">
+            <p class="eyebrow">ANTARKTIS-KÜCHE</p>
+            <h1>FROSTY<br><span>BURGER</span></h1>
+            <div class="penguin-badge" aria-hidden="true">🐧<span>👨‍🍳</span></div>
+            <p>Hilf dem Pinguin-Koch. Hole Zutaten, bereite das Essen zu und bediene die Kundenschlange.</p>
+            <button id="start-button">TAG STARTEN</button>
+        </section>
+
+        <section id="result-screen" class="screen-card hidden">
+            <p class="eyebrow" id="result-kicker">FEIERABEND</p>
+            <h2 id="result-title">GESCHAFFT!</h2>
+            <p id="result-text"></p>
+            <button id="restart-button">NOCH EIN TAG</button>
+        </section>
+
+        <div id="rotate-screen">
+            <div>↻</div>
+            <strong>Handy quer drehen</strong>
+            <span>Frosty braucht Platz in seiner Küche.</span>
+        </div>
+    </main>
+
+    <script src="game.js?v=1.0.0"></script>
+</body>
+</html>
