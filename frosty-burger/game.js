@@ -311,10 +311,6 @@
         resetOrder();
     }
 
-    function traySlots() {
-        return game.collected.map((name, i) => ({ name, x: 330 + i * 82, y: 40, w: 70, h: 54 }));
-    }
-
     canvas.addEventListener('pointerdown', event => {
         const p = canvasPoint(event);
         game.pointer = { down: true, x: p.x, y: p.y, movedAt: performance.now(), startX: p.x, startY: p.y };
@@ -505,6 +501,7 @@
 
         Object.entries(tools).forEach(([key, tool]) => {
             const active = recipes[game.order]?.tool === key;
+            const allCollected = active && recipes[game.order].ingredients.every(name => game.collected.includes(name));
             const wantsIngredients = active && (game.collected.length > 0 || game.added.length > 0) && !game.dishReady;
             ctx.save();
             if (wantsIngredients || game.dishReady) {
@@ -531,19 +528,11 @@
                 ctx.fillStyle = '#9b5600';
                 ctx.font = '900 10px Trebuchet MS';
                 ctx.fillText(key === 'pan' ? 'NACH OBEN WISCHEN' : 'KREISEN', tool.x + tool.w / 2, tool.y - 9);
+            } else if (allCollected && !game.player.moving) {
+                ctx.fillStyle = '#9b5600';
+                ctx.font = '900 12px Trebuchet MS';
+                ctx.fillText('JETZT TIPPEN', tool.x + tool.w / 2, tool.y - 10);
             }
-        });
-    }
-
-    function drawTray() {
-        traySlots().forEach(slot => {
-            roundedRect(slot.x, slot.y, slot.w, slot.h, 13, '#fff', '#2798bc');
-            ctx.font = '24px serif';
-            ctx.textAlign = 'center';
-            ctx.fillText(ingredientEmoji(slot.name), slot.x + slot.w / 2, slot.y + 28);
-            ctx.fillStyle = '#16465b';
-            ctx.font = '800 9px Trebuchet MS';
-            ctx.fillText(slot.name, slot.x + slot.w / 2, slot.y + 45);
         });
     }
 
@@ -665,9 +654,13 @@
         drawStations();
         drawCustomers();
         drawPenguin();
-        drawTray();
         drawCookingProgress();
         drawEffects();
+
+        ctx.fillStyle = 'rgba(4, 48, 68, .55)';
+        ctx.font = '800 10px Trebuchet MS';
+        ctx.textAlign = 'left';
+        ctx.fillText('v1.2.1', 12, H - 12);
 
         game.snow.forEach(flake => {
             flake.y += .18;
