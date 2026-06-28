@@ -79,6 +79,18 @@ button { font: inherit; }
     color: var(--ink);
     background: #fff;
     box-shadow: 0 10px 0 rgba(3, 31, 47, .28);
+    transition: border-color .2s, background .2s, transform .2s;
+}
+
+#order-card.warning {
+    border-color: #ffd84b;
+    background: #fff9d4;
+}
+
+#order-card.danger {
+    border-color: #ff5e52;
+    background: #fff0ed;
+    animation: order-alert .55s ease-in-out infinite alternate;
 }
 
 .order-head { display: flex; justify-content: space-between; color: #467086; font-size: 11px; letter-spacing: .1em; }
@@ -87,6 +99,11 @@ button { font: inherit; }
 #recipe { display: flex; gap: 7px; }
 .recipe-item { flex: 1; padding: 5px; border-radius: 9px; background: #dff7ff; text-align: center; font-size: 12px; font-weight: 800; }
 .recipe-item.done { color: #fff; background: #27a76e; }
+
+@keyframes order-alert {
+    from { transform: scale(1); }
+    to { transform: scale(1.025); }
+}
 
 #instruction {
     position: absolute;
@@ -101,6 +118,7 @@ button { font: inherit; }
     text-align: center;
     font-size: 13px;
     font-weight: 800;
+    border: 1px solid rgba(255,255,255,.2);
 }
 
 .screen-card {
@@ -164,4 +182,8 @@ h2 { line-height: 1; font-size: clamp(38px, 7vw, 64px); color: var(--yellow); }
     #order-card { padding: 7px 10px; }
     #order-name { font-size: 16px; margin-bottom: 4px; }
     .recipe-item { padding: 3px; font-size: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #order-card.danger { animation: none; }
 }

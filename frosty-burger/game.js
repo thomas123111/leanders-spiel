@@ -8,6 +8,7 @@
         money: document.getElementById('money'),
         dayTime: document.getElementById('day-time'),
         customerTime: document.getElementById('customer-time'),
+        orderCard: document.getElementById('order-card'),
         orderName: document.getElementById('order-name'),
         recipe: document.getElementById('recipe'),
         instruction: document.getElementById('instruction'),
@@ -65,8 +66,34 @@
         pointer: { down: false, x: 0, y: 0, movedAt: 0, startX: 0, startY: 0 },
         lastTime: performance.now(),
         messageTimer: 0,
+        effects: [],
+        audio: null,
         snow: Array.from({ length: 55 }, (_, i) => ({ x: (i * 173) % W, y: (i * 97) % H, r: 1 + (i % 3) }))
     };
+
+    function initAudio() {
+        if (game.audio || typeof window === 'undefined') return;
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) game.audio = new AudioContext();
+    }
+
+    function tone(frequency, duration = 0.08, type = 'sine') {
+        if (!game.audio) return;
+        const oscillator = game.audio.createOscillator();
+        const gain = game.audio.createGain();
+        oscillator.type = type;
+        oscillator.frequency.value = frequency;
+        gain.gain.setValueAtTime(0.08, game.audio.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, game.audio.currentTime + duration);
+        oscillator.connect(gain);
+        gain.connect(game.audio.destination);
+        oscillator.start();
+        oscillator.stop(game.audio.currentTime + duration);
+    }
+
+    function addEffect(text, x, y, color = '#ffffff') {
+        game.effects.push({ text, x, y, color, life: 1.2, maxLife: 1.2 });
+    }
 
     function randomOrder() {
         const keys = Object.keys(recipes);
@@ -75,7 +102,12 @@
 
     function makeCustomer(index = 0) {
         const colors = ['#ffb45b', '#7bd1ff', '#cf8cff', '#8de08c', '#ff8d9d'];
-        return { color: colors[(Math.floor(Math.random() * colors.length) + index) % colors.length] };
+        const hair = ['#5b331f', '#231a18', '#d68b27', '#7c5239'];
+        return {
+            color: colors[(Math.floor(Math.random() * colors.length) + index) % colors.length],
+            hair: hair[(Math.floor(Math.random() * hair.length) + index) % hair.length],
+            style: (Math.floor(Math.random() * 3) + index) % 3
+        };
     }
 
     function resetOrder() {
@@ -94,10 +126,13 @@
     }
 
     function startDay() {
+        initAudio();
+        game.audio?.resume?.();
         game.mode = 'playing';
         game.money = 0;
         game.dayTime = DAY_SECONDS;
         game.queue = [makeCustomer(0), makeCustomer(1), makeCustomer(2)];
+        game.effects = [];
         Object.assign(game.player, { x: 450, y: 265, targetX: 450, targetY: 265, moving: false, task: null });
         ui.start.classList.add('hidden');
         ui.result.classList.add('hidden');
@@ -128,6 +163,9 @@
         ui.money.textContent = game.money;
         ui.dayTime.textContent = formatTime(game.dayTime);
         ui.customerTime.textContent = `0:${String(Math.max(0, Math.ceil(game.customerTime))).padStart(2, '0')}`;
+        ui.orderCard.classList.remove('warning', 'danger');
+        if (game.customerTime <= 10) ui.orderCard.classList.add('danger');
+        else if (game.customerTime <= 20) ui.orderCard.classList.add('warning');
         ui.orderName.textContent = `${recipe.emoji} ${recipe.name} · ${recipe.price} €`;
         ui.recipe.innerHTML = recipe.ingredients.map(name => {
             const done = game.collected.includes(name) || game.added.includes(name);
@@ -166,6 +204,11 @@
     function clickWorld(x, y) {
         if (game.mode !== 'playing') return;
 
+        if (game.player.moving) {
+            setInstruction('Frosty ist schon unterwegs.', 0.8);
+            return;
+        }
+
         if (game.dishReady && hitRect(x, y, tools[recipes[game.order].tool], 20)) {
             const tool = tools[recipes[game.order].tool];
             setPlayerTarget(tool.x + tool.w / 2, tool.y + tool.h + 18, { type: 'pickupDish' });
@@ -179,7 +222,7 @@
             return;
         }
 
-        const station = ingredientStations.find(item => Math.hypot(x - item.x, y - item.y) < 48);
+        const station = ingredientStations.find(item => Math.hypot(x - item.x, y - item.y) < 58);
         if (!station) return;
         const recipe = recipes[game.order];
         const needed = recipe.ingredients.filter(name => !game.collected.includes(name) && !game.added.includes(name));
@@ -195,6 +238,8 @@
         if (!task) return;
         if (task.type === 'pickupIngredient') {
             if (!game.collected.includes(task.name)) game.collected.push(task.name);
+            tone(660, 0.08, 'triangle');
+            addEffect(`+ ${ingredientEmoji(task.name)}`, game.player.x, game.player.y - 42, '#0a7899');
             const recipe = recipes[game.order];
             const allCollected = recipe.ingredients.every(name => game.collected.includes(name) || game.added.includes(name));
             setInstruction(allCollected ? 'Ziehe die Zutaten in die richtige Kochstelle.' : 'Tippe auf die nächste Zutat.');
@@ -211,6 +256,9 @@
     function serveCustomer() {
         const recipe = recipes[game.order];
         game.money += recipe.price;
+        tone(880, 0.12, 'triangle');
+        if (game.audio) setTimeout(() => tone(1175, 0.14, 'triangle'), 80);
+        addEffect(`+${recipe.price} €`, 830, 245, '#147a4f');
         game.queue.shift();
         game.queue.push(makeCustomer(2));
         setInstruction(`Richtig! +${recipe.price} Euro`, 1.6);
@@ -219,6 +267,8 @@
 
     function loseCustomer() {
         game.money = Math.max(0, game.money - 3);
+        tone(170, 0.22, 'sawtooth');
+        addEffect('−3 €', 830, 245, '#d73e3e');
         game.queue.shift();
         game.queue.push(makeCustomer(2));
         setInstruction('Der Kunde ist gegangen. −3 Euro', 1.8);
@@ -295,6 +345,8 @@
     function completeCooking() {
         game.cooking = false;
         game.dishReady = true;
+        tone(740, 0.1, 'triangle');
+        addEffect('FERTIG!', 695, recipes[game.order].tool === 'pan' ? 205 : 335, '#d86b13');
         setInstruction('Fertig! Tippe auf die Kochstelle.');
     }
 
@@ -316,6 +368,12 @@
                 setInstruction(game.collected.length || game.added.length ? 'Bereite die Bestellung zu.' : 'Tippe auf eine Zutat.');
             }
         }
+
+        for (const effect of game.effects) {
+            effect.life -= dt;
+            effect.y -= 24 * dt;
+        }
+        game.effects = game.effects.filter(effect => effect.life > 0);
 
         const player = game.player;
         if (player.moving) {
@@ -370,6 +428,15 @@
         ctx.lineTo(960, 250); ctx.lineTo(0, 250); ctx.closePath(); ctx.fill();
 
         roundedRect(34, 88, 752, 412, 28, '#f3fbff', '#1b7495');
+
+        ctx.fillStyle = '#0c6685';
+        ctx.fillRect(54, 104, 712, 42);
+        ctx.fillStyle = '#84d7e8';
+        for (let x = 78; x < 750; x += 86) {
+            roundedRect(x, 112, 58, 24, 8, '#bcefff', '#4fa8bc');
+            ctx.fillStyle = 'rgba(255,255,255,.7)';
+            ctx.fillRect(x + 8, 118, 20, 4);
+        }
         ctx.fillStyle = '#d7edf1';
         for (let y = 170; y < 500; y += 58) {
             for (let x = 52; x < 770; x += 58) {
@@ -387,6 +454,13 @@
         ctx.fillRect(785, 205, 20, 145);
         ctx.fillStyle = '#06384f';
         ctx.fillRect(805, 205, 155, 145);
+        ctx.fillStyle = '#89c8d8';
+        ctx.fillRect(815, 350, 135, 9);
+        ctx.fillStyle = '#d4f5fb';
+        ctx.beginPath();
+        ctx.arc(830, 365, 7, 0, Math.PI * 2);
+        ctx.arc(930, 365, 7, 0, Math.PI * 2);
+        ctx.fill();
         ctx.fillStyle = '#ffd14d';
         ctx.font = '900 14px Trebuchet MS';
         ctx.textAlign = 'center';
@@ -395,18 +469,39 @@
 
     function drawStations() {
         ctx.textAlign = 'center';
+        const recipe = recipes[game.order];
+        const pulse = 0.5 + Math.sin(performance.now() / 180) * 0.5;
         ingredientStations.forEach(item => {
-            roundedRect(item.x - 48, item.y - 42, 96, 84, 16, '#ffffff', '#69b8ce');
+            const needed = recipe?.ingredients.includes(item.name) && !game.collected.includes(item.name) && !game.added.includes(item.name);
+            ctx.save();
+            if (needed && !game.player.moving) {
+                ctx.shadowColor = '#ffd84b';
+                ctx.shadowBlur = 16 + pulse * 10;
+            }
+            roundedRect(item.x - 50, item.y - 44, 100, 88, 17, needed ? '#fff9d9' : '#ffffff', needed ? '#efad28' : '#69b8ce');
+            ctx.restore();
             ctx.font = '35px serif';
             ctx.fillText(item.emoji, item.x, item.y + 8);
             ctx.fillStyle = '#16465b';
             ctx.font = '900 12px Trebuchet MS';
             ctx.fillText(item.name, item.x, item.y + 31);
+            if (needed && !game.player.moving) {
+                ctx.fillStyle = '#9b5600';
+                ctx.font = '900 9px Trebuchet MS';
+                ctx.fillText('TIPPE', item.x, item.y - 31);
+            }
         });
 
         Object.entries(tools).forEach(([key, tool]) => {
             const active = recipes[game.order]?.tool === key;
+            const wantsIngredients = active && (game.collected.length > 0 || game.added.length > 0) && !game.dishReady;
+            ctx.save();
+            if (wantsIngredients || game.dishReady) {
+                ctx.shadowColor = game.dishReady ? '#43db83' : '#ffb72e';
+                ctx.shadowBlur = 16 + pulse * 10;
+            }
             roundedRect(tool.x, tool.y, tool.w, tool.h, 18, active ? '#fff5c8' : '#d7e5e8', active ? '#ef9c27' : '#7b9ba5');
+            ctx.restore();
             ctx.font = '42px serif';
             ctx.fillText(key === 'pan' ? '🍳' : '🥣', tool.x + tool.w / 2, tool.y + 55);
             ctx.fillStyle = '#16465b';
@@ -420,6 +515,11 @@
             if (active && game.dishReady) {
                 ctx.font = '38px serif';
                 ctx.fillText(recipes[game.order].emoji, tool.x + tool.w / 2, tool.y + 50);
+            }
+            if (active && game.cooking) {
+                ctx.fillStyle = '#9b5600';
+                ctx.font = '900 10px Trebuchet MS';
+                ctx.fillText(key === 'pan' ? 'NACH OBEN WISCHEN' : 'KREISEN', tool.x + tool.w / 2, tool.y - 9);
             }
         });
     }
@@ -448,18 +548,36 @@
         ctx.translate(p.x, p.y);
         const bob = p.moving ? Math.sin(performance.now() / 85) * 4 : 0;
         ctx.translate(0, bob);
+        ctx.fillStyle = 'rgba(2,31,44,.22)';
+        ctx.beginPath(); ctx.ellipse(0, 38, 30, 9, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#10242f';
+        ctx.save();
+        ctx.rotate(p.moving ? Math.sin(performance.now() / 95) * .18 : -.12);
+        ctx.beginPath(); ctx.ellipse(-27, 4, 10, 27, -.2, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        ctx.save();
+        ctx.rotate(p.moving ? -Math.sin(performance.now() / 95) * .18 : .12);
+        ctx.beginPath(); ctx.ellipse(27, 4, 10, 27, .2, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
         ctx.fillStyle = '#10242f';
         ctx.beginPath(); ctx.ellipse(0, 4, 26, 36, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#fff';
         ctx.beginPath(); ctx.ellipse(0, 11, 17, 25, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#ffad32';
         ctx.beginPath(); ctx.moveTo(-7, -10); ctx.lineTo(8, -10); ctx.lineTo(0, -1); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(-13, 36, 13, 6, -.12, 0, Math.PI * 2); ctx.ellipse(13, 36, 13, 6, .12, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#0c1720';
         ctx.beginPath(); ctx.arc(-8, -20, 3, 0, Math.PI * 2); ctx.arc(8, -20, 3, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#fff';
         ctx.beginPath(); ctx.ellipse(0, -47, 25, 15, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillRect(-18, -48, 36, 16);
-        ctx.strokeStyle = '#b7dbe5'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(-14, -55, 12, Math.PI, 0);
+        ctx.arc(0, -60, 13, Math.PI, 0);
+        ctx.arc(14, -55, 12, Math.PI, 0);
+        ctx.fill();
+        ctx.strokeStyle = '#b7dbe5'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-18, -32); ctx.lineTo(18, -32); ctx.stroke();
         if (game.carryingDish) {
             ctx.font = '30px serif';
             ctx.textAlign = 'center';
@@ -470,6 +588,12 @@
 
     function drawCustomers() {
         ctx.textAlign = 'center';
+        ctx.strokeStyle = '#b9ecf6';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(815, 310); ctx.lineTo(815, 505);
+        ctx.moveTo(925, 310); ctx.lineTo(925, 505);
+        ctx.stroke();
         game.queue.forEach((customer, index) => {
             const x = 865;
             const y = 285 + index * 86;
@@ -477,14 +601,47 @@
             ctx.beginPath(); ctx.arc(x, y, 24, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = '#ffe0bd';
             ctx.beginPath(); ctx.arc(x, y - 17, 16, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = customer.hair;
+            if (customer.style === 0) {
+                ctx.beginPath(); ctx.arc(x, y - 24, 15, Math.PI, Math.PI * 2); ctx.fill();
+            } else if (customer.style === 1) {
+                ctx.fillRect(x - 16, y - 31, 32, 8);
+                ctx.fillRect(x + 10, y - 28, 8, 17);
+            } else {
+                ctx.beginPath();
+                ctx.arc(x - 9, y - 29, 7, 0, Math.PI * 2);
+                ctx.arc(x, y - 31, 8, 0, Math.PI * 2);
+                ctx.arc(x + 9, y - 29, 7, 0, Math.PI * 2);
+                ctx.fill();
+            }
             ctx.fillStyle = '#17212b';
             ctx.beginPath(); ctx.arc(x - 5, y - 19, 2, 0, Math.PI * 2); ctx.arc(x + 5, y - 19, 2, 0, Math.PI * 2); ctx.fill();
             if (index === 0 && game.order) {
-                roundedRect(808, y - 80, 64, 46, 14, '#fff', '#d5ecf2');
+                roundedRect(808, y - 88, 64, 50, 14, '#fff', '#d5ecf2');
                 ctx.font = '27px serif';
-                ctx.fillText(recipes[game.order].emoji, 840, y - 47);
+                ctx.fillText(recipes[game.order].emoji, 840, y - 53);
+                const patience = Math.max(0, game.customerTime / CUSTOMER_SECONDS);
+                ctx.fillStyle = '#dce9ec';
+                ctx.fillRect(810, y + 35, 110, 9);
+                ctx.fillStyle = patience > .45 ? '#37bd77' : patience > .22 ? '#ffb72e' : '#ef4e4e';
+                ctx.fillRect(810, y + 35, 110 * patience, 9);
             }
         });
+    }
+
+    function drawEffects() {
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.font = '900 22px Trebuchet MS';
+        for (const effect of game.effects) {
+            ctx.globalAlpha = Math.min(1, effect.life * 2);
+            ctx.fillStyle = effect.color;
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 4;
+            ctx.strokeText(effect.text, effect.x, effect.y);
+            ctx.fillText(effect.text, effect.x, effect.y);
+        }
+        ctx.restore();
     }
 
     function drawCookingProgress() {
@@ -505,6 +662,7 @@
         drawPenguin();
         drawTray();
         drawCookingProgress();
+        drawEffects();
 
         game.snow.forEach(flake => {
             flake.y += .18;
