@@ -62,7 +62,6 @@
         stirTime: 0,
         flips: 0,
         player: { x: 450, y: 265, targetX: 450, targetY: 265, moving: false, task: null },
-        drag: null,
         pointer: { down: false, x: 0, y: 0, movedAt: 0, startX: 0, startY: 0 },
         lastTime: performance.now(),
         messageTimer: 0,
@@ -120,7 +119,6 @@
         game.cooking = false;
         game.stirTime = 0;
         game.flips = 0;
-        game.drag = null;
         while (game.queue.length < 3) game.queue.push(makeCustomer(game.queue.length));
         updateUI();
     }
@@ -156,6 +154,17 @@
     function setInstruction(text, seconds = 0) {
         ui.instruction.textContent = text;
         game.messageTimer = seconds;
+    }
+
+    function nextInstruction() {
+        if (!game.order) return 'Tippe auf eine Zutat.';
+        const recipe = recipes[game.order];
+        if (game.carryingDish) return 'Tippe auf den ersten Kunden rechts.';
+        if (game.dishReady) return 'Tippe auf die fertige Kochstelle.';
+        if (game.cooking) return recipe.tool === 'bowl' ? 'Rühre den Salat um.' : 'Wende das Essen nach oben.';
+        const allCollected = recipe.ingredients.every(name => game.collected.includes(name));
+        if (allCollected) return `Tippe auf die ${tools[recipe.tool].name}.`;
+        return game.collected.length ? 'Tippe auf die nächste Zutat.' : 'Tippe auf eine Zutat.';
     }
 
     function updateUI() {
@@ -222,9 +231,27 @@
             return;
         }
 
+        const recipe = recipes[game.order];
+        const activeTool = tools[recipe.tool];
+        const touchedTool = Object.values(tools).find(tool => hitRect(x, y, tool, 30));
+        if (touchedTool) {
+            if (touchedTool !== activeTool) {
+                setInstruction(`Für ${recipe.name} brauchst du die ${activeTool.name}.`, 1.5);
+                return;
+            }
+            const allCollected = recipe.ingredients.every(name => game.collected.includes(name));
+            if (!allCollected) {
+                const missing = recipe.ingredients.length - game.collected.length;
+                setInstruction(`Es ${missing === 1 ? 'fehlt' : 'fehlen'} noch ${missing} ${missing === 1 ? 'Zutat' : 'Zutaten'}.`, 1.3);
+                return;
+            }
+            setPlayerTarget(activeTool.x + activeTool.w / 2, activeTool.y + activeTool.h + 18, { type: 'placeIngredients' });
+            setInstruction(`Frosty bringt alles zur ${activeTool.name}.`);
+            return;
+        }
+
         const station = ingredientStations.find(item => Math.hypot(x - item.x, y - item.y) < 58);
         if (!station) return;
-        const recipe = recipes[game.order];
         const needed = recipe.ingredients.filter(name => !game.collected.includes(name) && !game.added.includes(name));
         if (!needed.includes(station.name)) {
             setInstruction('Diese Zutat gehört nicht zur Bestellung.', 1.5);
@@ -242,7 +269,16 @@
             addEffect(`+ ${ingredientEmoji(task.name)}`, game.player.x, game.player.y - 42, '#0a7899');
             const recipe = recipes[game.order];
             const allCollected = recipe.ingredients.every(name => game.collected.includes(name) || game.added.includes(name));
-            setInstruction(allCollected ? 'Ziehe die Zutaten in die richtige Kochstelle.' : 'Tippe auf die nächste Zutat.');
+            const toolName = tools[recipe.tool].name;
+            setInstruction(allCollected ? `Alle Zutaten da! Tippe auf die ${toolName}.` : 'Tippe auf die nächste Zutat.');
+        } else if (task.type === 'placeIngredients') {
+            const recipe = recipes[game.order];
+            game.added = [...recipe.ingredients];
+            game.collected = [];
+            game.cooking = true;
+            tone(520, 0.1, 'triangle');
+            addEffect('ALLES DRIN!', game.player.x, game.player.y - 46, '#d86b13');
+            setInstruction(recipe.tool === 'bowl' ? 'Rühre den Salat 3 Sekunden lang.' : 'Wende das Essen dreimal nach oben.');
         } else if (task.type === 'pickupDish') {
             game.dishReady = false;
             game.carryingDish = true;
@@ -284,12 +320,6 @@
         game.pointer = { down: true, x: p.x, y: p.y, movedAt: performance.now(), startX: p.x, startY: p.y };
         canvas.setPointerCapture?.(event.pointerId);
 
-        const slot = traySlots().find(item => hitRect(p.x, p.y, item));
-        if (slot && game.mode === 'playing') {
-            game.drag = { name: slot.name, x: p.x, y: p.y };
-            return;
-        }
-
         const tool = tools[recipes[game.order]?.tool];
         if (game.cooking && tool && hitRect(p.x, p.y, tool, 15)) return;
         clickWorld(p.x, p.y);
@@ -300,10 +330,6 @@
         game.pointer.x = p.x;
         game.pointer.y = p.y;
         game.pointer.movedAt = performance.now();
-        if (game.drag) {
-            game.drag.x = p.x;
-            game.drag.y = p.y;
-        }
     });
 
     canvas.addEventListener('pointerup', event => {
@@ -311,21 +337,7 @@
         const recipe = recipes[game.order];
         const tool = recipe && tools[recipe.tool];
 
-        if (game.drag && tool) {
-            if (hitRect(p.x, p.y, tool, 25)) {
-                const name = game.drag.name;
-                game.collected = game.collected.filter(item => item !== name);
-                if (!game.added.includes(name)) game.added.push(name);
-                if (game.added.length === recipe.ingredients.length) {
-                    game.cooking = true;
-                    setInstruction(recipe.tool === 'bowl' ? 'Rühre den Salat 3 Sekunden lang.' : 'Wende das Essen dreimal nach oben.');
-                } else {
-                    setInstruction('Ziehe die nächste Zutat zur Kochstelle.');
-                }
-                updateUI();
-            }
-            game.drag = null;
-        } else if (game.cooking && recipe?.tool === 'pan' && tool && hitRect(game.pointer.startX, game.pointer.startY, tool, 20)) {
+        if (game.cooking && recipe?.tool === 'pan' && tool && hitRect(game.pointer.startX, game.pointer.startY, tool, 20)) {
             const dy = p.y - game.pointer.startY;
             if (dy < -45) {
                 game.flips++;
@@ -339,7 +351,6 @@
 
     canvas.addEventListener('pointercancel', () => {
         game.pointer.down = false;
-        game.drag = null;
     });
 
     function completeCooking() {
@@ -365,7 +376,7 @@
         if (game.messageTimer > 0) {
             game.messageTimer -= dt;
             if (game.messageTimer <= 0) {
-                setInstruction(game.collected.length || game.added.length ? 'Bereite die Bestellung zu.' : 'Tippe auf eine Zutat.');
+                setInstruction(nextInstruction());
             }
         }
 
@@ -534,12 +545,6 @@
             ctx.font = '800 9px Trebuchet MS';
             ctx.fillText(slot.name, slot.x + slot.w / 2, slot.y + 45);
         });
-        if (game.drag) {
-            ctx.globalAlpha = .82;
-            ctx.font = '42px serif';
-            ctx.fillText(ingredientEmoji(game.drag.name), game.drag.x, game.drag.y);
-            ctx.globalAlpha = 1;
-        }
     }
 
     function drawPenguin() {
