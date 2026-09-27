@@ -701,6 +701,7 @@ class BossFruitGiant extends Enemy {
 
 // Extra standard enemies used by the late worlds
 
+// ── Drohne (Welt 2): gelbe Fabrik-Drohne mit Kamera-Auge ──
 class Drone extends Enemy {
     constructor(x, y) {
         super(x, y, 20, 18);
@@ -710,53 +711,98 @@ class Drone extends Enemy {
         this.damage = 1;
         this.contactDamage = true;
         this.detectionRange = 260;
-        this.shootTimer = 0;
+        this.shootTimer = 0.6; // erster Schuss mit Ankündigung
         this.hoverPhase = Math.random() * Math.PI * 2;
+        this.flying = true;
+        this.active = false;
+        this.fxColor = '#ffb627';
+        this.lookDir = { x: 0, y: 0.3 };
     }
 
     update(dt, world, player) {
         this.baseUpdate(dt, world);
         if (this.dead) return;
-        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
-        const mc = { x: this.centerX(), y: this.centerY() };
-        const dist = vecDist(mc, pc);
-        if (dist < this.detectionRange) {
-            const a = angleBetween(mc, pc);
-            const sway = Math.sin(this.hoverPhase) * 24;
-            this.hoverPhase += dt * 5;
-            this._moveWithCollision(
-                Math.cos(a) * this.speed * dt + Math.cos(this.hoverPhase) * sway * dt,
-                Math.sin(a) * this.speed * dt + Math.sin(this.hoverPhase * 0.7) * 8 * dt,
-                world
-            );
-            this.shootTimer -= dt;
-            if (this.shootTimer <= 0 && typeof Game !== 'undefined') {
-                this.shootTimer = 2.2;
-                Game.projectiles.push(new Projectile(mc.x, mc.y, Math.cos(a) * 170, Math.sin(a) * 170, 1, 'enemy', 50));
-            }
+        const mx = this.centerX();
+        const my = this.centerY();
+        const dx = player.x + player.w / 2 - mx;
+        const dy = player.y + player.h / 2 - my;
+        const dist = Math.hypot(dx, dy) || 1;
+        this.active = dist < this.detectionRange;
+        if (!this.active) return;
+        const nx = dx / dist;
+        const ny = dy / dist;
+        this.lookDir.x = nx;
+        this.lookDir.y = ny;
+        const sway = Math.sin(this.hoverPhase) * 24;
+        this.hoverPhase += dt * 5;
+        this._moveWithCollision(
+            nx * this.speed * dt + Math.cos(this.hoverPhase) * sway * dt,
+            ny * this.speed * dt + Math.sin(this.hoverPhase * 0.7) * 8 * dt,
+            world
+        );
+        this.shootTimer -= dt;
+        if (this.shootTimer <= 0 && typeof Game !== 'undefined') {
+            this.shootTimer = 2.2;
+            Game.projectiles.push(new Projectile(mx, my, nx * 170, ny * 170, 1, 'enemy', 50));
         }
     }
 
     draw(ctx, camera) {
-        const pos = camera.worldToScreen(this.x, this.y);
-        const cx = pos.x + this.w / 2;
-        const cy = pos.y + this.h / 2;
-        if (this.dead) return;
+        const p = camera.worldToScreen(this.x, this.y);
+        const t = Art.time;
+        const aim = this.active && this.shootTimer < 0.35 && !this.dead; // gleich kommt ein Schuss
         ctx.save();
-        if (this.isFlashing()) ctx.globalAlpha = 0.4;
-        ctx.fillStyle = '#778';
+        ctx.translate(p.x + this.w / 2, p.y + this.h / 2 + Math.sin(t * 4 + this.hoverPhase) * 1.5);
+        if (this.dead) {
+            // Absturz: trudeln und schrumpfen (G-23)
+            const k = this.deathProgress();
+            const g = Math.max(0.01, 1 - k * 0.9);
+            ctx.translate(0, k * 6);
+            ctx.rotate(k * 5);
+            ctx.scale(g, g);
+        }
+        // Landekufen
+        ctx.strokeStyle = '#3a3f55';
+        ctx.lineWidth = 1.4;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
         ctx.beginPath();
-        ctx.ellipse(cx, cy, 10, 7, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#AAB';
+        ctx.moveTo(-4, 4); ctx.lineTo(-6, 9); ctx.lineTo(-8.5, 9);
+        ctx.moveTo(4, 4); ctx.lineTo(6, 9); ctx.lineTo(8.5, 9);
+        ctx.stroke();
+        // Rotor-Arme und Körper
+        Art.limb(ctx, -10, -4, 10, -4, 2.2, '#5d6680', { lineWidth: 1 });
+        Art.body(ctx, 0, 0, 8.5, 6.5, '#ffb627', { glossy: true });
+        ctx.fillStyle = '#2f3448';
         ctx.beginPath();
-        ctx.arc(cx, cy - 1, 5, 0, Math.PI * 2);
+        ctx.roundRect(-6, 3, 12, 2.4, 1.2);
         ctx.fill();
-        ctx.fillStyle = '#FFD700';
-        ctx.fillRect(cx - 2, cy - 9, 4, 3);
-        ctx.fillStyle = '#333';
-        ctx.fillRect(cx - 8, cy + 5, 4, 2);
-        ctx.fillRect(cx + 4, cy + 5, 4, 2);
+        // Rotoren: Unschärfe-Scheibe und drehendes Blatt
+        for (let side = -1; side <= 1; side += 2) {
+            const rx = side * 10;
+            const bl = Math.cos(t * 45 + side) * 5.5;
+            ctx.fillStyle = 'rgba(230,240,255,0.4)';
+            ctx.beginPath();
+            ctx.ellipse(rx, -6.5, 5.5, 1.8, 0, 0, TAU);
+            ctx.fill();
+            ctx.strokeStyle = '#2f3448';
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.moveTo(rx - bl, -6.5);
+            ctx.lineTo(rx + bl, -6.5);
+            ctx.stroke();
+        }
+        // Kamera-Auge (glüht rot vor dem Schuss)
+        if (aim) Art.glow(ctx, this.lookDir.x * 1.5, -0.5, 14, '#ff3b30', 0.9);
+        Art.eye(ctx, 0, -0.5, 4.2, this.lookDir, { iris: aim ? '#ff3b30' : '#2fb6ff', lid: '#1b2238', irisSize: 0.7 });
+        // Antenne mit Blinklicht
+        Art.limb(ctx, 4, -5, 6, -10, 1, '#5d6680', { outline: false });
+        const on = Math.floor(t * 2 + this.hoverPhase) % 2 === 0;
+        Art.glow(ctx, 6, -10.5, 5, on ? '#ff4d4d' : '#4dff88', 0.8);
+        ctx.fillStyle = on ? '#ff6b6b' : '#6bff9b';
+        ctx.beginPath();
+        ctx.arc(6, -10.5, 1.4, 0, TAU);
+        ctx.fill();
         ctx.restore();
     }
 }
