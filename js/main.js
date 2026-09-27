@@ -65,7 +65,7 @@ const Game = {
     rewardValues: {},
     activeMode: null,
 
-    settings: { sound: true, vibration: true, aimAssist: true, autoFire: false },
+    settings: { sound: true, music: true, vibration: true, aimAssist: true, autoFire: false },
 
     // Epischer Stillstand beim Boss-Sieg
     epicFreezeActive: false,
@@ -127,6 +127,7 @@ const Game = {
         if (state !== 'PLAYING' && state !== 'BOSS_INTRO') this.paused = false;
         // Gehaltene Finger aus dem vorigen Bildschirm nicht in den nächsten mitnehmen
         if (!(prev === 'BOSS_INTRO' && state === 'PLAYING')) Input.releaseAll();
+        this._updateMusic(state);
         UI.onState(state);
     },
 
@@ -263,6 +264,15 @@ const Game = {
 
     applySettings() {
         Sound.setMuted(!this.settings.sound);
+        Music.setEnabled(this.settings.music);
+    },
+
+    // Passende Musik zum Zustand
+    _updateMusic(state) {
+        if (['TITLE', 'WORLD_SELECT', 'SHOP', 'EXTRA_MENU'].includes(state)) Music.play('menu');
+        else if (state === 'BOSS_INTRO' || (state === 'PLAYING' && this.bossActive && !this.bossDefeated)) Music.play('boss');
+        else if (state === 'PLAYING' && this.world) Music.playForWorld(this.world.theme);
+        else if (state === 'WORLD_CLEAR' || state === 'GAME_OVER' || state === 'WIN') Music.stop();
     },
 
     // ── Menüs ──
@@ -815,6 +825,7 @@ const Game = {
 
     _onBossDefeated() {
         this.bossDefeated = true;
+        Music.stop();
         Sound.bossDeath();
         this.camera.shake(8, 0.5);
         this.vibrate(400);

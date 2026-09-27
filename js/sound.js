@@ -21,6 +21,7 @@ const Sound = {
             this.master.gain.value = this.muted ? 0 : 1;
             this.master.connect(comp);
             comp.connect(this.ctx.destination);
+            this.comp = comp;
         } catch (e) {
             this.enabled = false;
         }
@@ -74,18 +75,23 @@ const Sound = {
         });
     },
 
+    // Einmal erzeugter Rauschpuffer (für Schläge, Wind, Schlagzeug)
+    noiseBuffer() {
+        if (!this._noise && this.ctx) {
+            const len = Math.floor(this.ctx.sampleRate * 0.5);
+            const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+            this._noise = buf;
+        }
+        return this._noise;
+    },
+
     _noiseBurst(dur, vol, filterType, freq, delay = 0) {
         this._play((ctx, out) => {
-            if (!this._noise) {
-                const len = Math.floor(ctx.sampleRate * 0.5);
-                const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-                const d = buf.getChannelData(0);
-                for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-                this._noise = buf;
-            }
             const t = ctx.currentTime + delay;
             const src = ctx.createBufferSource();
-            src.buffer = this._noise;
+            src.buffer = this.noiseBuffer();
             const filter = ctx.createBiquadFilter();
             filter.type = filterType;
             filter.frequency.value = freq;

@@ -286,6 +286,9 @@ const UI = {
                     <div class="head"><span class="ico">${m.ico}</span><div><h3>${m.t}</h3><p>${m.p}</p></div></div>
                     <div class="foot"><span class="owned" style="color:#ffe38a">Welt ${m.w}: ${worldInfo(m.w).name}</span>
                     <button class="btn small" data-act="world" data-n="${m.w}">Los!</button></div></div>`).join('')}
+                <div class="card" style="--a:#4cc9f0">
+                    <div class="head"><span class="ico">🐧</span><div><h3>Frosty Burger</h3><p>Minispiel: Hilf dem Pinguin-Koch in der Antarktis-Küche!</p></div></div>
+                    <div class="foot"><button class="btn small blue" data-act="frosty">Kochen!</button></div></div>
                 <div class="card wide" style="--a:#7b4dff"><p>Hier kommen bald eigene Spezial-Modi dazu. Bis dahin starten sie eine passende Welt.</p></div>
             </div></div>`;
         this.show('extra');
@@ -296,8 +299,9 @@ const UI = {
         const s = Game.settings;
         const t = (key, label) => `<button class="toggle${s[key] ? ' on' : ''}" data-act="toggle" data-key="${key}">${label}<span class="sw"></span></button>`;
         return `<div class="toggles">
-            ${t('sound', '🔊 Ton')}${t('vibration', '📳 Vibration')}
+            ${t('sound', '🔊 Geräusche')}${t('music', '🎵 Musik')}
             ${t('aimAssist', '🎯 Zielhilfe')}${t('autoFire', '🔥 Auto-Angriff')}
+            ${t('vibration', '📳 Vibration')}
         </div>`;
     },
 
@@ -494,6 +498,7 @@ const UI = {
                 break;
             }
             case 'starback': this.renderShop(); break;
+            case 'frosty': g.save(); location.href = 'frosty-burger/'; break;
         }
     },
 

@@ -8,7 +8,7 @@ const CORE = [
     './icons/icon.svg',
     './icons/icon-192.png',
     './icons/icon-512.png',
-    './js/utils.js', './js/art.js', './js/fx.js', './js/data.js', './js/sound.js', './js/input.js',
+    './js/utils.js', './js/art.js', './js/fx.js', './js/data.js', './js/sound.js', './js/music.js', './js/input.js',
     './js/camera.js', './js/world.js', './js/weapons.js', './js/loot.js', './js/entities.js',
     './js/entities2.js', './js/player.js', './js/hud.js', './js/ui.js', './js/main.js',
 ];
