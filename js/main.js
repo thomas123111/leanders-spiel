@@ -1617,7 +1617,7 @@ const Game = {
 
         const mx = W * 0.22;
         const my = H * 0.6;
-        const scale = H / 150;
+        const scale = H / 112;
         Art.glow(ctx, mx, my - 20 * scale, 95 * scale / 2.4, '#7b4dff', 0.55);
         // Bühne
         ctx.fillStyle = 'rgba(123,77,255,0.18)';
