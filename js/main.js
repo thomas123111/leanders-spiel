@@ -1262,8 +1262,10 @@ const Game = {
             } else if (proj.owner === 'enemy' && !this.player.dead) {
                 const dist = Math.hypot(proj.x - (this.player.x + this.player.w / 2), proj.y - (this.player.y + this.player.h / 2));
                 if (dist < proj.radius + this.player.w / 2) {
-                    this._hurtPlayer(1, Math.atan2(proj.vy, proj.vx), 100);
+                    // Gegnergeschosse: 1 Schaden, starke (z. B. Feuerball) höchstens 2
+                    this._hurtPlayer(clamp(proj.damage || 1, 1, 2), Math.atan2(proj.vy, proj.vx), 100);
                     if (proj.slow && this.player.applySlow) this.player.applySlow(2.5, 0.55);
+                    if (proj.poison && this.player.applySlow) this.player.applySlow(1.5, 0.8);
                     proj.dead = true;
                 }
             }
