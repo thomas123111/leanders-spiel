@@ -209,7 +209,7 @@ const HUD = {
             target = { x: d.x * TILE_SIZE + TILE_SIZE / 2, y: d.y * TILE_SIZE + TILE_SIZE / 2 };
             color = '#ff5d73';
             label = 'Boss';
-        } else if (!game.hasKey && !game.bossActive && game.currentWorld > 0) {
+        } else if (!game.hasKey && !game.bossActive && game.currentWorld > 0 && (game.levelTime || 0) > 20) {
             const carrier = game.enemies.find(e => e.isKeyGhost && !e.dead);
             const drop = game.keyDrops.find(k => !k.collected);
             if (drop) target = { x: drop.x + drop.w / 2, y: drop.y + drop.h / 2 };

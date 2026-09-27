@@ -611,6 +611,7 @@ const Game = {
         this.bossDefeated = false;
         this.bossIntroTime = 0;
         this.levelCoins = 0;
+        this.levelTime = 0;
         this.lastReward = null;
         this.lastUnlockText = '';
         this._trainingDoneShown = false;
@@ -1034,6 +1035,7 @@ const Game = {
             return;
         }
 
+        this.levelTime = (this.levelTime || 0) + dt;
         this.world.update(dt);
         this._updateAssist();
         this.player.update(dt, this.world);
