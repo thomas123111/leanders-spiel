@@ -1693,6 +1693,12 @@ const Game = {
         // Welt (Boden, Wände)
         this.world.draw(ctx, camera);
         FX.drawRings(ctx, camera);
+        // Bodenwarnungen der Gegner (Warnkreise, Bahnen) unter allen Figuren
+        for (const e of this.enemies) {
+            if (e.drawUnder && !(e.dead && e.deathTimer <= 0)) {
+                try { e.drawUnder(ctx, camera); } catch (err) { /* nur Deko */ }
+            }
+        }
 
         // Figuren sammeln, von oben nach unten sortieren
         const list = this._drawList;
@@ -1714,6 +1720,15 @@ const Game = {
             if (e === this.player || typeof e.centerX === 'function') this._drawShadow(ctx, e);
         }
         for (const e of list) this._drawEntity(ctx, e);
+
+        // Verdeckt ein Boss Mark (z. B. fliegend über ihm), Mark halbdurchsichtig obendrauf zeigen
+        const p = this.player;
+        if (!p.dead && this.bossActive && this.enemies.some(e => e.isBoss && !e.dead && list.indexOf(e) > list.indexOf(p) && rectOverlap(e, p))) {
+            ctx.save();
+            ctx.globalAlpha = 0.55;
+            try { p.draw(ctx, camera); } catch (err) { /* egal */ }
+            ctx.restore();
+        }
 
         // Geschosse und Partikel über den Figuren
         for (const proj of this.projectiles) {

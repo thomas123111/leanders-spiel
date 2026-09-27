@@ -80,7 +80,10 @@ const KLASSEN = [
     // Neue Boss-Varianten (falls vorhanden)
     'BossPixelRobot', 'BossStarKnight',
 ];
-const ZUSTAENDE = ['ruhig', 'getroffen', 'wenig HP', 'stirbt'];
+// ?zustand=ruhig,stirbt zeigt nur diese Zustände
+const ZUSTAENDE = new URLSearchParams(location.search).get('zustand')
+    ? new URLSearchParams(location.search).get('zustand').split(',')
+    : ['ruhig', 'getroffen', 'wenig HP', 'stirbt'];
 
 function klasse(name) {
     try { return new Function('return typeof ' + name + ' !== "undefined" ? ' + name + ' : null')(); } catch (e) { return null; }
