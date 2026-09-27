@@ -428,7 +428,7 @@ class StardustShot extends Projectile {
 // dann ein gezielter Stern (125/s) oder ein Fächer aus drei (108/s). Nur mit freier Sichtlinie.
 class StarButterfly extends Enemy {
     constructor(x, y) {
-        super(x, y, 24, 22);
+        super(x, y, 26, 24);
         this.hp = 4;
         this.maxHp = 4;
         this.speed = 70;
@@ -723,14 +723,14 @@ class ButterflySwarm {
     _spawn() {
         const cols = BossTripleButterfly.SWARM_COLORS;
         this.bits = [];
-        for (let i = 0; i < 14; i++) {
+        for (let i = 0; i < 16; i++) {
             const a = -Math.PI / 2 + randRange(-1.9, 1.9);
             const sp = randRange(45, 100);
             this.bits.push({
                 fly: true, x: this.ox + randRange(-55, 55), y: this.oy + randRange(-30, 25),
                 vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 18, g: -14, drag: 0.35,
-                t: -i * 0.025, life: randRange(1.9, 2.7), ph: Math.random() * TAU,
-                col: cols[i % cols.length], s: randRange(0.85, 1.35),
+                t: -i * 0.025, life: randRange(2, 2.8), ph: Math.random() * TAU,
+                col: cols[i % cols.length], s: randRange(1.3, 1.9),
             });
         }
         for (let i = 0; i < 18; i++) {
@@ -767,14 +767,17 @@ class ButterflySwarm {
 // Riesiger Falter mit drei Köpfen auf einem Körper: blau (verschlafen, Zipfelmütze), rosa (fröhlich),
 // gold (grummelig, Krone). Schwebt mit Wand-Kollision im Boss-Raum und hält Abstand zu Mark.
 // Angriffe im Wechsel (Bossuhr, main.js lässt sie 1,15-mal schneller laufen):
-//  a) Sternstaub-Sturm: alle Köpfe laden 1,05 s auf (Leuchten, wirbelnde Funken, Bodenzeichen), dann
-//     • Ringe: 3 Ringe × 24 Sterne (33 Plätze, drei Lücken à 3 Plätze, grün markiert), alle 0,42 s
-//     • oder Dreifach-Spirale: 6 Arme (je Kopf zwei) mit Lücken, drehen 2 s lang; Pfeile zeigen die Drehung
-//  b) Kopf-Salven: rosa Fächer aus 3, blaue Wellen-Schlange aus 5, goldener Riesenstern, der in 8 zerplatzt
-//  c) Glitzer-Regen: 6 rote Markierungen (eine unter Mark), 1,2 s später fallen Sterne darauf
+//  a) Sternstaub-Sturm: fliegt erst in die Raummitte (mit Abstand zu Mark), dann laden alle Köpfe 1,05 s
+//     auf (Leuchten, wirbelnde Funken, Bodenzeichen) und lassen los:
+//     • Ringe: 3 Ringe × 24 Sterne (33 Plätze, drei Lücken à 3 Plätze = grüne Gassen), alle 0,42 s
+//     • oder Spirale: 6 Arme (je Kopf zwei), 3 Sterne an, 3 aus, 2 s lang; gelbe Pfeile zeigen die Drehung
+//  b) Kopf-Salven mit Ziellinien: rosa Fächer aus 3, blaue Wellen-Schlange aus 5, goldener Riesenstern,
+//     der in einen Ring aus 8 zerplatzt (Mark steht dabei genau zwischen zwei Sternen)
+//  c) Glitzer-Regen: 6 rote Markierungen (eine unter Mark), 1,2 s später schlagen Sterne darauf ein
 // Phase 2 ab halber Lebensenergie: kurzes Aufwachen (0,85 s, verwundbar), der blaue Kopf verliert die
-// Mütze, alle Köpfe werden wütend; Ringe 4 × 27, Spirale 2,4 s, Salven 5er-Fächer, 8er-Welle,
-// 3 Riesensterne, Regen in zwei Wellen à 8. Nach jedem Sturm eine Verschnaufpause.
+// Mütze, alle Köpfe werden wütend; Ringe 4 × 24 (36 Plätze, Lücken à 4), Spirale 2,4 s und schneller,
+// Salven 5er-Fächer, 8er-Welle, 3 Riesensterne, Regen in zwei Wellen à 8. Nach jedem Sturm Pause.
+// Höchstens 120 Boss-Sterne gleichzeitig (FalterKit.BOSS_CAP).
 class BossTripleButterfly extends Enemy {
     constructor(x, y) {
         super(x, y, 70, 56);
@@ -811,6 +814,7 @@ class BossTripleButterfly extends Enemy {
         this.rainWave = 0;
         this.gapA = 0;
         this.ringN = 33;
+        this.gapW = 3;
         this.ringsTotal = 3;
         this.ringsFired = 0;
         this.ringGap = 0.42;
@@ -1060,6 +1064,8 @@ class BossTripleButterfly extends Enemy {
         this.stateT = this.stateMax = p2 ? 0.95 : 1.05;
         this.stormKind = this.stormVariant % 2 === 0 ? 'rings' : 'spiral';
         this.stormVariant++;
+        this.ringN = p2 ? 36 : 33;          // schon beim Aufladen bekannt (Breite der Gassen)
+        this.gapW = p2 ? 4 : 3;
         // Lücken so legen, dass Mark ein kleines Stück laufen muss (die nächste liegt 20–50° neben ihm)
         const toMark = Math.atan2(pcy - (this.centerY() - 4), pcx - this.centerX());
         this.gapA = toMark + (Math.random() < 0.5 ? -1 : 1) * randRange(0.35, 0.9);
@@ -1070,8 +1076,7 @@ class BossTripleButterfly extends Enemy {
     _releaseStorm(mx, my) {
         const p2 = this.phase === 2;
         if (this.stormKind === 'rings') {
-            this.state = 'rings';
-            this.ringN = p2 ? 36 : 33;
+            this.state = 'rings';           // ringN/gapW setzt _startStorm (24 Sterne pro Ring)
             this.ringsTotal = p2 ? 4 : 3;
             this.ringGap = p2 ? 0.34 : 0.42;
             this.ringSpeed = p2 ? 112 : 100;
@@ -1093,19 +1098,22 @@ class BossTripleButterfly extends Enemy {
         }
     }
 
-    // Ein Ring: N Plätze, an drei Stellen (gapA + k·120°) je drei Plätze frei
+    // Ein Ring: N Plätze, an drei Stellen (gapA + k·120°) je gapW Plätze frei (symmetrisch um die Gasse)
     _fireRing(list, mx, my) {
         const N = this.ringN;
         const third = N / 3;
-        if (FalterKit.liveBossShots(list) + N - 9 > FalterKit.BOSS_CAP) return;
+        const gw = this.gapW;
+        const off = gw % 2 === 0 ? 0.5 : 0;
+        if (FalterKit.liveBossShots(list) + N - 3 * gw > FalterKit.BOSS_CAP) return;
         const col = BossTripleButterfly.HEADS[(this.ringsFired + 1) % 3].dust;
         const oy = my - 4;
         this.laneX = mx;                // Ursprung merken (Gassen bleiben dort, wenn er weiterfliegt)
         this.laneY = oy;
         for (let i = 0; i < N; i++) {
             const m = i % third;
-            if (m <= 1 || m >= third - 1) continue;
-            const a = this.gapA + (i * TAU) / N;
+            const d = Math.abs(m + off < third / 2 ? m + off : m + off - third);   // Abstand zur Gassenmitte in Plätzen
+            if (d < gw / 2) continue;
+            const a = this.gapA + ((i + off) * TAU) / N;
             list.push(new StardustShot(mx + Math.cos(a) * 26, oy + Math.sin(a) * 26, a, this.ringSpeed, col, { boss: true, life: 3.4, size: 7.2 }));
         }
         this.hf[0] = this.hf[1] = this.hf[2] = 0.2;
@@ -1360,8 +1368,8 @@ class BossTripleButterfly extends Enemy {
     // Gefahrenring und drei grüne Gassen (die Lücken der Ringe) mit Pfeilen nach außen
     _drawLanes(ctx, x, y, k, fade) {
         const a0 = ctx.globalAlpha;
-        const w = (1.5 * TAU) / this.ringN;      // halbe Gassenbreite (Winkel)
-        const r0 = 30, r1 = 250;
+        const w = ((this.gapW / 2 - 0.3) * TAU) / this.ringN;   // halbe Gassenbreite (Winkel)
+        const r0 = 56, r1 = 250;                // näher am Boss ist es nirgends sicher
         // Gefahrenring
         ctx.globalAlpha = a0 * (0.35 + 0.25 * Math.sin(Art.time * 14)) * fade;
         ctx.strokeStyle = '#ff4f9a';
@@ -1392,7 +1400,7 @@ class BossTripleButterfly extends Enemy {
             const a = this.gapA + (j * TAU) / 3;
             const ca = Math.cos(a), sa = Math.sin(a);
             for (let i = 0; i < 4; i++) {
-                const d = 46 + off + i * 40;
+                const d = 64 + off + i * 40;
                 const px = x + ca * d, py = y + sa * d;
                 ctx.moveTo(px - ca * 6 - sa * 6, py - sa * 6 + ca * 6);
                 ctx.lineTo(px, py);
