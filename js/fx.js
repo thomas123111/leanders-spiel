@@ -384,6 +384,9 @@ const FX = {
         ctx.globalAlpha = prev;
     },
 
+    // Flügel der Umgebungs-Schmetterlinge: x, y, Radius x, Radius y, Drehung (fest, damit pro Bild nichts angelegt wird)
+    _wings: [-2.2, -1, 2.4, 1.9, -0.4, 2.2, -1, 2.4, 1.9, 0.4, -1.6, 1.5, 1.5, 1.2, 0.3, 1.6, 1.5, 1.5, 1.2, -0.3],
+
     // Umgebungspartikel der Welten 22/23: Nebelschwaden, Heftblätter, Blütenstaub, kleine Schmetterlinge
     _drawAmbientExtra(ctx, a, k, tw, prev) {
         if (k === 'mist') {
@@ -419,10 +422,11 @@ const FX = {
             ctx.rotate(Math.sin(a.ph * 0.8) * 0.4);
             ctx.fillStyle = a.color;
             ctx.beginPath();
-            for (const [dx, dy, rx, ry, rot] of [[-2.2, -1, 2.4, 1.9, -0.4], [2.2, -1, 2.4, 1.9, 0.4], [-1.6, 1.5, 1.5, 1.2, 0.3], [1.6, 1.5, 1.5, 1.2, -0.3]]) {
-                const ex = dx * f * s, ey = dy * s, erx = rx * f * s;
+            const wg = this._wings;
+            for (let i = 0; i < wg.length; i += 5) {
+                const ex = wg[i] * f * s, ey = wg[i + 1] * s, erx = wg[i + 2] * f * s, rot = wg[i + 4];
                 ctx.moveTo(ex + Math.cos(rot) * erx, ey + Math.sin(rot) * erx);
-                ctx.ellipse(ex, ey, erx, ry * s, rot, 0, TAU);
+                ctx.ellipse(ex, ey, erx, wg[i + 3] * s, rot, 0, TAU);
             }
             ctx.fill();
             ctx.fillStyle = '#3a2248';

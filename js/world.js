@@ -446,7 +446,7 @@ const WORLD_THEMES = {
     butterfly: {
         void: '#173a26', vignette: 0.22, shade: '#1a4a26', fs: 'grass', stripes: 0, floor: ['#5fb257', '#5aa952'],
         blossoms: ['#ffffff', '#ffb3e0', '#c9a8ff', '#9ad8ff'],
-        ws: 'blooms', wall: '#3f9a4a', wallF: '#2b6a3a', accent: '#ff8ad8', arena: '#ff8ad8', arenaStyle: 'meadow', deepCol: '#1b4a30', deep: 0.4,
+        ws: 'blooms', wall: '#3f9a4a', wallF: '#317a41', accent: '#ff8ad8', arena: '#ff8ad8', arenaStyle: 'meadow', deepCol: '#1b4a30', deep: 0.4,
         petals: ['#ff8ad8', '#ffb3e0', '#c9a8ff', '#ffe066', '#ffffff', '#8ad8ff', '#ffa07a'],
         bush: ['#2a7a3e', '#43a553', '#8fdc6a'], bx: 'flowers', bxc: ['#ff8ad8', '#ffe14a', '#ffffff', '#c9a8ff'],
         water: 'water', wc: ['#2a86c8', '#4cb2ec', '#dcf6ff'], lily: true, bone: '#fff6e8', pad: '#ff6fb5',
