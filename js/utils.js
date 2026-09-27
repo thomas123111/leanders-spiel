@@ -67,4 +67,21 @@ function isOnScreen(entity, camera, margin) {
            entity.y - margin < camera.y + camera.height;
 }
 
+// Punkt (mit Rand) im Kamerabild? Ohne neues Objekt pro Aufruf.
+function pointOnScreen(x, y, camera, margin) {
+    return x + margin > camera.x && x - margin < camera.x + camera.width &&
+        y + margin > camera.y && y - margin < camera.y + camera.height;
+}
+
+// Entfernt Elemente an Ort und Stelle (kein neues Array pro Bild → weniger Speicherbereinigung)
+function compactInPlace(arr, keep) {
+    let j = 0;
+    for (let i = 0; i < arr.length; i++) {
+        const v = arr[i];
+        if (keep(v)) arr[j++] = v;
+    }
+    arr.length = j;
+    return arr;
+}
+
 const MAX_PARTICLES = 200;

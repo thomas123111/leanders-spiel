@@ -21,18 +21,24 @@ const types = {
 };
 
 http.createServer((req, res) => {
-    // Nur für die Entwicklung: PNG-Symbole aus dem Browser speichern (PUT /__save/icons/<name>.png)
-    if (req.method === 'PUT' && req.url.startsWith('/__save/icons/')) {
-        const name = path.basename(decodeURIComponent(req.url.slice('/__save/icons/'.length)));
+    // Nur für die Entwicklung: PNG-Bilder aus dem Browser speichern
+    // PUT /__save/icons/<name>.png (App-Symbole) oder /__save/vorschau/<name>.png (Prüfbilder, nicht im Repo)
+    const saveDirs = { icons: 'icons', vorschau: path.join('tasks', 'vorschau') };
+    const m = req.method === 'PUT' && req.url.match(/^\/__save\/(icons|vorschau)\/(.+)$/);
+    if (m) {
+        const name = path.basename(decodeURIComponent(m[2]));
         if (!/^[\w-]+\.png$/.test(name)) {
             res.writeHead(400).end('ungültiger Name');
             return;
         }
+        const dir = path.join(root, saveDirs[m[1]]);
         const chunks = [];
         req.on('data', c => chunks.push(c));
         req.on('end', () => {
-            fs.writeFile(path.join(root, 'icons', name), Buffer.concat(chunks), err => {
-                res.writeHead(err ? 500 : 200).end(err ? String(err) : 'gespeichert');
+            fs.mkdir(dir, { recursive: true }, () => {
+                fs.writeFile(path.join(dir, name), Buffer.concat(chunks), err => {
+                    res.writeHead(err ? 500 : 200).end(err ? String(err) : 'gespeichert');
+                });
             });
         });
         return;

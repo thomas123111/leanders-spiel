@@ -11,6 +11,10 @@ const LEVELS = [TUTORIAL_LEVEL, WORLD1_LEVEL, WORLD2_LEVEL, WORLD3_LEVEL, WORLD4
     WORLD11_LEVEL, WORLD12_LEVEL, WORLD13_LEVEL, WORLD14_LEVEL, WORLD15_LEVEL,
     WORLD16_LEVEL, WORLD17_LEVEL, WORLD18_LEVEL, WORLD19_LEVEL, WORLD20_LEVEL, WORLD21_LEVEL];
 
+const KEEP_ALIVE = o => !o.dead;
+const KEEP_ENEMY = e => !(e.dead && e.deathTimer <= 0 && !e.isBoss);
+const KEEP_COIN = c => !c.collected;
+
 const Game = {
     canvas: null,
     ctx: null,
@@ -1113,7 +1117,7 @@ const Game = {
                 FX.burst(b.x + Math.random() * b.w, b.y + Math.random() * b.h, ['#ffd23f', '#ffffff'], 6, 120, 0.4, { kind: 'spark' });
             }
             for (const p of this.particles) p.update(dt);
-            this.particles = this.particles.filter(p => !p.dead);
+            compactInPlace(this.particles, KEEP_ALIVE);
             if (this.epicFreezeTimer <= 0) {
                 this.epicFreezeActive = false;
                 if (this.epicFreezeBoss) {
@@ -1361,11 +1365,11 @@ const Game = {
         // Partikel
         for (const p of this.particles) p.update(dt);
 
-        // Aufräumen
-        this.enemies = this.enemies.filter(e => !(e.dead && e.deathTimer <= 0 && !e.isBoss));
-        this.projectiles = this.projectiles.filter(p => !p.dead);
-        this.coinDrops = this.coinDrops.filter(c => !c.collected);
-        this.particles = this.particles.filter(p => !p.dead);
+        // Aufräumen (an Ort und Stelle, ohne neue Arrays)
+        compactInPlace(this.enemies, KEEP_ENEMY);
+        compactInPlace(this.projectiles, KEEP_ALIVE);
+        compactInPlace(this.coinDrops, KEEP_COIN);
+        compactInPlace(this.particles, KEEP_ALIVE);
         if (this.particles.length > MAX_PARTICLES) this.particles.splice(0, this.particles.length - MAX_PARTICLES);
         if (this.projectiles.length > 400) this.projectiles.splice(0, this.projectiles.length - 400);
 
@@ -1388,15 +1392,16 @@ const Game = {
         } else {
             this.camera.updateShake(dt);
         }
-        const last = this._lastCam || { x: this.camera.x, y: this.camera.y };
+        const last = this._lastCam || (this._lastCam = { x: this.camera.x, y: this.camera.y });
         FX.updateAmbient(dt, this.viewW, this.viewH, this.camera.x - last.x, this.camera.y - last.y);
-        this._lastCam = { x: this.camera.x, y: this.camera.y };
+        last.x = this.camera.x;
+        last.y = this.camera.y;
     },
 
     _updateAmbientOnly(dt) {
         if (!this.camera) return;
         for (const p of this.particles) p.update(dt);
-        this.particles = this.particles.filter(p => !p.dead);
+        compactInPlace(this.particles, KEEP_ALIVE);
         FX.updateAmbient(dt, this.viewW, this.viewH, 0, 0);
     },
 
@@ -1570,7 +1575,16 @@ const Game = {
             if (e.stoneTimer > 0 && !e.dead) {
                 FX.drawFlashing(ctx, e, camera, this.renderScale, 0.62, '#8f98ad');
             } else if (e.hitFlash > 0 && (!e.dead || e === this.epicFreezeBoss)) {
-                FX.drawFlashing(ctx, e, camera, this.renderScale, Math.min(0.85, e.hitFlash * 7));
+                if (e.isBoss || this._flashesThisFrame >= 4) {
+                    // Große Figuren: zweites, aufhellendes Zeichnen statt teurer Hilfsfläche
+                    e.draw(ctx, camera);
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.globalAlpha *= Math.min(0.55, e.hitFlash * 5);
+                    e.draw(ctx, camera);
+                } else {
+                    this._flashesThisFrame++;
+                    FX.drawFlashing(ctx, e, camera, this.renderScale, Math.min(0.85, e.hitFlash * 7));
+                }
             } else {
                 e.draw(ctx, camera);
             }
@@ -1695,6 +1709,7 @@ const Game = {
         this._titleAmbient = false;
 
         const camera = this.camera;
+        this._flashesThisFrame = 0;
         ctx.fillStyle = (this.world.palette && this.world.palette.void) || '#140b2a';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         ctx.setTransform(this.renderScale, 0, 0, this.renderScale, 0, 0);
@@ -1741,11 +1756,12 @@ const Game = {
 
         // Geschosse und Partikel über den Figuren
         for (const proj of this.projectiles) {
-            if (!isOnScreen({ x: proj.x - 8, y: proj.y - 8, w: 16, h: 16 }, camera, 16)) continue;
+            if (!pointOnScreen(proj.x, proj.y, camera, 40)) continue;
             try { proj.draw(ctx, camera); } catch (err) { proj.dead = true; }
         }
         for (const p of this.particles) {
-            if (!isOnScreen({ x: p.x - 6, y: p.y - 6, w: 12, h: 12 }, camera, 12)) continue;
+            // Zeichenobjekte ohne Position (z. B. Boss-Warnungen) immer zeichnen
+            if (typeof p.x === 'number' && !pointOnScreen(p.x, p.y, camera, 60)) continue;
             try { p.draw(ctx, camera); } catch (err) { p.dead = true; }
         }
         if (this.world.drawOverlay) this.world.drawOverlay(ctx, camera);

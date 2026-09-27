@@ -178,9 +178,9 @@ const FX = {
             f.vy *= Math.exp(-2.5 * dt);
             f.pop = Math.min(1, f.pop + dt * 9);
         }
-        this.floaters = this.floaters.filter(f => f.life > 0);
+        compactInPlace(this.floaters, f => f.life > 0);
         for (const r of this.rings) r.life -= dt;
-        this.rings = this.rings.filter(r => r.life > 0);
+        compactInPlace(this.rings, r => r.life > 0);
         if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 2.2);
     },
 
@@ -208,7 +208,7 @@ const FX = {
 
     // Treffer-Blitz: Figur wird weiß überblendet. Zeichnet die Figur in eine Hilfsfläche und färbt sie dort ein.
     drawFlashing(ctx, e, camera, scale, strength = 0.75, color = '#ffffff') {
-        const margin = Math.max(e.w, e.h) * 0.9 + 14;
+        const margin = Math.max(e.w, e.h) * 0.75 + 12;
         const lw = e.w + margin * 2;
         const lh = e.h + margin * 2;
         const pw = Math.ceil(lw * scale);
