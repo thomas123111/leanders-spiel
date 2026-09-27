@@ -431,14 +431,14 @@ const WORLD_THEMES = {
         win: 'tv', glow: '#8fe8ff',
     },
     // Welt 22: Schule bei Nacht – Linoleum-Flur, Backstein mit Spinden, Schleim, Turnhalle als Boss-Arena.
-    // edge = Streifen entlang der Wände, lockers = Spindfarben, sk = Aussehen der Schädel-Kachel
+    // edge = Streifen entlang der Wände, lockers = Spindfarben, sk = Aussehen der Schädel-Kachel, poolGlow = Leuchten der Becken
     zombie: {
         void: '#0d0a1f', vignette: 0.42, shade: '#0e0826', fs: 'lino', floor: ['#675d98', '#5c528c'], edge: '#8ee86a',
         ws: 'school', wall: '#704a6c', wallF: '#3b2d5e', accent: '#8ee86a', tints: ['#9a4a5a', '#5a4a9a', '#8a6a4a'],
         lockers: ['#3f9a8f', '#d6a93c', '#c9524f', '#4f73c8', '#9a62c8'], arena: '#8ee86a', arenaStyle: 'gym', deepCol: '#1a1030', deep: 0.45,
         bush: ['#23413f', '#355f55', '#6a9a78'], bx: 'eyes', bxc: ['#d8ff6a'],
-        water: 'goo', wc: ['#2a6e2a', '#4cb838', '#a8f070'], bone: '#efeaf6', pad: '#3f78e0',
-        deco: [['paper', 3], ['pencil', 1.4], ['book', 1.4], ['chalk', 0.8], ['slime', 0.9], ['sneaker', 0.4], ['tomb', 0.45], ['apple', 0.3]], rate: 0.22,
+        water: 'goo', wc: ['#2a6e2a', '#4cb838', '#a8f070'], poolGlow: [17, 0.15], bone: '#efeaf6', pad: '#3f78e0',
+        deco: [['paper', 2.4], ['pencil', 1.4], ['book', 1.4], ['chalk', 0.8], ['slime', 0.9], ['sneaker', 0.4], ['tomb', 0.45], ['apple', 0.3]], rate: 0.22,
         sk: 'desk', win: 'school', glow: '#fff1a8', dark: 0.4, darkCol: '#0b0620',
     },
     // Welt 23: bunte Blumenwiese – Riesenblumen als Wände, Teich mit Seerosen, Blumenring als Boss-Arena.
@@ -1702,7 +1702,9 @@ const WorldPaint = {
         c.stroke();
         b.anim.push({ k: 'water', px: px + 16, py: py + 16, x, y, top: !u, ph: wHash(x, y, seed + 5) * 6 });
         if (kind === 'lava' || kind === 'goo' || kind === 'plasma' || kind === 'time') {
-            b.anim.push({ k: 'glow', px: px + 16, py: py + 18, r: 26, col: light, ph: wHash(x, y, 9) * 6, light: true, a: 0.22 });
+            // poolGlow = [Radius, Stärke] (dunkle Welten: kleiner, sonst überstrahlt das Becken mit dem Lichtkreis)
+            const pg = P.poolGlow || [26, 0.22];
+            b.anim.push({ k: 'glow', px: px + 16, py: py + 18, r: pg[0], col: light, ph: wHash(x, y, 9) * 6, light: true, a: pg[1] });
         }
     },
 
@@ -2671,13 +2673,13 @@ const WorldPaint = {
             this._line(c, '#5a4658', 1.3);
             c.beginPath();
             for (let k = 0; k < 3; k++) {
-                const tx = px + 8 + k * 8 + (rnd() - 0.5) * 4, ty = py + 7 + rnd() * 4;
+                const tx = px + 9 + k * 7 + (rnd() - 0.5) * 4, ty = py + 8 + rnd() * 4;
                 const a = -Math.PI / 2 + (rnd() - 0.5) * 1.3;
                 const ex2 = tx + Math.cos(a) * 8, ey2 = ty + Math.sin(a) * 8;
                 c.moveTo(tx, ty);
                 c.lineTo(ex2, ey2);
                 c.moveTo(tx + (ex2 - tx) * 0.5, ty + (ey2 - ty) * 0.5);
-                c.lineTo(ex2 + (k - 1) * 2.5 + 1.5, ey2 + 1.5);
+                c.lineTo(ex2 + (k - 1) * 2 + 1, ey2 + 1.5);
             }
             c.stroke();
             if (rnd() < 0.4) {
@@ -3975,7 +3977,7 @@ const WorldPaint = {
             c.fill();
             this._glow(b, sx, top + 2, 12, col, 0.35, true);
         } else if (r > 0.93) {
-            const ex = q.px + 8 + wHash(q.y, q.x, seed + 715) * 16, ey = q.py + 5 + wHash(q.x, q.y, seed + 717) * Math.max(1, q.h - 11);
+            const ex = q.px + 10 + wHash(q.y, q.x, seed + 715) * 12, ey = q.py + 6 + wHash(q.x, q.y, seed + 717) * Math.max(1, q.h - 13);
             this._line(c, '#2f5a2a', 1);
             c.beginPath();
             c.moveTo(ex - 7, ey + 4);
@@ -3996,11 +3998,13 @@ const WorldPaint = {
 
     // Schmetterlingwelt: Blüten hängen über die Kante, manchmal eine Sonnenblume oder ein rastender Schmetterling
     _bloomExtra(c, P, b, q, r, cx, cy, seed) {
+        // Alles bleibt innerhalb der eigenen Kachel (Nachbarblöcke zeichnen diese Aufsätze nicht mit)
+        cy = q.py + clamp(cy - q.py, 10, q.h - 10);
         if (q.front) {
             const bl = [];
             for (let k = 0; k < 2; k++) {
                 if (wHash(q.x * 3 + k, q.y, seed + 721) > 0.6) continue;
-                bl.push(q.px + 8 + k * 16 + (wHash(q.y, q.x + k, seed + 723) - 0.5) * 6, q.py + q.h + 0.5,
+                bl.push(q.px + 9 + k * 14 + (wHash(q.y, q.x + k, seed + 723) - 0.5) * 4, q.py + q.h + 0.5,
                     4.2 + wHash(q.x, k, seed + 725) * 1.4, Math.floor(wHash(q.x + k, q.y, seed + 727) * P.petals.length), k * 0.6 + 0.3);
             }
             if (bl.length) this._petalPass(c, bl, P.petals);
