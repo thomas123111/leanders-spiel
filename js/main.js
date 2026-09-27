@@ -678,12 +678,14 @@ const Game = {
         this._resultDelay = 0;
         this._resultState = null;
 
-        // Begleiter
+        // Begleiter: Juri ist die Belohnung aus Welt 6 (ab Welt 7 dabei), das Krokodil die aus Welt 7 (ab Welt 8)
         if (worldNum >= 7) {
             const juri = new Juri(this.player.x + 30, this.player.y + 20);
             if (worldNum >= 8) juri.fireCircle = true;
             if (this.unlockedFruitUpgrades) juri.melonHammers = true;
             this.companions.push(juri);
+        }
+        if (worldNum >= 8) {
             const croc = new ShadowCrocodile(this.player.x - 30, this.player.y + 20);
             if (worldNum >= 9) croc.fireExplosion = true;
             if (this.unlockedFruitUpgrades) croc.fruitAmmo = true;
@@ -928,7 +930,7 @@ const Game = {
         if (!this.lastUnlockText && reward) {
             if (reward.star || reward.starPack) this.lastUnlockText = UI._rewardText(reward) + ' 😈';
             else if (this.currentWorld === 6) this.lastUnlockText = 'Juri hilft dir bald! 🧒';
-            else if (this.currentWorld === 7) this.lastUnlockText = 'Das Schatten-Krokodil ist dabei! 🐊';
+            else if (this.currentWorld === 7) this.lastUnlockText = 'Das Schatten-Krokodil hilft dir bald! 🐊';
         }
 
         this.save();
@@ -1548,7 +1550,7 @@ const Game = {
             rx *= 0.8;
             ry *= 0.8;
         }
-        if (e.dead) a *= Math.max(0, (e.deathTimer || 0) / 0.4);
+        if (e.dead) a *= Math.max(0, (e.deathTimer || 0) / (e === this.player ? 1.5 : 0.4));
         Art.groundShadow(ctx, c.x, c.y + dy, rx, ry, a);
     },
 
