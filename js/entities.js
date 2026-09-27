@@ -2554,253 +2554,717 @@ class BossStarKnight extends BossKnightBat {
 BossStarKnight.CAPE_STARS = [-26, 12, -18, 34, 24, 20, 14, 38, -6, 40, 30, 38];
 
 // ══════════════════════════════════════════
-// ── Companion AI: Juri (Clown) ──
+// ── Begleiter: Juri (Clown) ──
 // ══════════════════════════════════════════
 
 class Juri {
     constructor(x, y) {
         this.x = x; this.y = y; this.w = 24; this.h = 24;
-        this.hp = 12; this.maxHp = 12; // 3 hearts
+        this.hp = 12; this.maxHp = 12; // 3 Herzen
         this.speed = 130; this.damage = 3;
-        this.dead = false; this.iFrames = 0;
+        this.dead = false; this.iFrames = 0; this.hitFlash = 0;
         this.attackTimer = 0; this.attackCooldown = 0.8;
-        this.hitCount = 0; this.fireCircle = false;
+        this.hitCount = 0; this.fireCircle = false; this.melonHammers = false;
         this.target = null; this.swingAngle = 0;
         this.swinging = false; this.swingTimer = 0;
+        // Anzeige: Blickrichtung, Laufen, Feuerkreis-Aufblitzen
+        this.faceX = 1; this.moving = false; this.walkT = 0;
+        this.fireFlash = 0; this.stuckTimer = 0;
+        this.seed = Math.random() * 10;
     }
-    centerX() { return this.x + this.w/2; }
-    centerY() { return this.y + this.h/2; }
+    centerX() { return this.x + this.w / 2; }
+    centerY() { return this.y + this.h / 2; }
 
     takeDamage(amount) {
         if (this.iFrames > 0 || this.dead) return;
-        this.hp -= amount; this.iFrames = 1;
-        if (this.hp <= 0) { this.hp = 0; this.dead = true; }
+        this.hp -= amount; this.iFrames = 1; this.hitFlash = 0.12;
+        if (this.hp <= 0) {
+            this.hp = 0; this.dead = true;
+            Juri.poof(this.centerX(), this.centerY());
+        }
+    }
+
+    // ── gemeinsame Helfer für alle Begleiter ──
+
+    // Freie Sicht zwischen zwei Punkten (keine Wand dazwischen)?
+    static lineClear(world, ax, ay, bx, by) {
+        if (!world || !world.isWall) return true;
+        const n = Math.ceil(Math.hypot(bx - ax, by - ay) / 10);
+        for (let i = 1; i < n; i++) {
+            const k = i / n;
+            if (world.isWall(ax + (bx - ax) * k, ay + (by - ay) * k)) return false;
+        }
+        return true;
+    }
+
+    // Laufen mit Wandkollision; liefert die tatsächlich zurückgelegte Strecke.
+    static step(e, dx, dy, world) {
+        const ox = e.x, oy = e.y;
+        if (world && world.collideRect) moveWithCollision(e, dx, dy, world);
+        else { e.x += dx; e.y += dy; }
+        return Math.hypot(e.x - ox, e.y - oy);
+    }
+
+    // Zu weit weg oder festgesteckt: mit einer Rauchwolke neben Mark auftauchen.
+    static hopTo(e, player, world, side) {
+        const ox = e.x + e.w / 2, oy = e.y + e.h / 2;
+        const px = player.x + player.w / 2, py = player.y + player.h / 2;
+        e.x = px + side * 22 - e.w / 2;
+        e.y = py + 8 - e.h / 2;
+        if (world && world.collideRect && world.collideRect(e).length) {
+            e.x = px - e.w / 2;
+            e.y = py - e.h / 2;
+            escapeFromWalls(e, world, 4);
+        }
+        e.stuckTimer = 0;
+        Juri.poof(ox, oy, true);
+        Juri.poof(e.x + e.w / 2, e.y + e.h / 2, true);
+    }
+
+    static poof(x, y, small) {
+        if (typeof FX === 'undefined') return;
+        FX.burst(x, y, 'rgba(240,235,255,0.9)', small ? 6 : 10, 70, 0.45, { kind: 'smoke', size: small ? 4 : 5 });
+        if (!small) FX.burst(x, y, ['#ffd23f', '#ffffff'], 8, 130, 0.5, { kind: 'star' });
+    }
+
+    // Kleine Lebensleiste (nur wenn verletzt, gleicher Stil wie bei Gegnern).
+    static hpBar(ctx, x, y, hp, maxHp) {
+        if (hp >= maxHp) return;
+        const w = 18, k = clamp(hp / maxHp, 0, 1);
+        ctx.fillStyle = 'rgba(20,8,40,0.75)';
+        ctx.beginPath();
+        ctx.roundRect(x - w / 2 - 1, y - 1, w + 2, 5, 2.5);
+        ctx.fill();
+        ctx.fillStyle = k > 0.5 ? '#6ee06e' : (k > 0.25 ? '#ffc23d' : '#ff4d5e');
+        ctx.beginPath();
+        ctx.roundRect(x - w / 2, y, Math.max(1.5, w * k), 3, 1.5);
+        ctx.fill();
     }
 
     update(dt, world, player, enemies) {
         if (this.dead) return;
         if (this.iFrames > 0) this.iFrames -= dt;
-
-        // Follow player
-        const px = player.x + player.w/2, py = player.y + player.h/2;
-        const dist = vecDist({x:this.centerX(),y:this.centerY()}, {x:px,y:py});
-        if (dist > 60) {
-            const a = angleBetween({x:this.centerX(),y:this.centerY()}, {x:px,y:py});
-            const dx = Math.cos(a) * this.speed * dt;
-            const dy = Math.sin(a) * this.speed * dt;
-            this.x += dx; this.y += dy;
+        if (this.hitFlash > 0) this.hitFlash -= dt;
+        if (this.fireFlash > 0) this.fireFlash -= dt;
+        if (this.swingTimer > 0) {
+            this.swingTimer -= dt;
+            if (this.swingTimer <= 0) this.swinging = false;
         }
+        this.attackTimer -= dt;
+        const px = player.x + player.w / 2, py = player.y + player.h / 2;
+        if (Math.hypot(px - this.centerX(), py - this.centerY()) > 260 || this.stuckTimer > 1.2) {
+            Juri.hopTo(this, player, world, -this.faceX || 1);
+        }
+        const cx = this.centerX(), cy = this.centerY();
 
-        // Find nearest enemy
+        // Ziel: nächster Gegner nahe bei Mark (Leine 150), den Juri auch sehen kann
         this.target = null;
-        let minDist = 150;
+        let best = Infinity;
         for (const e of enemies) {
             if (e.dead) continue;
-            const d = vecDist({x:this.centerX(),y:this.centerY()}, {x:e.centerX(),y:e.centerY()});
-            if (d < minDist) { minDist = d; this.target = e; }
+            const ex = e.centerX(), ey = e.centerY();
+            if (Math.hypot(ex - px, ey - py) - Math.max(e.w, e.h) / 2 > 150) continue;
+            const d = Math.hypot(ex - cx, ey - cy);
+            if (d < best && Juri.lineClear(world, cx, cy, ex, ey)) { best = d; this.target = e; }
+        }
+        const tg = this.target;
+
+        // Laufen: zum Ziel bis knapp vor Hammer-Reichweite, sonst in Marks Nähe bleiben
+        let gx = px, gy = py, stop = 38;
+        if (tg) { gx = tg.centerX(); gy = tg.centerY(); stop = 15 + Math.max(tg.w, tg.h) / 2; }
+        const gd = Math.hypot(gx - cx, gy - cy);
+        this.moving = false;
+        if (gd > stop) {
+            const sp = this.speed * (tg ? 1.25 : (gd > 110 ? 1.5 : 1));
+            const len = Math.min(sp * dt, gd - stop);
+            const moved = Juri.step(this, (gx - cx) / gd * len, (gy - cy) / gd * len, world);
+            this.stuckTimer = moved < len * 0.3 ? this.stuckTimer + dt : 0;
+            this.moving = moved > 0.05;
+            if (Math.abs(gx - cx) > 2) this.faceX = gx > cx ? 1 : -1;
+        } else {
+            this.stuckTimer = 0;
+        }
+        if (this.moving) this.walkT += dt;
+        if (tg) this.faceX = tg.centerX() >= this.centerX() ? 1 : -1;
+
+        // Hammerschlag, sobald das Ziel in Reichweite ist (und gerade treffbar)
+        if (tg && this.attackTimer <= 0 && !(tg.iFrames > 0)) {
+            const reach = 21 + Math.max(tg.w, tg.h) / 2;
+            if (Math.hypot(tg.centerX() - this.centerX(), tg.centerY() - this.centerY()) <= reach) this._bonk(tg, enemies);
         }
 
-        // Attack
-        this.attackTimer -= dt;
-        if (this.swinging) { this.swingTimer -= dt; if (this.swingTimer <= 0) this.swinging = false; }
-        if (this.target && this.attackTimer <= 0 && minDist < 50) {
-            this.attackTimer = this.attackCooldown;
-            this.swinging = true; this.swingTimer = 0.2;
-            this.swingAngle = angleBetween({x:this.centerX(),y:this.centerY()}, {x:this.target.centerX(),y:this.target.centerY()});
-            this.target.takeDamage(this.damage, this.swingAngle, 100);
-            this.hitCount++;
-            if (this.fireCircle && this.hitCount % 3 === 0) {
-                // Fire circle around Juri
-                for (const e of enemies) {
-                    if (e.dead) continue;
-                    const d = vecDist({x:this.centerX(),y:this.centerY()}, {x:e.centerX(),y:e.centerY()});
-                    if (d < 80) e.takeDamage(4, angleBetween({x:this.centerX(),y:this.centerY()}, {x:e.centerX(),y:e.centerY()}), 150);
-                }
-            }
-        }
-
-        // Contact damage from enemies
+        // Berührungsschaden durch Gegner
         for (const e of enemies) {
             if (e.dead || !e.contactDamage) continue;
-            if (rectOverlap({x:this.x,y:this.y,w:this.w,h:this.h}, {x:e.x,y:e.y,w:e.w,h:e.h})) {
-                this.takeDamage(e.damage);
+            if (rectOverlap(this, e)) this.takeDamage(e.damage);
+        }
+    }
+
+    _bonk(tg, enemies) {
+        const cx = this.centerX(), cy = this.centerY();
+        const tx = tg.centerX(), ty = tg.centerY();
+        const ang = Math.atan2(ty - cy, tx - cx);
+        this.attackTimer = this.attackCooldown;
+        this.swinging = true;
+        this.swingTimer = 0.28;
+        this.swingAngle = ang;
+        this.hitCount++;
+        const fire = this.fireCircle && this.hitCount % 3 === 0;
+        // Melonen-Hämmer (Obst-Upgrade aus Welt 10) hauen fester
+        let dmg = this.damage + (this.melonHammers ? 2 : 0);
+        // Der Feuerkreis zählt beim Hauptziel mit – sonst verschluckt dessen Unverwundbarkeit den Feuerschaden
+        if (fire) dmg += 4;
+        tg.takeDamage(dmg, ang, this.melonHammers ? 170 : 120);
+        const r = Math.max(tg.w, tg.h) * 0.35;
+        const ix = tx - Math.cos(ang) * r, iy = ty - Math.sin(ang) * r;
+        if (typeof FX !== 'undefined') {
+            if (this.melonHammers) {
+                // Melonen-Stückchen und Kerne
+                FX.burst(ix, iy, ['#ff4d6d', '#ff8fa3', '#3ddc6e', '#1f8a3a'], 10, 150, 0.55, { gravity: 260 });
+                FX.burst(ix, iy, '#2a1a14', 4, 120, 0.45, { size: 1.4, gravity: 260 });
+            } else {
+                FX.burst(ix, iy, ['#fff6a8', '#ffd23f', '#ffffff'], 6, 120, 0.35, { kind: 'star' });
+            }
+        }
+        if (fire) {
+            this.fireFlash = 0.45;
+            for (const e of enemies) {
+                if (e === tg || e.dead) continue;
+                const ex = e.centerX(), ey = e.centerY();
+                if (Math.hypot(ex - cx, ey - cy) < 80 + Math.max(e.w, e.h) / 2) e.takeDamage(4, Math.atan2(ey - cy, ex - cx), 150);
+            }
+            if (typeof FX !== 'undefined') {
+                FX.ring(cx, cy, '#ff9f1c', 80, 0.45, 5);
+                FX.burst(cx, cy, ['#ff5a1f', '#ffd23f', '#ff9f1c'], 16, 180, 0.5);
             }
         }
     }
 
+    // Juri: fröhlicher Clown mit orangen Locken, roter Nase, rot-weiß gestreiftem Anzug,
+    // Clownsschuhen und Quietsch-Hammer (mit Obst-Upgrade: Melonen-Hammer).
     draw(ctx, camera) {
         if (this.dead) return;
         const pos = camera.worldToScreen(this.x, this.y);
-        const cx = pos.x+this.w/2, cy = pos.y+this.h/2;
-        const flash = this.iFrames > 0 && Math.floor(this.iFrames*10)%2;
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        const t = Art.time;
+        const f = this.faceX || 1;
+        const ph = this.walkT * 12;
+        const bob = this.moving ? -Math.abs(Math.sin(ph)) * 1.6 : Math.sin(t * 2.6 + this.seed) * 0.45;
+        const sw = this.swinging ? clamp(1 - this.swingTimer / 0.28, 0, 1) : -1;
+        const charged = this.fireCircle && this.hitCount % 3 === 2;
+        // Blick zum Ziel, sonst in Laufrichtung
+        let lx = f * 0.7, ly = 0.3;
+        const tg = this.target;
+        if (tg && !tg.dead) {
+            const dx = tg.centerX() - this.centerX(), dy = tg.centerY() - this.centerY();
+            const d = Math.hypot(dx, dy) || 1;
+            lx = dx / d;
+            ly = dy / d;
+        }
+        if (this.fireFlash > 0) Art.glow(ctx, cx, cy, 36, '#ff7a1f', Math.min(1, this.fireFlash * 2.2));
+        // Hammer: in Ruhe über der Schulter, beim Schlag saust er über den Kopf aufs Ziel
+        let ha = -Math.PI / 2 + f * (0.55 + Math.sin(t * 2 + this.seed) * 0.08);
+        if (sw >= 0) {
+            const a0 = this.swingAngle - f * 2.1, a1 = this.swingAngle + f * 0.15;
+            const e = sw < 0.4 ? Math.pow(sw / 0.4, 2) : 1;
+            ha = a0 + (a1 - a0) * e;
+        }
+        const handX = cx + f * 6.4, handY = cy + 1.8 + bob;
+        const hammerBack = sw < 0 || Math.sin(ha) < -0.45;
+        if (hammerBack) this._drawHammer(ctx, handX, handY, ha, charged, sw);
+        // Clownsschuhe (ein Pfad)
+        const l0 = this.moving ? Math.max(0, Math.sin(ph)) * 2 : 0;
+        const l1 = this.moving ? Math.max(0, Math.sin(ph + Math.PI)) * 2 : 0;
+        Art.shape(ctx, c => {
+            c.ellipse(cx - 4.3 + f * 1.8, cy + 10.4 - l0, 4.6, 2.5, 0, 0, TAU);
+            c.moveTo(cx + 8.9 + f * 1.8, cy + 10.4 - l1);
+            c.ellipse(cx + 4.3 + f * 1.8, cy + 10.4 - l1, 4.6, 2.5, 0, 0, TAU);
+        }, { x: cx - 8.9 + f * 1.8, y: cy + 6, w: 17.8, h: 7 }, '#ff3b52', { lineWidth: 1.3, outline: '#7a1020' });
+        // Anzug: bauchig, rot-weiß gestreift
+        const by = cy + 3 + bob;
+        Art.body(ctx, cx, by, 8, 7.2, '#ffffff', { outline: false, highlight: false });
         ctx.save();
-        if (flash) ctx.globalAlpha = 0.4;
-
-        // Body (red with white stripes)
-        ctx.fillStyle = '#D33';
-        ctx.beginPath(); ctx.roundRect(cx-8,cy-4,16,14,3); ctx.fill();
-        ctx.fillStyle = '#FFF';
-        ctx.fillRect(cx-2,cy-4,4,14);
-
-        // Head
-        ctx.fillStyle = '#FCA';
-        ctx.beginPath(); ctx.arc(cx,cy-10,8,0,Math.PI*2); ctx.fill();
-        // Red nose
-        ctx.fillStyle = '#F00';
-        ctx.beginPath(); ctx.arc(cx,cy-8,3,0,Math.PI*2); ctx.fill();
-        // Eyes
-        ctx.fillStyle = '#FFF';
-        ctx.beginPath(); ctx.arc(cx-3,cy-12,2.5,0,Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx+3,cy-12,2.5,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle = '#000';
-        ctx.beginPath(); ctx.arc(cx-3,cy-11.5,1,0,Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx+3,cy-11.5,1,0,Math.PI*2); ctx.fill();
-        // Smile
-        ctx.strokeStyle = '#800';
+        ctx.beginPath();
+        ctx.ellipse(cx, by, 8, 7.2, 0, 0, TAU);
+        ctx.clip();
+        ctx.fillStyle = '#ff4d5e';
+        ctx.beginPath();
+        for (let i = -1; i <= 1; i++) ctx.rect(cx + i * 4.8 - 1.3, by - 8, 2.6, 16);
+        ctx.fill();
+        Art.shine(ctx, cx - 3, by - 3.2, 2.6, 1.4, -0.5, 0.35);
+        ctx.restore();
+        ctx.strokeStyle = '#7a1f2c';
+        ctx.lineWidth = Art.LINE;
+        ctx.beginPath();
+        ctx.ellipse(cx, by, 8, 7.2, 0, 0, TAU);
+        ctx.stroke();
+        // Bommel-Knöpfe
+        ctx.fillStyle = '#3aa7ff';
+        ctx.beginPath();
+        ctx.arc(cx + f * 1.6, by - 1.6, 1.7, 0, TAU);
+        ctx.fill();
+        ctx.fillStyle = '#ffd23f';
+        ctx.beginPath();
+        ctx.arc(cx + f * 1.9, by + 2.8, 1.7, 0, TAU);
+        ctx.fill();
+        // hintere Hand (weißer Handschuh)
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#6b6f8a';
         ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.arc(cx,cy-7,4,0.2,Math.PI-0.2); ctx.stroke();
-
-        // Hammers on chains
-        if (this.swinging) {
-            ctx.strokeStyle = '#999'; ctx.lineWidth = 2;
-            const hx = cx+Math.cos(this.swingAngle)*20, hy = cy+Math.sin(this.swingAngle)*18;
-            ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(hx,hy); ctx.stroke();
-            ctx.fillStyle = '#888';
-            ctx.beginPath(); ctx.arc(hx,hy,6,0,Math.PI*2); ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(cx - f * 7.2, cy + 3.2 + bob, 2.3, 2.2, 0, 0, TAU);
+        ctx.fill();
+        ctx.stroke();
+        // Rüschenkragen
+        const ky = cy - 2.6 + bob;
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+            const x = cx + (i - 2) * 2.9;
+            ctx.moveTo(x + 2.1, ky);
+            ctx.arc(x, ky, 2.1, 0, TAU);
         }
+        ctx.fillStyle = '#7fe0ff';
+        ctx.fill();
+        ctx.strokeStyle = '#1d6f8f';
+        ctx.lineWidth = 1.1;
+        ctx.stroke();
+        // Kopf mit Locken
+        const hx = cx + f * 0.8, hy = cy - 7.4 + bob;
+        Art.shape(ctx, c => {
+            for (let i = 0; i < JURI_CURLS.length; i += 3) {
+                const x = hx + JURI_CURLS[i] * f, y = hy + JURI_CURLS[i + 1], r = JURI_CURLS[i + 2];
+                c.moveTo(x + r, y);
+                c.arc(x, y, r, 0, TAU);
+            }
+        }, { x: hx - 12, y: hy - 12, w: 24, h: 17 }, '#ff8a1f', { outline: '#8a3a00', lineWidth: 1.2 });
+        Art.body(ctx, hx, hy, 7.6, 7.2, '#ffe6cc', { outline: '#8a4a2a' });
+        Art.blush(ctx, hx + f * 1.4, hy + 2.8, 1.5, 4.6, '#ff8aa8');
+        Art.eyes(ctx, hx + f * 1.5, hy - 1.1, 2.1, { gap: 2.9, look: { x: lx, y: ly }, seed: this.seed });
+        Art.mouth(ctx, hx + f * 1.7, hy + 4.3, 4.8, sw >= 0 ? 'open' : 'grin');
+        Art.body(ctx, hx + f * 3.4, hy + 1.7, 2.5, 2.3, '#ff2d3f', { glossy: true, lineWidth: 1.1, outline: '#7a0a1a' });
+        if (!hammerBack) this._drawHammer(ctx, handX, handY, ha, charged, sw);
+        // vordere Hand hält den Hammer
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#6b6f8a';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(handX, handY, 2.4, 2.3, 0, 0, TAU);
+        ctx.fill();
+        ctx.stroke();
+        Juri.hpBar(ctx, cx, pos.y - 13, this.hp, this.maxHp);
+    }
 
-        // Fire circle effect
-        if (this.fireCircle && this.hitCount > 0 && this.hitCount % 3 === 0 && this.swingTimer > 0) {
-            ctx.globalAlpha = 0.3;
-            ctx.strokeStyle = '#F80'; ctx.lineWidth = 4;
-            ctx.beginPath(); ctx.arc(cx,cy,40+Math.sin(Date.now()/100)*10,0,Math.PI*2); ctx.stroke();
-            ctx.globalAlpha = 1;
+    _drawHammer(ctx, x, y, ang, charged, sw) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(ang);
+        Art.limb(ctx, -1.5, 0, 10.5, 0, 2.1, '#ffd23f', { lineWidth: 1, outline: '#8a5a00' });
+        // kurzes Stauchen beim Aufprall
+        const squash = sw >= 0.4 && sw < 0.7 ? Math.sin((sw - 0.4) / 0.3 * Math.PI) * 0.22 : 0;
+        ctx.translate(13, 0);
+        ctx.scale(1 - squash, 1 + squash);
+        if (this.melonHammers) {
+            Art.body(ctx, 0, 0, 3.9, 5.8, '#3ddc6e', { glossy: true, outline: '#1f6a34' });
+            ctx.strokeStyle = '#1f8a3a';
+            ctx.lineWidth = 0.9;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 1.4, 5.5, 0, 0, TAU);
+            ctx.moveTo(0, -5.6);
+            ctx.lineTo(0, 5.6);
+            ctx.stroke();
+        } else {
+            Art.box(ctx, -3, -4.4, 6, 8.8, 2, '#ff4d5e', { outline: '#7a1020', highlight: false });
+            ctx.fillStyle = '#ffd23f';
+            ctx.strokeStyle = '#8a5a00';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.roundRect(-3.5, -5.6, 7, 2.4, 1);
+            ctx.roundRect(-3.5, 3.2, 7, 2.4, 1);
+            ctx.fill();
+            ctx.stroke();
         }
-
-        // HP bar above head
-        ctx.globalAlpha = 1;
-        const barW = 20, barH = 3;
-        ctx.fillStyle = '#333';
-        ctx.fillRect(cx-barW/2, pos.y-18, barW, barH);
-        ctx.fillStyle = '#F44';
-        ctx.fillRect(cx-barW/2, pos.y-18, barW*(this.hp/this.maxHp), barH);
-
+        if (charged) {
+            // nächster Schlag wird ein Feuerkreis: Hammer glüht und brennt
+            const fl = Math.sin(Art.time * 16) * 0.8;
+            Art.glow(ctx, 0, 0, 10, '#ff7a1f', 0.6 + fl * 0.15);
+            ctx.fillStyle = '#ffb02e';
+            ctx.beginPath();
+            ctx.moveTo(-3, -1.5);
+            ctx.quadraticCurveTo(-8.5 - fl, 0, -3, 1.5);
+            ctx.closePath();
+            ctx.fill();
+        }
         ctx.restore();
     }
 }
 
+// Locken von Juri: je [x, y, Radius], x zeigt nach vorn (wird gespiegelt).
+const JURI_CURLS = [-7.6, -3.4, 3.4, -8.3, 1.2, 3, 7.4, -3.6, 3.3, 8, 1, 2.8, -3.4, -7.8, 3.1, 1.2, -8.8, 3.2, 5, -7.2, 2.7];
+
 // ══════════════════════════════════════════
-// ── Companion AI: Shadow Crocodile ──
+// ── Begleiter: Schatten-Krokodil ──
 // ══════════════════════════════════════════
 
 class ShadowCrocodile {
     constructor(x, y) {
         this.x = x; this.y = y; this.w = 28; this.h = 26;
-        this.hp = 20; this.maxHp = 20; // 5 hearts
+        this.hp = 20; this.maxHp = 20; // 5 Herzen
         this.speed = 120; this.damage = 4;
-        this.dead = false; this.iFrames = 0;
+        this.dead = false; this.iFrames = 0; this.hitFlash = 0;
         this.shootTimer = 0; this.shootCooldown = 1.2;
-        this.fireExplosion = false;
+        this.fireExplosion = false; this.fruitAmmo = false;
         this.target = null; this.facingAngle = 0;
+        // Anzeige: Blickrichtung, Laufen, Maul nach dem Spucken
+        this.faceX = 1; this.moving = false; this.walkT = 0;
+        this.mouthTimer = 0; this.stuckTimer = 0;
+        this.seed = Math.random() * 10;
     }
-    centerX() { return this.x + this.w/2; }
-    centerY() { return this.y + this.h/2; }
+    centerX() { return this.x + this.w / 2; }
+    centerY() { return this.y + this.h / 2; }
 
     takeDamage(amount) {
         if (this.iFrames > 0 || this.dead) return;
-        this.hp -= amount; this.iFrames = 1;
-        if (this.hp <= 0) { this.hp = 0; this.dead = true; }
+        this.hp -= amount; this.iFrames = 1; this.hitFlash = 0.12;
+        if (this.hp <= 0) {
+            this.hp = 0; this.dead = true;
+            Juri.poof(this.centerX(), this.centerY());
+        }
     }
 
     update(dt, world, player, enemies) {
         if (this.dead) return;
         if (this.iFrames > 0) this.iFrames -= dt;
-
-        // Follow player
-        const px = player.x+player.w/2, py = player.y+player.h/2;
-        const dist = vecDist({x:this.centerX(),y:this.centerY()}, {x:px,y:py});
-        if (dist > 70) {
-            const a = angleBetween({x:this.centerX(),y:this.centerY()}, {x:px,y:py});
-            this.x += Math.cos(a)*this.speed*dt;
-            this.y += Math.sin(a)*this.speed*dt;
+        if (this.hitFlash > 0) this.hitFlash -= dt;
+        if (this.mouthTimer > 0) this.mouthTimer -= dt;
+        this.shootTimer -= dt;
+        const px = player.x + player.w / 2, py = player.y + player.h / 2;
+        if (Math.hypot(px - this.centerX(), py - this.centerY()) > 260 || this.stuckTimer > 1.2) {
+            Juri.hopTo(this, player, world, this.faceX > 0 ? 1 : -1);   // andere Seite als Juri
         }
+        const cx = this.centerX(), cy = this.centerY();
 
-        // Find nearest enemy
+        // Ziel: nächster Gegner in Schussweite, den das Krokodil sehen kann
         this.target = null;
-        let minDist = 250;
+        let best = 250;
         for (const e of enemies) {
             if (e.dead) continue;
-            const d = vecDist({x:this.centerX(),y:this.centerY()}, {x:e.centerX(),y:e.centerY()});
-            if (d < minDist) { minDist = d; this.target = e; }
+            const d = Math.hypot(e.centerX() - cx, e.centerY() - cy);
+            if (d < best && Juri.lineClear(world, cx, cy, e.centerX(), e.centerY())) { best = d; this.target = e; }
         }
 
-        // Shoot at target
-        this.shootTimer -= dt;
+        // Mark folgen (mit Wandkollision), Abstand halten
+        const gd = Math.hypot(px - cx, py - cy);
+        this.moving = false;
+        if (gd > 52) {
+            const len = Math.min(this.speed * (gd > 120 ? 1.5 : 1) * dt, gd - 52);
+            const moved = Juri.step(this, (px - cx) / gd * len, (py - cy) / gd * len, world);
+            this.stuckTimer = moved < len * 0.3 ? this.stuckTimer + dt : 0;
+            this.moving = moved > 0.05;
+            if (!this.target) this.facingAngle = Math.atan2(py - cy, px - cx);
+        } else {
+            this.stuckTimer = 0;
+        }
+        if (this.moving) this.walkT += dt;
+        if (this.target) this.facingAngle = Math.atan2(this.target.centerY() - cy, this.target.centerX() - cx);
+        const fc = Math.cos(this.facingAngle);
+        if (Math.abs(fc) > 0.15) this.faceX = fc > 0 ? 1 : -1;
+
+        // Spucken: Schattenkugel (ab Welt 9 explosiv), mit Obst-Upgrade Obst mit mehr Schaden
         if (this.target && this.shootTimer <= 0) {
             this.shootTimer = this.shootCooldown;
-            this.facingAngle = angleBetween({x:this.centerX(),y:this.centerY()}, {x:this.target.centerX(),y:this.target.centerY()});
-            if (typeof Game !== 'undefined') {
-                const p = new Projectile(this.centerX(), this.centerY(),
-                    Math.cos(this.facingAngle)*250, Math.sin(this.facingAngle)*250,
-                    this.damage, 'player', 80);
+            this.mouthTimer = 0.3;
+            if (typeof Game !== 'undefined' && Game.projectiles) {
+                const a = this.facingAngle;
+                const p = new Projectile(cx + Math.cos(a) * 6, cy + Math.sin(a) * 6,
+                    Math.cos(a) * 250, Math.sin(a) * 250,
+                    this.damage + (this.fruitAmmo ? 2 : 0), 'player', 80);
                 p.radius = 4;
+                p.crocSpit = true;
                 if (this.fireExplosion) p.explosive = true;
+                if (this.fruitAmmo) {
+                    p.fruit = true;
+                    p.fruitKind = randInt(0, 2);
+                    p.radius = 4.5;
+                }
                 Game.projectiles.push(p);
             }
         }
 
-        // Contact damage
+        // Berührungsschaden durch Gegner
         for (const e of enemies) {
             if (e.dead || !e.contactDamage) continue;
-            if (rectOverlap({x:this.x,y:this.y,w:this.w,h:this.h}, {x:e.x,y:e.y,w:e.w,h:e.h})) {
-                this.takeDamage(e.damage);
+            if (rectOverlap(this, e)) this.takeDamage(e.damage);
+        }
+    }
+
+    // Schatten-Krokodil: kleines, aufrechtes Krokodil mit lila Rückenzacken und Schatten-Aura.
+    // Kündigt das Spucken mit leuchtendem Maul an. Mit Obst-Upgrade hält es einen Apfel.
+    draw(ctx, camera) {
+        if (this.dead) return;
+        const pos = camera.worldToScreen(this.x, this.y);
+        const cx = pos.x + this.w / 2;
+        const cy = pos.y + this.h / 2;
+        const t = Art.time;
+        const f = this.faceX || 1;
+        const X = dx => cx + dx * f;
+        const ph = this.walkT * 11;
+        const bob = this.moving ? -Math.abs(Math.sin(ph)) * 1.4 : Math.sin(t * 2.2 + this.seed) * 0.4;
+        const open = this.mouthTimer > 0 ? Math.min(1, this.mouthTimer / 0.12) : 0;
+        const charge = this.target && this.shootTimer < 0.3 ? clamp(1 - this.shootTimer / 0.3, 0, 1) : 0;
+        const G = '#2fb36d', GD = '#1f8a52', INK = '#0f4a2c', SPIKE = '#8a5cff';
+        // Schatten-Aura und aufsteigende Schattenwölkchen
+        Art.glow(ctx, cx, cy + 2, 26, '#8a5cff', 0.24 + 0.06 * Math.sin(t * 3 + this.seed));
+        const wu = (t * 0.8 + this.seed) % 1;
+        Art.glow(ctx, X(-5), cy - 2 - wu * 14, 4 * (1 - wu) + 1.5, '#a47bff', (1 - wu) * 0.6);
+        // Schwanz, wedelt
+        const sway = Math.sin(t * 3.2 + this.seed) * 2.2;
+        const tx0 = Math.min(X(-19), X(-4));
+        Art.shape(ctx, c => {
+            c.moveTo(X(-4), cy + 1 + bob);
+            c.quadraticCurveTo(X(-13), cy + 1 + sway * 0.5 + bob, X(-19.5), cy + 5 + sway);
+            c.quadraticCurveTo(X(-12), cy + 9.5 + sway * 0.4, X(-4), cy + 8.5 + bob);
+            c.closePath();
+        }, { x: tx0, y: cy, w: 16, h: 10 }, G, { outline: INK });
+        // Füße (ein Pfad)
+        const l0 = this.moving ? Math.max(0, Math.sin(ph)) * 1.8 : 0;
+        const l1 = this.moving ? Math.max(0, Math.sin(ph + Math.PI)) * 1.8 : 0;
+        ctx.beginPath();
+        ctx.ellipse(X(-3), cy + 10.8 - l0, 3.4, 2.2, 0, 0, TAU);
+        ctx.moveTo(X(5) + 3.4, cy + 10.8 - l1);
+        ctx.ellipse(X(5), cy + 10.8 - l1, 3.4, 2.2, 0, 0, TAU);
+        ctx.fillStyle = GD;
+        ctx.fill();
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        // Körper mit hellem Bauch und lila Rückenzacken
+        const by = cy + 3 + bob;
+        ctx.fillStyle = SPIKE;
+        ctx.strokeStyle = '#3b1f7a';
+        ctx.lineWidth = 1.1;
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        for (let i = 0; i < 3; i++) {
+            const a = Math.PI * (1.02 + i * 0.2);
+            const bx = cx + Math.cos(a) * 8 * f, byy = by + Math.sin(a) * 7.6;
+            ctx.moveTo(bx - 2.2 * f, byy + 1);
+            ctx.lineTo(bx + Math.cos(a) * 3.4 * f, byy + Math.sin(a) * 3.4);
+            ctx.lineTo(bx + 2.2 * f, byy - 0.6);
+        }
+        ctx.fill();
+        ctx.stroke();
+        Art.body(ctx, cx, by, 8.6, 8, G, { outline: INK });
+        ctx.fillStyle = '#e6f7b3';
+        ctx.beginPath();
+        ctx.ellipse(X(1.8), by + 1.5, 5, 5.6, 0, 0, TAU);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(120,150,60,0.55)';
+        ctx.lineWidth = 0.7;
+        ctx.beginPath();
+        ctx.moveTo(X(-1.5), by + 0.4);
+        ctx.lineTo(X(5), by + 0.4);
+        ctx.moveTo(X(-1.4), by + 3.4);
+        ctx.lineTo(X(4.8), by + 3.4);
+        ctx.stroke();
+        // Ärmchen (mit Obst-Upgrade: ein Apfel in der Hand)
+        Art.limb(ctx, X(4.5), by - 1, X(8.2), by + 1.6, 2.6, G, { lineWidth: 1.1, outline: INK });
+        if (this.fruitAmmo) {
+            Art.body(ctx, X(9.2), by + 2.6, 2.3, 2.2, '#ff3b4e', { lineWidth: 0.9, outline: '#7a0a1a' });
+            ctx.fillStyle = '#4fbf3a';
+            ctx.beginPath();
+            ctx.ellipse(X(9.8), by - 0.1, 1, 0.5, -0.5 * f, 0, TAU);
+            ctx.fill();
+        }
+        // Kopf mit langer Schnauze
+        const hx = X(1.2), hy = cy - 6.5 + bob;
+        const jx = X(3.8), jy = hy + 0.6;
+        ctx.save();
+        ctx.translate(jx, jy);
+        ctx.scale(f, 1);
+        Art.shape(ctx, c => {
+            c.moveTo(-1, 0.6);
+            c.lineTo(10.2, 0.9);
+            c.quadraticCurveTo(13.2, 1.2, 12.4, 2.8);
+            c.quadraticCurveTo(11.4, 4.2, 8, 4);
+            c.lineTo(-1, 3.6);
+            c.closePath();
+        }, { x: -1, y: 0.6, w: 14, h: 3.6 }, '#bfe98a', { outline: INK, lineWidth: 1.2, flat: true });
+        if (open > 0) {
+            ctx.fillStyle = '#7a1f3a';
+            ctx.beginPath();
+            ctx.ellipse(6, 0.8, 5, 0.6 + open * 2, 0, 0, TAU);
+            ctx.fill();
+        }
+        ctx.restore();
+        Art.body(ctx, hx, hy, 8, 6.8, G, { outline: INK });
+        ctx.save();
+        ctx.translate(jx, jy);
+        ctx.scale(f, 1);
+        ctx.rotate(-open * 0.45);
+        Art.shape(ctx, c => {
+            c.moveTo(-1.5, -4.2);
+            c.lineTo(8.8, -3.4);
+            c.quadraticCurveTo(13.4, -3, 13.4, -0.6);
+            c.quadraticCurveTo(13.4, 1.3, 9, 1.3);
+            c.lineTo(-1.5, 1.3);
+            c.closePath();
+        }, { x: -1.5, y: -4.2, w: 15, h: 5.5 }, G, { outline: INK });
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        for (let i = 0; i < 3; i++) {
+            const zx = 3.4 + i * 2.8;
+            ctx.moveTo(zx - 0.9, 1.1);
+            ctx.lineTo(zx, 2.6);
+            ctx.lineTo(zx + 0.9, 1.1);
+        }
+        ctx.fill();
+        ctx.fillStyle = INK;
+        ctx.beginPath();
+        ctx.arc(11.6, -1.9, 0.6, 0, TAU);
+        ctx.moveTo(10.3, -2.2);
+        ctx.arc(9.7, -2.2, 0.6, 0, TAU);
+        ctx.fill();
+        ctx.restore();
+        // Maul leuchtet kurz vor und beim Spucken
+        if (charge > 0 || open > 0) {
+            Art.glow(ctx, X(16), jy + 0.6, 5 + charge * 4, this.fruitAmmo ? '#ffb02e' : '#b28cff', 0.35 + Math.max(charge, open) * 0.5);
+        }
+        // Augen auf Hügeln oben auf dem Kopf, gelbe Iris, schauen zum Ziel
+        let lx = f * 0.8, ly = 0.2;
+        const tg = this.target;
+        if (tg && !tg.dead) {
+            const dx = tg.centerX() - this.centerX(), dy = tg.centerY() - this.centerY();
+            const d = Math.hypot(dx, dy) || 1;
+            lx = dx / d;
+            ly = dy / d;
+        }
+        const look = { x: lx, y: ly };
+        const blink = Art.blink(this.seed);
+        const e0 = X(-2), e1 = X(3.4), ey = hy - 5.2;
+        ctx.beginPath();
+        ctx.ellipse(e0, ey, 3.2, 3, 0, 0, TAU);
+        ctx.moveTo(e1 + 3.2, ey);
+        ctx.ellipse(e1, ey, 3.2, 3, 0, 0, TAU);
+        ctx.fillStyle = G;
+        ctx.fill();
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = Art.LINE;
+        ctx.stroke();
+        Art.eye(ctx, e0, ey - 0.2, 2.1, look, { iris: '#ffd23f', irisSize: 0.72, open: blink, lid: INK });
+        Art.eye(ctx, e1, ey - 0.2, 2.1, look, { iris: '#ffd23f', irisSize: 0.72, open: blink, lid: INK });
+        Juri.hpBar(ctx, cx, pos.y - 14, this.hp, this.maxHp);
+    }
+}
+
+// ══════════════════════════════════════════
+// ── Begleiter: Schlange auf Marks Schulter (Belohnung Welt 14) ──
+// ══════════════════════════════════════════
+
+class SnakeBuddy {
+    constructor(x, y) {
+        this.x = x; this.y = y; this.w = 14; this.h = 14;
+        this.noShadow = true;
+        this.dead = false;
+        this.hidden = false;
+        this.spitTimer = 1.2; this.spitCooldown = 1.8; this.range = 180;
+        this.mouthTimer = 0;
+        this.aimX = 1; this.aimY = 0.3;
+        this.lift = 13;            // wird so viel höher gezeichnet (Schulter statt Boden)
+        this.seed = Math.random() * 10;
+    }
+    centerX() { return this.x + this.w / 2; }
+    centerY() { return this.y + this.h / 2; }
+    takeDamage() {}                // sitzt auf der Schulter, wird nicht getroffen
+
+    update(dt, world, player, enemies) {
+        if (!player) return;
+        this.hidden = !!player.dead;
+        // Auf Marks Schulter (im Bild rechts). Der Sortierpunkt liegt knapp unter Marks Füßen,
+        // damit die Schlange über Mark gezeichnet wird.
+        this.x = player.x + player.w / 2 + 8.5 - this.w / 2;
+        this.y = player.y + player.h - this.h + 0.5;
+        if (this.mouthTimer > 0) this.mouthTimer -= dt;
+        if (this.hidden) return;
+        this.spitTimer -= dt;
+        let hx = this.centerX() + 1, hy = this.centerY() - this.lift - 6;   // Kopf
+        if (world && world.isWall && world.isWall(hx, hy)) {
+            hx = player.x + player.w / 2;
+            hy = player.y + player.h / 2;
+        }
+        let target = null;
+        let best = this.range;
+        for (const e of enemies) {
+            if (e.dead) continue;
+            const d = Math.hypot(e.centerX() - hx, e.centerY() - hy);
+            if (d < best && Juri.lineClear(world, hx, hy, e.centerX(), e.centerY())) { best = d; target = e; }
+        }
+        if (!target) {
+            if (this.spitTimer < 0) this.spitTimer = 0;
+            return;
+        }
+        const dx = target.centerX() - hx, dy = target.centerY() - hy;
+        const d = Math.hypot(dx, dy) || 1;
+        this.aimX = dx / d;
+        this.aimY = dy / d;
+        if (this.spitTimer <= 0) {
+            this.spitTimer = this.spitCooldown;
+            this.mouthTimer = 0.3;
+            if (typeof Game !== 'undefined' && Game.projectiles) {
+                const p = new Projectile(hx, hy, this.aimX * 240, this.aimY * 240, 2, 'player', 40);
+                p.poison = true;
+                p.venom = true;
+                p.radius = 3.5;
+                Game.projectiles.push(p);
             }
         }
     }
 
+    // Kleine grüne Schlange, zusammengeringelt auf der Schulter; wiegt sich, züngelt, spuckt Gift.
     draw(ctx, camera) {
-        if (this.dead) return;
+        if (this.hidden || this.dead) return;
         const pos = camera.worldToScreen(this.x, this.y);
-        const cx = pos.x+this.w/2, cy = pos.y+this.h/2;
-        const flash = this.iFrames > 0 && Math.floor(this.iFrames*10)%2;
-        ctx.save();
-        if (flash) ctx.globalAlpha = 0.4;
-
-        // Body (green croc with armor)
-        ctx.fillStyle = '#3A6A3A';
-        ctx.beginPath(); ctx.ellipse(cx,cy,13,10,0,0,Math.PI*2); ctx.fill();
-        // Armor plates
-        ctx.fillStyle = '#777';
-        ctx.beginPath(); ctx.roundRect(cx-8,cy-6,16,12,3); ctx.fill();
-        // Helmet
-        ctx.fillStyle = '#888';
-        ctx.beginPath(); ctx.arc(cx,cy-10,9,Math.PI,0); ctx.fill();
-        ctx.fillStyle = '#666';
-        ctx.fillRect(cx-8,cy-11,16,4);
-        // Snout
-        ctx.fillStyle = '#4A8A4A';
-        ctx.beginPath(); ctx.ellipse(cx+Math.cos(this.facingAngle)*10,cy+Math.sin(this.facingAngle)*6,7,4,this.facingAngle,0,Math.PI*2); ctx.fill();
-        // Eyes (red)
-        ctx.fillStyle = '#F44';
-        ctx.beginPath(); ctx.arc(cx-4,cy-8,2.5,0,Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx+4,cy-8,2.5,0,Math.PI*2); ctx.fill();
-        // Weapon (Schattenspucker in right hand)
-        ctx.strokeStyle = '#555';
-        ctx.lineWidth = 3;
+        const t = Art.time;
+        const bx = pos.x + this.w / 2;
+        const by = pos.y + this.h / 2 - this.lift;
+        const G = '#52d96a', INK = '#1d6b2e';
+        const sway = Math.sin(t * 2.4 + this.seed);
+        const spit = this.mouthTimer > 0 ? this.mouthTimer / 0.3 : 0;
+        const bobY = Math.sin(t * 3.1 + this.seed) * 0.5;
+        // zwei Windungen
+        Art.body(ctx, bx, by + 3.4, 6.4, 3.3, G, { outline: INK, lineWidth: 1.3 });
+        Art.body(ctx, bx - 0.6, by + 0.6 + bobY * 0.5, 4.9, 2.8, G, { outline: INK, lineWidth: 1.3 });
+        ctx.fillStyle = '#e3ff9a';
         ctx.beginPath();
-        ctx.moveTo(cx+8,cy);
-        ctx.lineTo(cx+Math.cos(this.facingAngle)*18+8, cy+Math.sin(this.facingAngle)*14);
-        ctx.stroke();
-
-        // HP bar above head
-        ctx.globalAlpha = 1;
-        const barW = 24, barH = 3;
-        ctx.fillStyle = '#333';
-        ctx.fillRect(cx-barW/2, pos.y-18, barW, barH);
-        ctx.fillStyle = '#4D4';
-        ctx.fillRect(cx-barW/2, pos.y-18, barW*(this.hp/this.maxHp), barH);
-
-        ctx.restore();
+        ctx.ellipse(bx + 1.5, by + 4.6, 2.6, 0.9, 0, 0, TAU);
+        ctx.fill();
+        // Hals und Kopf (stößt beim Spucken nach vorn)
+        const nx = bx + 1.2 + sway * 1.3 + this.aimX * spit * 2.4;
+        const ny = by - 5.6 + bobY + this.aimY * spit * 1.6;
+        Art.limb(ctx, bx + 0.4, by - 0.2, nx - this.aimX * 0.8, ny + 1.8, 3, G, { outline: INK, lineWidth: 1.2 });
+        // Zunge (schnellt ab und zu heraus)
+        if ((t * 1.3 + this.seed) % 2 < 0.22 || spit > 0.3) {
+            const tx = nx + this.aimX * 3.2, ty = ny + 1 + this.aimY * 2;
+            ctx.strokeStyle = '#ff4d7a';
+            ctx.lineWidth = 0.7;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(nx + this.aimX * 1.5, ny + 0.8);
+            ctx.lineTo(tx, ty);
+            ctx.lineTo(tx + this.aimX * 1.2 - this.aimY * 0.8, ty + this.aimY * 1.2 + 0.6);
+            ctx.moveTo(tx, ty);
+            ctx.lineTo(tx + this.aimX * 1.2 + this.aimY * 0.8, ty + this.aimY * 1.2 - 0.6);
+            ctx.stroke();
+        }
+        Art.body(ctx, nx, ny, 3.5, 3, G, { outline: INK, lineWidth: 1.2 });
+        if (spit > 0) {
+            ctx.fillStyle = '#7a1f3a';
+            ctx.beginPath();
+            ctx.ellipse(nx + this.aimX * 1.8, ny + 1.2, 1.4, 0.4 + spit * 1, 0, 0, TAU);
+            ctx.fill();
+            Art.glow(ctx, nx + this.aimX * 3, ny + 1, 4, '#7dff5a', spit * 0.8);
+        }
+        Art.eyes(ctx, nx + this.aimX * 0.7, ny - 0.6, 1.3, { gap: 1.55, look: { x: this.aimX, y: this.aimY }, seed: this.seed });
     }
 }
 
