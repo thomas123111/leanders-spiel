@@ -807,6 +807,8 @@ class Drone extends Enemy {
     }
 }
 
+// W5 Pilz-Wald: wandelnder Pilz mit Gesicht am Stiel und aufsteigenden Sporen.
+// Vor dem Giftschuss bleibt er stehen, bläht den Hut auf und glüht grün (Ankündigung).
 class WalkingMushroom extends Enemy {
     constructor(x, y) {
         super(x, y, 24, 22);
@@ -816,59 +818,130 @@ class WalkingMushroom extends Enemy {
         this.damage = 1;
         this.contactDamage = true;
         this.sporeTimer = 0;
+        this.charge = 0;            // > 0: Giftschuss wird angekündigt
         this.wobble = Math.random() * Math.PI * 2;
+        this.walk = 0;
+        this.chasing = false;
+        this.look = { x: 0.4, y: 0.3 };
+        this.seed = Math.random() * 10;
+        const caps = ['#c65cff', '#ff5aa5', '#8f6bff'];
+        this.capColor = caps[randInt(0, caps.length - 1)];
+        this.fxColor = this.capColor;
     }
 
     update(dt, world, player) {
         this.baseUpdate(dt, world);
         if (this.dead) return;
-        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
-        const mc = { x: this.centerX(), y: this.centerY() };
-        const dist = vecDist(mc, pc);
-        if (dist < 220) {
-            const a = angleBetween(mc, pc);
-            this.wobble += dt * 4;
-            this._moveWithCollision(
-                Math.cos(a) * this.speed * dt + Math.sin(this.wobble) * 8 * dt,
-                Math.sin(a) * this.speed * dt,
-                world
-            );
-            this.sporeTimer -= dt;
-            if (this.sporeTimer <= 0 && typeof Game !== 'undefined' && dist < 120) {
-                this.sporeTimer = 2.6;
-                const p = new Projectile(mc.x, mc.y, Math.cos(a) * 120, Math.sin(a) * 120, 1, 'enemy', 70);
+        const dx = player.x + player.w / 2 - this.centerX();
+        const dy = player.y + player.h / 2 - this.centerY();
+        const dist = Math.hypot(dx, dy) || 1;
+        this.chasing = dist < 220;
+        if (!this.chasing) {
+            this.charge = 0;
+            return;
+        }
+        this.look.x = dx / dist;
+        this.look.y = dy / dist;
+        if (this.charge > 0) {
+            this.charge -= dt;
+            if (this.charge <= 0 && typeof Game !== 'undefined') {
+                const p = new Projectile(this.centerX(), this.centerY(), this.look.x * 120, this.look.y * 120, 1, 'enemy', 70);
                 p.poison = true;
                 Game.projectiles.push(p);
             }
+            return;
+        }
+        this.wobble += dt * 4;
+        this.walk += dt * 9;
+        this._moveWithCollision(
+            this.look.x * this.speed * dt + Math.sin(this.wobble) * 8 * dt,
+            this.look.y * this.speed * dt,
+            world
+        );
+        this.sporeTimer -= dt;
+        if (this.sporeTimer <= 0 && dist < 120) {
+            this.sporeTimer = 2.6;
+            this.charge = 0.45;
         }
     }
 
     draw(ctx, camera) {
         const pos = camera.worldToScreen(this.x, this.y);
         const cx = pos.x + this.w / 2;
-        const cy = pos.y + this.h / 2;
-        if (this.dead) return;
+        const fy = pos.y + this.h;
+        const t = Art.time;
+        const cap = this.capColor;
+        const ch = this.charge > 0 && !this.dead ? 1 - this.charge / 0.45 : 0;
+        const walking = this.chasing && !this.dead && ch === 0;
+        let sx, sy;
+        if (this.dead) {
+            // Tod: kurz aufploppen, dann zusammenschnurren
+            const d = this.deathProgress();
+            const k = d < 0.3 ? 1 + d : Math.max(0.01, 1.3 * (1 - (d - 0.3) / 0.7));
+            sx = k * 1.12;
+            sy = k * 0.9;
+            ctx.globalAlpha *= Math.min(1, 2.5 - d * 2.5);
+        } else {
+            const s = walking ? Math.abs(Math.sin(this.walk)) * 0.09 - 0.04 : Math.sin(t * 2.6 + this.seed) * 0.03;
+            sx = 1 + s + ch * 0.06;
+            sy = 1 - s + ch * 0.1;
+        }
         ctx.save();
-        if (this.isFlashing()) ctx.globalAlpha = 0.4;
-        ctx.fillStyle = '#6A4';
+        ctx.translate(cx, fy);
+        ctx.scale(sx, sy);
+        // Füßchen, abwechselnd angehoben
+        const st = walking ? Math.sin(this.walk) : 0;
+        Art.body(ctx, -5, -2 - Math.max(0, st) * 2.5, 3.8, 2.5, '#f2c690', { highlight: false });
+        Art.body(ctx, 5, -2 - Math.max(0, -st) * 2.5, 3.8, 2.5, '#f2c690', { highlight: false });
+        // Stiel mit Gesicht
+        Art.body(ctx, 0, -8.5, 8.6, 7.8, '#fff0d2');
+        if (this.dead) {
+            ctx.strokeStyle = Art.INK;
+            ctx.lineWidth = 1.3;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(-5, -10.7); ctx.lineTo(-1.6, -7.3);
+            ctx.moveTo(-1.6, -10.7); ctx.lineTo(-5, -7.3);
+            ctx.moveTo(1.6, -10.7); ctx.lineTo(5, -7.3);
+            ctx.moveTo(5, -10.7); ctx.lineTo(1.6, -7.3);
+            ctx.stroke();
+        } else {
+            Art.eyes(ctx, 0, -9, 2.5, { gap: 3.3, look: this.look, seed: this.seed, angry: this.chasing });
+        }
+        Art.mouth(ctx, 0, -4.4, 4.4, this.dead || ch > 0 ? 'o' : (this.chasing ? 'grin' : 'smile'));
+        Art.blush(ctx, 0, -5.8, 1.6, 5.9);
+        // Hut, bläht sich beim Ankündigen auf
+        ctx.translate(0, -14);
+        const cs = 1 + ch * 0.16;
+        ctx.scale(cs, cs);
+        if (ch > 0) Art.glow(ctx, 0, -4, 17 + ch * 6, '#9dff5a', 0.35 + ch * 0.55);
+        Art.shape(ctx, c => {
+            c.moveTo(-15.5, 1.5);
+            c.bezierCurveTo(-16.5, -14, 16.5, -14, 15.5, 1.5);
+            c.quadraticCurveTo(0, 4.5, -15.5, 1.5);
+            c.closePath();
+        }, { x: -16, y: -12, w: 32, h: 15 }, cap);
+        ctx.fillStyle = Art.light(cap, 0.7);
         ctx.beginPath();
-        ctx.arc(cx, cy + 2, 8, 0, Math.PI * 2);
+        ctx.moveTo(-4, -4.5); ctx.ellipse(-7, -4.5, 3, 2.2, 0, 0, TAU);
+        ctx.moveTo(6.4, -8.2); ctx.ellipse(4, -8.2, 2.4, 1.8, 0, 0, TAU);
+        ctx.moveTo(11.2, -2); ctx.ellipse(9.2, -2, 2, 1.5, 0, 0, TAU);
         ctx.fill();
-        ctx.fillStyle = '#A8C';
-        ctx.beginPath();
-        ctx.arc(cx, cy - 7, 9, Math.PI, 0);
-        ctx.fill();
-        ctx.fillStyle = '#DDD';
-        ctx.fillRect(cx - 3, cy - 2, 6, 8);
-        ctx.fillStyle = '#111';
-        ctx.beginPath();
-        ctx.arc(cx - 3, cy - 6, 1.5, 0, Math.PI * 2);
-        ctx.arc(cx + 3, cy - 6, 1.5, 0, Math.PI * 2);
-        ctx.fill();
+        Art.shine(ctx, -6, -7.6, 3.6, 1.5, -0.35, 0.5);
+        // Sporen steigen auf
+        if (!this.dead) {
+            for (let i = 0; i < 2; i++) {
+                const ph = (t * 0.45 + this.seed * 0.37 + i * 0.5) % 1;
+                Art.glow(ctx, Math.sin(ph * 5 + i * 2 + this.seed) * 7 + (i ? 5 : -5), -12 - ph * 12, 3.4, '#e9b8ff', Math.sin(ph * Math.PI) * 0.9);
+            }
+        }
         ctx.restore();
     }
 }
 
+// W6 Mücken-Sumpf: lila Mücke mit großen Augen, Rüssel und schwirrenden Flügeln.
+// Sturzflug als Zustand (G-18): erst zurückziehen und zittern, Rüssel glüht rot (Ankündigung),
+// dann 0,35 s vorschießen, mit Wandkollision.
 class SwampMosquito extends Enemy {
     constructor(x, y) {
         super(x, y, 20, 16);
@@ -880,27 +953,61 @@ class SwampMosquito extends Enemy {
         this.detectionRange = 280;
         this.diveTimer = 0;
         this.wingPhase = Math.random() * Math.PI * 2;
+        this.flying = true;
+        this.fxColor = '#a45cff';
+        this.look = { x: 0.6, y: 0.3 };   // Blickrichtung im Körper-System (x > 0 = nach vorn)
+        this.face = 1;                     // 1 schaut nach rechts, -1 nach links
+        this.seed = Math.random() * 10;
+        this.dive = 0;                     // 0 fliegt, 1 Ankündigung, 2 Sturzflug
+        this.diveT = 0;
+        this.diveA = 0;
     }
 
     update(dt, world, player) {
         this.baseUpdate(dt, world);
         if (this.dead) return;
-        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
-        const mc = { x: this.centerX(), y: this.centerY() };
-        const dist = vecDist(mc, pc);
-        if (dist < this.detectionRange) {
-            const a = angleBetween(mc, pc);
-            this.wingPhase += dt * 16;
-            this._moveWithCollision(
-                Math.cos(a) * this.speed * dt + Math.cos(this.wingPhase) * 10 * dt,
-                Math.sin(a) * this.speed * dt + Math.sin(this.wingPhase * 1.2) * 6 * dt,
-                world
-            );
-            this.diveTimer -= dt;
-            if (this.diveTimer <= 0 && dist < 130) {
-                this.diveTimer = 1.7;
-                this._moveWithCollision(Math.cos(a) * 140 * dt, Math.sin(a) * 140 * dt, world);
+        const dx = player.x + player.w / 2 - this.centerX();
+        const dy = player.y + player.h / 2 - this.centerY();
+        const dist = Math.hypot(dx, dy) || 1;
+        if (this.dive === 1) {
+            // Anlauf: kurz zurückweichen
+            this.diveT -= dt;
+            this._moveWithCollision(-Math.cos(this.diveA) * 30 * dt, -Math.sin(this.diveA) * 30 * dt, world);
+            if (this.diveT <= 0) {
+                this.dive = 2;
+                this.diveT = 0.35;
             }
+            return;
+        }
+        if (this.dive === 2) {
+            this.diveT -= dt;
+            const mx = Math.cos(this.diveA) * 140 * dt;
+            const my = Math.sin(this.diveA) * 140 * dt;
+            const bx = this.x;
+            const by = this.y;
+            this._moveWithCollision(mx, my, world);
+            // An einer Wand endet der Sturzflug
+            const blocked = Math.abs(this.x - bx - mx) + Math.abs(this.y - by - my) > (Math.abs(mx) + Math.abs(my)) * 0.5;
+            if (this.diveT <= 0 || blocked) this.dive = 0;
+            return;
+        }
+        if (dist >= this.detectionRange) return;
+        if (dx > dist * 0.15) this.face = 1;
+        else if (dx < -dist * 0.15) this.face = -1;
+        this.look.x = dx / dist * this.face;
+        this.look.y = dy / dist;
+        this.wingPhase += dt * 16;
+        this._moveWithCollision(
+            dx / dist * this.speed * dt + Math.cos(this.wingPhase) * 10 * dt,
+            dy / dist * this.speed * dt + Math.sin(this.wingPhase * 1.2) * 6 * dt,
+            world
+        );
+        this.diveTimer -= dt;
+        if (this.diveTimer <= 0 && dist < 130) {
+            this.diveTimer = 1.7;
+            this.dive = 1;
+            this.diveT = 0.3;
+            this.diveA = Math.atan2(dy, dx);
         }
     }
 
@@ -908,30 +1015,113 @@ class SwampMosquito extends Enemy {
         const pos = camera.worldToScreen(this.x, this.y);
         const cx = pos.x + this.w / 2;
         const cy = pos.y + this.h / 2;
-        if (this.dead) return;
+        const t = Art.time;
+        const body = '#a45cff';
+        let k = 1, rot = 0, jx = 0;
+        if (this.dead) {
+            // Tod: trudeln und zusammenschrumpfen
+            const d = this.deathProgress();
+            k = d < 0.25 ? 1 + d * 0.8 : Math.max(0.01, 1.2 * (1 - (d - 0.25) / 0.75));
+            rot = d * 6;
+            ctx.globalAlpha *= Math.min(1, 2.5 - d * 2.5);
+        } else if (this.dive === 1) {
+            rot = -0.35;
+            jx = Math.sin(t * 95) * 0.9;
+        } else if (this.dive === 2) {
+            rot = 0.35;
+        }
+        const hover = this.dead ? 0 : Math.sin(t * 7 + this.seed) * 1.6;
+        const A = ctx.globalAlpha;
         ctx.save();
-        if (this.isFlashing()) ctx.globalAlpha = 0.4;
-        ctx.fillStyle = '#485';
+        ctx.translate(cx + jx, cy + hover);
+        ctx.scale(this.face * k, k);
+        ctx.rotate(rot);
+        // Flügel: Unschärfe-Fächer und zwei durchsichtige Flügel (sehr schneller Schlag)
+        const fa = -1.25 + Math.sin(t * 62 + this.seed) * 0.45;
+        ctx.globalAlpha = A * 0.28;
+        ctx.fillStyle = '#e4f8ff';
         ctx.beginPath();
-        ctx.ellipse(cx, cy, 7, 5, 0, 0, Math.PI * 2);
+        ctx.moveTo(-1, -3.5);
+        ctx.arc(-1, -3.5, 11.5, -2.25, -0.45);
+        ctx.closePath();
         ctx.fill();
-        ctx.fillStyle = '#CFC';
+        ctx.globalAlpha = A * 0.85;
+        ctx.fillStyle = 'rgba(226,248,255,0.75)';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 0.8;
         ctx.beginPath();
-        ctx.arc(cx - 3, cy - 2, 2, 0, Math.PI * 2);
-        ctx.arc(cx + 3, cy - 2, 2, 0, Math.PI * 2);
+        for (let i = 0; i < 2; i++) {
+            const a = fa - i * 0.45;
+            const wx = -1 + Math.cos(a) * 6;
+            const wy = -3.5 + Math.sin(a) * 6;
+            ctx.moveTo(wx + Math.cos(a) * 6.5, wy + Math.sin(a) * 6.5);
+            ctx.ellipse(wx, wy, 6.5, 2.5, a, 0, TAU);
+        }
         ctx.fill();
-        ctx.strokeStyle = '#B8E';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(cx - 8, cy - 4);
-        ctx.lineTo(cx - 14, cy - 8);
-        ctx.moveTo(cx + 8, cy - 4);
-        ctx.lineTo(cx + 14, cy - 8);
         ctx.stroke();
+        ctx.globalAlpha = A;
+        // Beinchen baumeln
+        const sw = Math.sin(t * 5 + this.seed) * 0.8;
+        ctx.strokeStyle = '#4a2396';
+        ctx.lineWidth = 1;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-2.5, 2); ctx.lineTo(-5 + sw, 5.5); ctx.lineTo(-6 + sw, 8.5);
+        ctx.moveTo(0.5, 2.5); ctx.lineTo(sw, 6.5); ctx.lineTo(1 + sw, 9);
+        ctx.moveTo(3, 2); ctx.lineTo(5 + sw, 5); ctx.lineTo(6.5 + sw, 7.5);
+        ctx.stroke();
+        // Hinterleib mit Streifen, Brust, Kopf
+        Art.body(ctx, -6.5, 1.8, 6.6, 3.9, body, { rot: 0.38 });
+        ctx.strokeStyle = '#efd9ff';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(-10.3, 3.3); ctx.lineTo(-8.3, -1.9);
+        ctx.moveTo(-7.1, 4.9); ctx.lineTo(-4.8, -0.9);
+        ctx.stroke();
+        Art.body(ctx, 0, -0.5, 4.4, 4, '#8a4ae8');
+        Art.body(ctx, 5.2, -2.8, 4.4, 4, body);
+        // Fühler
+        ctx.strokeStyle = '#4a2396';
+        ctx.lineWidth = 0.9;
+        ctx.beginPath();
+        ctx.moveTo(4.5, -6.4); ctx.quadraticCurveTo(5, -9, 3.4, -10.4);
+        ctx.moveTo(6.8, -6.3); ctx.quadraticCurveTo(8.2, -8.8, 7.9, -10.8);
+        ctx.stroke();
+        // Rüssel zeigt zu Mark, glüht vor dem Sturzflug
+        const na = clamp(Math.atan2(this.look.y, Math.max(0.2, this.look.x)), -0.5, 1.1);
+        const nx = 9 + Math.cos(na) * 8;
+        const ny = -1.5 + Math.sin(na) * 8;
+        Art.limb(ctx, 8.6, -1.6, nx, ny, 1.1, '#7a2446', { lineWidth: 0.8 });
+        if (this.dive === 1) Art.glow(ctx, nx, ny, 6, '#ff4d6d', 0.95);
+        if (this.dead) {
+            ctx.strokeStyle = Art.INK;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(2.4, -5); ctx.lineTo(5, -2.4);
+            ctx.moveTo(5, -5); ctx.lineTo(2.4, -2.4);
+            ctx.moveTo(6.8, -5); ctx.lineTo(9.4, -2.4);
+            ctx.moveTo(9.4, -5); ctx.lineTo(6.8, -2.4);
+            ctx.stroke();
+        } else {
+            Art.eyes(ctx, 6, -3.6, 1.9, { gap: 2.3, look: this.look, angry: true, seed: this.seed });
+        }
+        // Tempo-Striche im Sturzflug
+        if (this.dive === 2) {
+            ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(-14, -3); ctx.lineTo(-21, -3.5);
+            ctx.moveTo(-13, 3.5); ctx.lineTo(-19, 4.5);
+            ctx.stroke();
+        }
         ctx.restore();
     }
 }
 
+// W6 Schlüsselträger: Krokodil-Kind. Grün, Glubschaugen oben auf dem Kopf, wedelnder Schwanz,
+// goldener Schlüssel schwebt über ihm. Vor dem Giftspucken hebt es den Kopf, reißt das Maul auf
+// und ein grüner Tropfen leuchtet (Ankündigung).
 class CrocodileKid extends Enemy {
     constructor(x, y) {
         super(x, y, 26, 22);
@@ -941,64 +1131,186 @@ class CrocodileKid extends Enemy {
         this.damage = 2;
         this.contactDamage = true;
         this.spitTimer = 0;
+        this.charge = 0;            // > 0: Spucken wird angekündigt
         this.isKeyGhost = true;
         this.droppedKey = false;
+        this.look = { x: 0.7, y: 0.2 };   // Blickrichtung im Körper-System (x > 0 = nach vorn)
+        this.face = 1;
+        this.walk = 0;
+        this.chasing = false;
+        this.seed = Math.random() * 10;
+        this.fxColor = '#4fc95f';
     }
 
     update(dt, world, player) {
         this.baseUpdate(dt, world);
         if (this.dead) return;
-        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
-        const mc = { x: this.centerX(), y: this.centerY() };
-        const dist = vecDist(mc, pc);
-        if (dist < 220) {
-            const a = angleBetween(mc, pc);
-            this._moveWithCollision(Math.cos(a) * this.speed * dt, Math.sin(a) * this.speed * dt, world);
-            this.spitTimer -= dt;
-            if (this.spitTimer <= 0 && typeof Game !== 'undefined' && dist < 150) {
-                this.spitTimer = 2.4;
-                const p = new Projectile(mc.x, mc.y, Math.cos(a) * 135, Math.sin(a) * 135, 1, 'enemy', 60);
+        const dx = player.x + player.w / 2 - this.centerX();
+        const dy = player.y + player.h / 2 - this.centerY();
+        const dist = Math.hypot(dx, dy) || 1;
+        this.chasing = dist < 220;
+        if (!this.chasing) {
+            this.charge = 0;
+            return;
+        }
+        if (dx > dist * 0.15) this.face = 1;
+        else if (dx < -dist * 0.15) this.face = -1;
+        this.look.x = dx / dist * this.face;
+        this.look.y = dy / dist;
+        if (this.charge > 0) {
+            this.charge -= dt;
+            if (this.charge <= 0 && typeof Game !== 'undefined') {
+                const p = new Projectile(this.centerX(), this.centerY(), dx / dist * 135, dy / dist * 135, 1, 'enemy', 60);
                 p.poison = true;
                 Game.projectiles.push(p);
             }
+            return;
+        }
+        this.walk += dt * 8;
+        this._moveWithCollision(dx / dist * this.speed * dt, dy / dist * this.speed * dt, world);
+        this.spitTimer -= dt;
+        if (this.spitTimer <= 0 && dist < 150) {
+            this.spitTimer = 2.4;
+            this.charge = 0.45;
         }
     }
 
     draw(ctx, camera) {
         const pos = camera.worldToScreen(this.x, this.y);
         const cx = pos.x + this.w / 2;
-        const cy = pos.y + this.h / 2;
-        if (this.dead) return;
+        const fy = pos.y + this.h;
+        const t = Art.time;
+        const green = '#4fc95f';
+        const dark = '#35a24a';
+        const ch = this.charge > 0 && !this.dead ? 1 - this.charge / 0.45 : 0;
+        const walking = this.chasing && !this.dead && ch === 0;
+        let k = 1, rot = 0;
+        if (this.dead) {
+            // Tod: hüpft hoch, kippt und schrumpft
+            const d = this.deathProgress();
+            k = d < 0.3 ? 1 + d * 0.7 : Math.max(0.01, 1.21 * (1 - (d - 0.3) / 0.7));
+            rot = -d * 0.6;
+            ctx.globalAlpha *= Math.min(1, 2.5 - d * 2.5);
+        }
+        const st = walking ? Math.sin(this.walk) : 0;
+        const bounce = walking ? Math.abs(st) * 1.2 : 0;
         ctx.save();
-        if (this.isFlashing()) ctx.globalAlpha = 0.4;
-        ctx.fillStyle = '#3A6A3A';
+        ctx.translate(cx, fy);
+        ctx.scale(this.face * k, k);
+        ctx.rotate(rot);
+        // Beine (hinten dunkler), der Bauch liegt darauf
+        Art.body(ctx, -3, -2.4 - Math.max(0, -st) * 1.8, 2.6, 2.4, dark, { highlight: false });
+        Art.body(ctx, 8, -2.4 - Math.max(0, st) * 1.8, 2.6, 2.4, dark, { highlight: false });
+        Art.body(ctx, -6.5, -2 - Math.max(0, st) * 2, 2.9, 2.6, green, { highlight: false });
+        Art.body(ctx, 4.5, -2 - Math.max(0, -st) * 2, 2.9, 2.6, green, { highlight: false });
+        ctx.translate(0, -bounce);
+        // Schwanz wedelt
+        const wag = Math.sin(t * 4 + this.seed) * 2.2;
+        Art.shape(ctx, c => {
+            c.moveTo(-7, -12);
+            c.quadraticCurveTo(-15, -11 + wag * 0.5, -21, -6 + wag);
+            c.quadraticCurveTo(-15, -3.5 + wag * 0.3, -7, -4);
+            c.closePath();
+        }, { x: -21, y: -12, w: 14, h: 9 }, green);
+        // Rückenzacken (unter dem Körper, nur die Spitzen schauen heraus)
+        ctx.fillStyle = dark;
         ctx.beginPath();
-        ctx.ellipse(cx, cy, 11, 8, 0, 0, Math.PI * 2);
+        for (let i = 0; i < 3; i++) {
+            const bx = -6.5 + i * 4;
+            ctx.moveTo(bx - 1.9, -13); ctx.lineTo(bx, -16.2); ctx.lineTo(bx + 1.9, -13);
+        }
         ctx.fill();
-        ctx.fillStyle = '#5B8';
+        // Körper mit hellem Bauch
+        Art.body(ctx, -1, -8, 9.8, 6.2, green);
+        ctx.fillStyle = '#d8f7a2';
         ctx.beginPath();
-        ctx.arc(cx + 6, cy - 2, 6, 0, Math.PI * 2);
+        ctx.ellipse(0, -4.6, 7, 2.3, 0, 0, TAU);
         ctx.fill();
-        ctx.fillStyle = '#222';
-        ctx.fillRect(cx + 4, cy - 3, 6, 2);
-        ctx.fillStyle = '#F44';
-        ctx.beginPath();
-        ctx.arc(cx - 4, cy - 5, 1.5, 0, Math.PI * 2);
-        ctx.arc(cx + 2, cy - 5, 1.5, 0, Math.PI * 2);
-        ctx.fill();
-        if (this.isKeyGhost) {
-            ctx.fillStyle = '#FFD700';
-            ctx.globalAlpha = 0.9;
+        // Kopf mit Schnauze (hebt sich vor dem Spucken)
+        ctx.translate(4, -10);
+        ctx.rotate(-ch * 0.28);
+        ctx.translate(-4, 10);
+        Art.shape(ctx, c => {
+            c.moveTo(3, -9);
+            c.bezierCurveTo(2.5, -17, 11, -18.5, 13.5, -13.5);
+            c.quadraticCurveTo(20, -13, 21, -9.5);
+            c.quadraticCurveTo(21.5, -6, 17.5, -5.5);
+            c.lineTo(8.5, -5.5);
+            c.quadraticCurveTo(3, -5.5, 3, -9);
+            c.closePath();
+        }, { x: 3, y: -18, w: 19, h: 12.5 }, green);
+        // Maul: Lächeln mit Zähnchen oder weit offen mit Gifttropfen
+        if (ch > 0) {
+            ctx.fillStyle = '#6a1636';
             ctx.beginPath();
-            ctx.arc(cx, cy - 14, 4, 0, Math.PI * 2);
+            ctx.moveTo(21, -7.6); ctx.lineTo(9.5, -8.4); ctx.lineTo(19.5, -3.8 - ch);
+            ctx.closePath();
             ctx.fill();
-            ctx.fillRect(cx - 1, cy - 10, 2, 6);
-            ctx.fillRect(cx + 1, cy - 10, 5, 2);
+            Art.glow(ctx, 22.8, -7.6, 5 + ch * 6, '#9dff5a', 0.45 + ch * 0.55);
+            Art.body(ctx, 22.8, -7.6, 1.2 + ch * 1.6, 1.2 + ch * 1.6, '#8dff4a', { highlight: false, lineWidth: 0.8 });
+        } else {
+            ctx.strokeStyle = '#1f5a2a';
+            ctx.lineWidth = 1;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(20.3, -7.4); ctx.quadraticCurveTo(14, -6.2, 9.2, -8.6);
+            ctx.stroke();
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.moveTo(15, -6.9); ctx.lineTo(16.8, -6.8); ctx.lineTo(15.9, -5.2);
+            ctx.moveTo(11.4, -7.3); ctx.lineTo(13.1, -7.1); ctx.lineTo(12.1, -5.7);
+            ctx.fill();
+        }
+        // Nasenlöcher und Wange
+        ctx.fillStyle = '#1f5a2a';
+        ctx.beginPath();
+        ctx.moveTo(19.7, -10.6); ctx.arc(19.1, -10.6, 0.6, 0, TAU);
+        ctx.moveTo(17.7, -11.1); ctx.arc(17.1, -11.1, 0.6, 0, TAU);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,122,168,0.45)';
+        ctx.beginPath();
+        ctx.ellipse(10, -9.5, 2, 1.2, 0, 0, TAU);
+        ctx.fill();
+        // Glubschaugen auf dem Kopf
+        ctx.fillStyle = green;
+        ctx.strokeStyle = Art.ink(green);
+        ctx.lineWidth = Art.LINE;
+        ctx.beginPath();
+        ctx.moveTo(9, -16.6); ctx.arc(5.7, -16.6, 3.3, 0, TAU);
+        ctx.moveTo(14.8, -16.6); ctx.arc(11.5, -16.6, 3.3, 0, TAU);
+        ctx.fill();
+        ctx.stroke();
+        if (this.dead) {
+            ctx.strokeStyle = Art.INK;
+            ctx.lineWidth = 1.1;
+            ctx.beginPath();
+            ctx.moveTo(4.2, -18.6); ctx.lineTo(7.2, -15.6);
+            ctx.moveTo(7.2, -18.6); ctx.lineTo(4.2, -15.6);
+            ctx.moveTo(10, -18.6); ctx.lineTo(13, -15.6);
+            ctx.moveTo(13, -18.6); ctx.lineTo(10, -15.6);
+            ctx.stroke();
+        } else {
+            Art.eyes(ctx, 8.6, -17.1, 2.6, { gap: 2.9, look: this.look, seed: this.seed, angry: this.chasing });
         }
         ctx.restore();
+        // Schlüssel schwebt über dem Kopf (nicht gespiegelt)
+        if (this.isKeyGhost && !this.dead) {
+            const ky = fy - 30 + Math.sin(t * 3 + this.seed) * 1.5;
+            Art.glow(ctx, cx, ky, 12, '#ffd23f', 0.6);
+            // verkleinert zeichnen, damit der Umriss fein bleibt
+            ctx.save();
+            ctx.translate(cx - 1, ky);
+            ctx.rotate(-0.45);
+            ctx.scale(0.55, 0.55);
+            Art.key(ctx, -2.5, 0, 8.5, '#ffd23f');
+            ctx.restore();
+            Art.sparkle(ctx, cx + 6, ky - 5, 1.8 + Math.sin(t * 5 + this.seed) * 0.8, '#ffffff', 0.9);
+        }
     }
 }
 
+// W7 Antarktis: Eis-Pinguin mit Pudelmütze. Watschelt und schießt einen Eisstrahl, der Mark bremst.
+// Ankündigung: lehnt sich zurück, Flossen hoch, Schnabel auf, vor dem Schnabel wächst ein Eiskristall.
 class IcePenguin extends Enemy {
     constructor(x, y) {
         super(x, y, 22, 22);
@@ -1008,54 +1320,145 @@ class IcePenguin extends Enemy {
         this.damage = 1;
         this.contactDamage = true;
         this.shootTimer = 0;
+        this.charge = 0;            // > 0: Eisstrahl wird angekündigt
+        this.look = { x: 0.3, y: 0.4 };
+        this.walk = 0;
+        this.chasing = false;
+        this.seed = Math.random() * 10;
+        const hats = ['#ff4d6d', '#ffc83d', '#3ddc97', '#ff8a3d', '#c77dff'];
+        this.hat = hats[randInt(0, hats.length - 1)];
+        this.fxColor = '#7fd8ff';
     }
 
     update(dt, world, player) {
         this.baseUpdate(dt, world);
         if (this.dead) return;
-        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
-        const mc = { x: this.centerX(), y: this.centerY() };
-        const dist = vecDist(mc, pc);
-        if (dist < 240) {
-            const a = angleBetween(mc, pc);
-            this._moveWithCollision(Math.cos(a) * this.speed * dt, Math.sin(a) * this.speed * dt, world);
-            this.shootTimer -= dt;
-            if (this.shootTimer <= 0 && typeof Game !== 'undefined') {
-                this.shootTimer = 2.8;
-                const p = new Projectile(mc.x, mc.y, Math.cos(a) * 140, Math.sin(a) * 140, 1, 'enemy', 55);
+        const dx = player.x + player.w / 2 - this.centerX();
+        const dy = player.y + player.h / 2 - this.centerY();
+        const dist = Math.hypot(dx, dy) || 1;
+        this.chasing = dist < 240;
+        if (!this.chasing) {
+            this.charge = 0;
+            return;
+        }
+        this.look.x = dx / dist;
+        this.look.y = dy / dist;
+        if (this.charge > 0) {
+            this.charge -= dt;
+            if (this.charge <= 0 && typeof Game !== 'undefined') {
+                // Eisgeschoss: bremst Mark (slow) und wird als Eis gezeichnet (isIce)
+                const p = new Projectile(this.centerX(), this.centerY(), this.look.x * 140, this.look.y * 140, 1, 'enemy', 55);
                 p.slow = true;
+                p.isIce = true;
                 Game.projectiles.push(p);
             }
+            return;
+        }
+        this.walk += dt * 10;
+        this._moveWithCollision(this.look.x * this.speed * dt, this.look.y * this.speed * dt, world);
+        this.shootTimer -= dt;
+        if (this.shootTimer <= 0) {
+            this.shootTimer = 2.8;
+            this.charge = 0.5;
         }
     }
 
     draw(ctx, camera) {
         const pos = camera.worldToScreen(this.x, this.y);
         const cx = pos.x + this.w / 2;
-        const cy = pos.y + this.h / 2;
-        if (this.dead) return;
+        const fy = pos.y + this.h;
+        const t = Art.time;
+        const blue = '#3563c9';
+        const white = '#f6fbff';
+        const ch = this.charge > 0 && !this.dead ? 1 - this.charge / 0.5 : 0;
+        const walking = this.chasing && !this.dead && ch === 0;
+        let k = 1, rot;
+        if (this.dead) {
+            // Tod: kippt um und schrumpft
+            const d = this.deathProgress();
+            k = d < 0.3 ? 1 + d * 0.6 : Math.max(0.01, 1.18 * (1 - (d - 0.3) / 0.7));
+            rot = d * 1.1;
+            ctx.globalAlpha *= Math.min(1, 2.5 - d * 2.5);
+        } else if (walking) {
+            rot = Math.sin(this.walk) * 0.14;       // Watscheln
+        } else {
+            rot = Math.sin(t * 1.8 + this.seed) * 0.05 - ch * 0.14;
+        }
         ctx.save();
-        if (this.isFlashing()) ctx.globalAlpha = 0.4;
-        ctx.fillStyle = '#DFF';
+        ctx.translate(cx, fy);
+        ctx.rotate(rot);
+        ctx.scale(k, k);
+        // Füße
+        const st = walking ? Math.sin(this.walk) : 0;
+        Art.body(ctx, -4.2, -1.4 - Math.max(0, st) * 2, 3.6, 2, '#ff9d2e', { highlight: false });
+        Art.body(ctx, 4.2, -1.4 - Math.max(0, -st) * 2, 3.6, 2, '#ff9d2e', { highlight: false });
+        // Flossen (flattern beim Laufen, gehen vor dem Schuss hoch)
+        const fl = walking ? Math.sin(this.walk * 2) * 0.3 : Math.sin(t * 2 + this.seed) * 0.08;
+        Art.body(ctx, -9.2, -9.8, 2.6, 5.6, blue, { rot: 0.4 + fl + ch * 0.7, highlight: false });
+        Art.body(ctx, 9.2, -9.8, 2.6, 5.6, blue, { rot: -0.4 - fl - ch * 0.7, highlight: false });
+        // Körper, Bauch und Gesichtsmaske
+        Art.body(ctx, 0, -11.5, 9.6, 11.5, blue, { highlight: false });
+        Art.shine(ctx, -6.4, -13, 1.6, 3.4, 0.25, 0.45);
+        ctx.fillStyle = white;
         ctx.beginPath();
-        ctx.ellipse(cx, cy + 2, 10, 8, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, -7.8, 6.6, 7.2, 0, 0, TAU);
+        ctx.moveTo(6.4, -14.6); ctx.arc(2.8, -14.6, 3.6, 0, TAU);
+        ctx.moveTo(0.8, -14.6); ctx.arc(-2.8, -14.6, 3.6, 0, TAU);
         ctx.fill();
-        ctx.fillStyle = '#9CF';
+        // Augen, Wangen, Schnabel
+        if (this.dead) {
+            ctx.strokeStyle = Art.INK;
+            ctx.lineWidth = 1.1;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(-4.4, -16.2); ctx.lineTo(-1.4, -13.2);
+            ctx.moveTo(-1.4, -16.2); ctx.lineTo(-4.4, -13.2);
+            ctx.moveTo(1.4, -16.2); ctx.lineTo(4.4, -13.2);
+            ctx.moveTo(4.4, -16.2); ctx.lineTo(1.4, -13.2);
+            ctx.stroke();
+        } else {
+            Art.eyes(ctx, 0, -14.7, 2.1, { gap: 2.9, look: this.look, seed: this.seed, angry: this.chasing });
+        }
+        Art.blush(ctx, 0, -11.4, 1.5, 5.3);
+        const bx = this.look.x * 1.3;
+        ctx.fillStyle = '#ff9d2e';
+        ctx.strokeStyle = '#a4520e';
+        ctx.lineWidth = 0.8;
+        ctx.lineJoin = 'round';
         ctx.beginPath();
-        ctx.arc(cx, cy - 8, 8, Math.PI, 0);
+        if (ch > 0) {
+            // Schnabel auf
+            ctx.moveTo(bx - 2.3, -12.6); ctx.lineTo(bx + 2.3, -12.6); ctx.lineTo(bx, -11.2 - ch);
+            ctx.closePath();
+            ctx.moveTo(bx - 1.8, -10.4 + ch * 0.3); ctx.lineTo(bx + 1.8, -10.4 + ch * 0.3); ctx.lineTo(bx, -8.6 + ch * 0.6);
+            ctx.closePath();
+        } else {
+            ctx.moveTo(bx - 2.3, -12.4); ctx.lineTo(bx + 2.3, -12.4); ctx.lineTo(bx, -9.8);
+            ctx.closePath();
+        }
         ctx.fill();
-        ctx.fillStyle = '#111';
-        ctx.fillRect(cx - 2, cy - 4, 4, 4);
-        ctx.fillStyle = '#F90';
-        ctx.beginPath();
-        ctx.moveTo(cx, cy - 1);
-        ctx.lineTo(cx + 4, cy + 2);
-        ctx.lineTo(cx, cy + 4);
-        ctx.fill();
+        ctx.stroke();
+        // Pudelmütze
+        Art.shape(ctx, c => {
+            c.moveTo(-7.2, -19.4);
+            c.bezierCurveTo(-7.4, -28, 7.4, -28, 7.2, -19.4);
+            c.closePath();
+        }, { x: -7.4, y: -26, w: 14.8, h: 7 }, this.hat);
+        Art.box(ctx, -7.8, -20.8, 15.6, 3.2, 1.6, white, { highlight: false, outline: '#8aa4c8', lineWidth: 1 });
+        Art.body(ctx, 0, -26.4, 2.6, 2.6, white, { outline: '#8aa4c8', lineWidth: 1 });
         ctx.restore();
+        // Eiskristall wächst vor dem Schnabel (Ankündigung des Eisstrahls)
+        if (ch > 0) {
+            const ix = cx + this.look.x * 9;
+            const iy = fy - 11 + this.look.y * 5;
+            Art.glow(ctx, ix, iy, 6 + ch * 8, '#7fe3ff', 0.4 + ch * 0.6);
+            Art.sparkle(ctx, ix, iy, 1.5 + ch * 4, '#ffffff', 0.95);
+        }
     }
 }
 
+// W8 Vulkan-Insel: hüpfende Lava-Kugel mit Glutrissen, Flämmchen und Hitzeflimmern.
+// Vor den vier Lavaspritzern bleibt sie stehen, bläht sich auf und glüht gelb (Ankündigung).
 class LavaBall extends Enemy {
     constructor(x, y) {
         super(x, y, 20, 20);
@@ -1065,31 +1468,49 @@ class LavaBall extends Enemy {
         this.damage = 1;
         this.contactDamage = true;
         this.burnTimer = 0;
+        this.charge = 0;            // > 0: Spritzer werden angekündigt
         this.pulse = Math.random() * Math.PI * 2;
+        this.hop = 0;
+        this.chasing = false;
+        this.look = { x: 0.3, y: 0.4 };
+        this.seed = Math.random() * 10;
+        this.fxColor = '#ff7a1a';
     }
 
     update(dt, world, player) {
         this.baseUpdate(dt, world);
         if (this.dead) return;
-        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
-        const mc = { x: this.centerX(), y: this.centerY() };
-        const dist = vecDist(mc, pc);
-        if (dist < 240) {
-            const a = angleBetween(mc, pc);
-            this.pulse += dt * 10;
-            this._moveWithCollision(
-                Math.cos(a) * this.speed * dt + Math.cos(this.pulse) * 12 * dt,
-                Math.sin(a) * this.speed * dt + Math.sin(this.pulse) * 12 * dt,
-                world
-            );
-            this.burnTimer -= dt;
-            if (this.burnTimer <= 0 && typeof Game !== 'undefined' && dist < 120) {
-                this.burnTimer = 2.0;
+        const dx = player.x + player.w / 2 - this.centerX();
+        const dy = player.y + player.h / 2 - this.centerY();
+        const dist = Math.hypot(dx, dy) || 1;
+        this.chasing = dist < 240;
+        if (!this.chasing) {
+            this.charge = 0;
+            return;
+        }
+        this.look.x = dx / dist;
+        this.look.y = dy / dist;
+        if (this.charge > 0) {
+            this.charge -= dt;
+            if (this.charge <= 0 && typeof Game !== 'undefined') {
                 for (let i = 0; i < 4; i++) {
                     const sa = (Math.PI * 2 * i) / 4;
-                    Game.projectiles.push(new Projectile(mc.x, mc.y, Math.cos(sa) * 110, Math.sin(sa) * 110, 1, 'enemy', 45));
+                    Game.projectiles.push(new Projectile(this.centerX(), this.centerY(), Math.cos(sa) * 110, Math.sin(sa) * 110, 1, 'enemy', 45));
                 }
             }
+            return;
+        }
+        this.pulse += dt * 10;
+        this.hop += dt * 4;
+        this._moveWithCollision(
+            this.look.x * this.speed * dt + Math.cos(this.pulse) * 12 * dt,
+            this.look.y * this.speed * dt + Math.sin(this.pulse) * 12 * dt,
+            world
+        );
+        this.burnTimer -= dt;
+        if (this.burnTimer <= 0 && dist < 120) {
+            this.burnTimer = 2.0;
+            this.charge = 0.4;
         }
     }
 
@@ -1097,23 +1518,85 @@ class LavaBall extends Enemy {
         const pos = camera.worldToScreen(this.x, this.y);
         const cx = pos.x + this.w / 2;
         const cy = pos.y + this.h / 2;
-        if (this.dead) return;
+        const t = Art.time;
+        const ch = this.charge > 0 && !this.dead ? 1 - this.charge / 0.4 : 0;
+        let k = 1;
+        if (this.dead) {
+            // Tod: grell aufblähen, dann zerplatzen
+            const d = this.deathProgress();
+            k = d < 0.35 ? 1 + d * 0.9 : Math.max(0.01, 1.32 * (1 - (d - 0.35) / 0.65));
+            ctx.globalAlpha *= Math.min(1, 2.5 - d * 2.5);
+        }
+        const A = ctx.globalAlpha;
+        // Hüpfen: oben leicht, am Boden gestaucht (Schatten bleibt am Boden)
+        const h = this.dead || ch > 0 ? 0.35 : Math.abs(Math.sin(this.hop + t * 3 + this.seed));
+        const lift = h * 4.5;
+        const sq = Math.max(0, 0.3 - h) / 0.3 * 0.15;
+        const jx = ch > 0 ? Math.sin(t * 80) * 0.7 * ch : 0;
+        const sw = 1 + ch * 0.22;
         ctx.save();
-        if (this.isFlashing()) ctx.globalAlpha = 0.4;
-        ctx.fillStyle = '#F60';
+        ctx.translate(cx + jx, cy + 10 - lift);
+        ctx.scale((1 + sq) * sw * k, (1 - sq) * sw * k);
+        ctx.translate(0, -10);
+        // Hitzeflimmern: zwei wellige Schlieren steigen auf
+        ctx.strokeStyle = '#ffd9a0';
+        ctx.lineWidth = 1.1;
+        ctx.lineCap = 'round';
+        for (let i = 0; i < 2; i++) {
+            const ph = (t * 0.9 + i * 0.5 + this.seed * 0.1) % 1;
+            const y0 = -14 - ph * 12;
+            const x0 = i ? 3.5 : -3.5;
+            const w = Math.sin(t * 7 + i * 2) * 2;
+            ctx.globalAlpha = A * Math.sin(ph * Math.PI) * 0.5;
+            ctx.beginPath();
+            ctx.moveTo(x0, y0 + 5);
+            ctx.quadraticCurveTo(x0 + w, y0 + 2.5, x0, y0);
+            ctx.quadraticCurveTo(x0 - w, y0 - 2.5, x0, y0 - 5);
+            ctx.stroke();
+        }
+        ctx.globalAlpha = A;
+        // Glut und Flämmchen auf dem Kopf
+        Art.glow(ctx, 0, 0, 19 + ch * 9, '#ff7a1a', 0.5 + Math.sin(t * 6 + this.seed) * 0.12 + ch * 0.4);
+        ctx.fillStyle = ch > 0.5 ? '#fff0a0' : '#ffcc33';
         ctx.beginPath();
-        ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+        for (let i = -1; i <= 1; i++) {
+            const fh = 5.5 + Math.sin(t * 13 + i * 2.1 + this.seed) * 1.6 + (i === 0 ? 2.5 : 0) + ch * 4;
+            const fx = i * 4.2;
+            ctx.moveTo(fx - 2.6, -7);
+            ctx.quadraticCurveTo(fx - 1.6, -7 - fh * 0.7, fx + Math.sin(t * 9 + i) * 1.2, -7 - fh);
+            ctx.quadraticCurveTo(fx + 1.6, -7 - fh * 0.7, fx + 2.6, -7);
+        }
         ctx.fill();
-        ctx.fillStyle = '#FFB000';
+        // Kugel mit dunklen Krustenschuppen
+        Art.body(ctx, 0, 0, 10, 10, ch > 0.5 ? '#ffae1a' : '#ff6a1a', { glossy: true });
+        ctx.fillStyle = 'rgba(128,36,14,0.8)';
         ctx.beginPath();
-        ctx.arc(cx - 2, cy - 2, 4, 0, Math.PI * 2);
+        ctx.moveTo(8.2, 4.6); ctx.ellipse(5.2, 4.6, 3, 2, -0.5, 0, TAU);
+        ctx.moveTo(-3.4, 5.8); ctx.ellipse(-5.6, 5.8, 2.2, 1.6, 0.4, 0, TAU);
+        ctx.moveTo(2.9, 8); ctx.ellipse(1.2, 8, 1.7, 1.1, 0, 0, TAU);
         ctx.fill();
-        ctx.strokeStyle = '#FFF0A0';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(cx, cy, 10 + Math.sin(Date.now() / 120 + this.pulse) * 1.5, 0, Math.PI * 2);
-        ctx.stroke();
+        // Freches Gesicht
+        if (this.dead) {
+            ctx.strokeStyle = Art.INK;
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(-4.8, -3.8); ctx.lineTo(-1.8, -0.8);
+            ctx.moveTo(-1.8, -3.8); ctx.lineTo(-4.8, -0.8);
+            ctx.moveTo(1.8, -3.8); ctx.lineTo(4.8, -0.8);
+            ctx.moveTo(4.8, -3.8); ctx.lineTo(1.8, -0.8);
+            ctx.stroke();
+        } else {
+            Art.eyes(ctx, 0, -2.2, 2.4, { gap: 3.2, look: this.look, angry: true, seed: this.seed });
+        }
+        Art.mouth(ctx, 0, 3, 5.6, this.dead || ch > 0 ? 'open' : 'teeth');
         ctx.restore();
+        // Glutfunken steigen auf
+        if (!this.dead) {
+            for (let i = 0; i < 2; i++) {
+                const ph = (t * 0.7 + i * 0.5 + this.seed * 0.23) % 1;
+                Art.glow(ctx, cx + Math.sin(ph * 6 + i * 3 + this.seed) * 8, cy - 8 - ph * 16, 2.6, '#ffd23f', Math.sin(ph * Math.PI));
+            }
+        }
     }
 }
 

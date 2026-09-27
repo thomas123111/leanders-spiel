@@ -2806,7 +2806,11 @@ class ShadowCrocodile {
 
 
 // ══════════════════════════════════════════════════════════════
-// BossMushroomGiant - RIESEN PILZ (World 5)
+// BossMushroomGiant – Riesen-Pilz (Welt 5)
+// Roter Fliegenpilz mit Wurzelarmen und Sporenwolken.
+// Sporenring: Hut bläht sich auf, Sporen sammeln sich, Warnring mit Pfeilen (Ankündigung).
+// Ranken: Arme recken sich hoch, Warnlinien und rote Kreise zeigen, wo die Ranken zuschlagen.
+// Phase 2: dunklerer Hut mit leuchtenden Tupfen, rote Augen; Risse bei wenig HP.
 // ══════════════════════════════════════════════════════════════
 class BossMushroomGiant extends Enemy {
     constructor(x, y) {
@@ -2818,6 +2822,7 @@ class BossMushroomGiant extends Enemy {
         this.isBoss = true;
         this.contactDamage = false;
         this.phase = 1;
+        this.fxColor = '#ff3b4f';
 
         this.state = 'intro';
         this.introTimer = 2;
@@ -2825,25 +2830,108 @@ class BossMushroomGiant extends Enemy {
         this.stunnedTimer = 0;
         this.attackCycle = 0;
 
-        // Spore cloud
+        // Sporenring
         this.sporeCooldown = 4;
         this.sporeTimer = 3;
 
-        // Vine attack
+        // Ranken: vinePlan = Richtungen während der Ankündigung, vines = wachsende Ranken
         this.vines = [];
+        this.vinePlan = [];
+        this.vineOx = 0;
+        this.vineOy = 0;
         this.vineTimer = 0;
         this.vineCooldown = 5;
 
-        // Spore ambient particles
+        this.look = { x: 0, y: 1 };
+        this.walk = 0;
+        // Tupfen auf dem Hut: x, y (zur Hutmitte), rx, ry
+        this.spots = [[-30, -4, 7.5, 5.5], [-6, -19, 6, 4.5], [20, -11, 8, 6], [40, 6, 5.5, 4.2],
+            [-44, 11, 4.5, 3.6], [6, 3, 5, 3.8], [-19, 12, 4, 3]];
+        // Schwebende Sporen um den Hut (Werte fest, Bewegung über Art.time)
         this.sporeParticles = [];
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0; i < 7; i++) {
             this.sporeParticles.push({
-                ox: randRange(-50, 50),
-                oy: randRange(-60, 20),
+                ox: randRange(-58, 58),
+                oy: randRange(-122, -54),
                 phase: Math.random() * Math.PI * 2,
-                speed: randRange(0.5, 1.5)
+                speed: randRange(0.5, 1.3),
             });
         }
+    }
+
+    // ── Gemeinsame Hilfen der Bosse aus Welt 5–8 ──
+
+    // Warnungen, Ranken und Windlinien liegen oft weit weg vom Boss. Beim Treffer-Blitz zeichnet die
+    // Engine den Boss in eine Hilfsfläche knapp um ihn herum – dort würden sie abgeschnitten.
+    // Darum legt update() ein Zeichen-Objekt in Game.particles, das genau ein Bild lebt und
+    // boss._drawOverlay() über den Figuren aufruft. (x, y) = Mark, damit es immer sichtbar ist.
+    static overlay(boss, x, y) {
+        if (typeof Game === 'undefined' || !Game.particles) return;
+        Game.particles.push({
+            x, y, dead: false, age: 0,
+            update() { if (this.age++ > 0) this.dead = true; },
+            draw(ctx, camera) { boss._drawOverlay(ctx, camera); },
+        });
+    }
+
+    // Schaden an Mark mit Rückmeldung (Wackeln, Ton, roter Rand); außerhalb des Spiels direkt.
+    static hurt(player, amount, angle, force) {
+        if (typeof Game !== 'undefined' && Game.player === player && Game._hurtPlayer) Game._hurtPlayer(amount, angle, force);
+        else player.takeDamage(amount, angle, force);
+    }
+
+    // Innenraum des Boss-Raums (nur im Spiel bekannt, sonst null).
+    static room(world) {
+        if (typeof Game === 'undefined' || Game.world !== world || !Game.bossActive || !Game._bossRoomRect) return null;
+        return Game._bossRoomRect();
+    }
+
+    // Drei kreisende Sterne (betäubt).
+    static dizzy(ctx, x, y, rx, color) {
+        const t = Art.time;
+        for (let i = 0; i < 3; i++) {
+            const a = t * 4 + i * TAU / 3;
+            const s = 0.8 + 0.2 * Math.sin(a);
+            Art.star(ctx, x + Math.cos(a) * rx, y + Math.sin(a) * rx * 0.32, 5.5 * s, color, { lineWidth: 1.2, rot: a });
+        }
+    }
+
+    // Kringel-Augen (betäubt).
+    static spiralEyes(ctx, x, y, r, gap) {
+        const t = Art.time;
+        for (let s = -1; s <= 1; s += 2) {
+            const ex = x + s * gap;
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = Art.INK;
+            ctx.lineWidth = Math.max(1, r * 0.2);
+            ctx.beginPath();
+            ctx.ellipse(ex, y, r, r * 1.08, 0, 0, TAU);
+            ctx.fill();
+            ctx.stroke();
+            ctx.beginPath();
+            for (let i = 0; i <= 12; i++) {
+                const a = i * 0.95 + t * 7 * s;
+                const rr = r * (0.08 + i * 0.058);
+                if (i === 0) ctx.moveTo(ex + Math.cos(a) * rr, y + Math.sin(a) * rr);
+                else ctx.lineTo(ex + Math.cos(a) * rr, y + Math.sin(a) * rr);
+            }
+            ctx.lineWidth = Math.max(1, r * 0.18);
+            ctx.stroke();
+        }
+    }
+
+    // Kreuz-Augen (besiegt).
+    static xEyes(ctx, x, y, r, gap) {
+        ctx.strokeStyle = Art.INK;
+        ctx.lineWidth = Math.max(1.2, r * 0.32);
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        for (let s = -1; s <= 1; s += 2) {
+            const ex = x + s * gap;
+            ctx.moveTo(ex - r * 0.7, y - r * 0.7); ctx.lineTo(ex + r * 0.7, y + r * 0.7);
+            ctx.moveTo(ex + r * 0.7, y - r * 0.7); ctx.lineTo(ex - r * 0.7, y + r * 0.7);
+        }
+        ctx.stroke();
     }
 
     update(dt, world, player, enemies, projectiles) {
@@ -2856,51 +2944,56 @@ class BossMushroomGiant extends Enemy {
             this.vineCooldown = 3.5;
         }
 
-        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
-        const mc = { x: this.centerX(), y: this.centerY() };
+        const pcx = player.x + player.w / 2;
+        const pcy = player.y + player.h / 2;
+        const mcx = this.centerX();
+        const mcy = this.centerY();
+        const dx = pcx - mcx;
+        const dy = pcy - mcy;
+        const dist = Math.hypot(dx, dy) || 1;
+        this.look.x = dx / dist;
+        this.look.y = dy / dist;
+
+        // Ranken wachsen in jedem Zustand weiter (früher froren sie in der Betäubung ein, G-10)
+        for (const v of this.vines) {
+            v.progress += dt * 2;
+            if (v.progress >= 1 && !v.hit) {
+                const ex = v.sx + v.dx - pcx;
+                const ey = v.sy + v.dy - pcy;
+                if (ex * ex + ey * ey < 900) {
+                    v.hit = true;
+                    BossMushroomGiant.hurt(player, 2, Math.atan2(dy, dx), 200);
+                }
+            }
+        }
+        if (this.vines.length) this.vines = this.vines.filter(v => v.progress < 1.5);
+        if (this.vines.length || this.state === 'vine_attack' || this.state === 'spore_cloud') {
+            BossMushroomGiant.overlay(this, pcx, pcy);
+        }
 
         if (this.state === 'intro') {
             this.introTimer -= dt;
-            if (this.introTimer <= 0) { this.state = 'wander'; this.stateTimer = 2; }
+            if (this.introTimer <= 0) this.state = 'wander';
             return;
         }
 
         if (this.state === 'stunned') {
             this.stunnedTimer -= dt;
-            if (this.stunnedTimer <= 0) { this.state = 'wander'; this.stateTimer = 2; }
+            if (this.stunnedTimer <= 0) this.state = 'wander';
             return;
         }
-
-        // Update vines
-        for (const vine of this.vines) {
-            vine.progress += dt * 2;
-            if (vine.progress >= 1) {
-                // Check damage at vine endpoint
-                const ex = vine.sx + vine.dx * 1;
-                const ey = vine.sy + vine.dy * 1;
-                const dist = Math.sqrt((ex - pc.x) ** 2 + (ey - pc.y) ** 2);
-                if (dist < 30 && !vine.hit) {
-                    vine.hit = true;
-                    player.takeDamage(2, angleBetween(mc, pc), 200);
-                }
-            }
-        }
-        this.vines = this.vines.filter(v => v.progress < 1.5);
 
         if (this.state === 'spore_cloud') {
             this.stateTimer -= dt;
             if (this.stateTimer <= 0) {
-                // Fire spore projectiles
+                // Giftsporen im Ring
                 const count = this.phase === 2 ? 10 : 6;
                 if (projectiles) {
                     for (let i = 0; i < count; i++) {
                         const a = (Math.PI * 2 * i) / count;
-                        const speed = 140;
-                        projectiles.push(new Projectile(
-                            mc.x, mc.y,
-                            Math.cos(a) * speed, Math.sin(a) * speed,
-                            1, 'enemy', 80
-                        ));
+                        const p = new Projectile(mcx, mcy, Math.cos(a) * 140, Math.sin(a) * 140, 1, 'enemy', 80);
+                        p.poison = true;
+                        projectiles.push(p);
                     }
                 }
                 this.state = 'stunned';
@@ -2912,31 +3005,27 @@ class BossMushroomGiant extends Enemy {
         if (this.state === 'vine_attack') {
             this.stateTimer -= dt;
             if (this.stateTimer <= 0) {
-                // Spawn vines
-                const vineCount = this.phase === 2 ? 6 : 4;
-                for (let i = 0; i < vineCount; i++) {
-                    const spread = (i - (vineCount - 1) / 2) * 0.3;
-                    const angle = angleBetween(mc, pc) + spread;
+                // Ranken genau entlang der angekündigten Linien
+                for (let i = 0; i < this.vinePlan.length; i++) {
+                    const a = this.vinePlan[i];
                     this.vines.push({
-                        sx: mc.x, sy: mc.y + 30,
-                        dx: Math.cos(angle) * 200,
-                        dy: Math.sin(angle) * 200,
-                        progress: 0, hit: false
+                        sx: this.vineOx, sy: this.vineOy,
+                        dx: Math.cos(a) * 200, dy: Math.sin(a) * 200,
+                        progress: 0, hit: false, seed: i,
                     });
                 }
+                this.vinePlan.length = 0;
+                if (typeof Game !== 'undefined' && Game.camera) Game.camera.shake(4, 0.25);
                 this.state = 'stunned';
                 this.stunnedTimer = 2;
             }
             return;
         }
 
-        // Wander state - move slowly toward player
-        const angle = angleBetween(mc, pc);
-        const dx = Math.cos(angle) * this.speed * dt;
-        const dy = Math.sin(angle) * this.speed * dt;
-        this._moveWithCollision(dx, dy, world);
+        // Wandern: langsam auf Mark zu
+        this.walk += dt * 3;
+        this._moveWithCollision(this.look.x * this.speed * dt, this.look.y * this.speed * dt, world);
 
-        // Attack timers
         this.sporeTimer -= dt;
         this.vineTimer -= dt;
 
@@ -2951,174 +3040,351 @@ class BossMushroomGiant extends Enemy {
             this.vineTimer = this.vineCooldown;
             this.state = 'vine_attack';
             this.stateTimer = 0.6;
-            return;
+            // Richtungen schon jetzt festlegen, damit die Warnlinien genau stimmen
+            const n = this.phase === 2 ? 6 : 4;
+            this.vineOx = mcx;
+            this.vineOy = mcy + 30;
+            const base = Math.atan2(pcy - this.vineOy, pcx - this.vineOx);
+            this.vinePlan.length = 0;
+            for (let i = 0; i < n; i++) this.vinePlan.push(base + (i - (n - 1) / 2) * 0.3);
         }
+    }
+
+    // Wurzelarm von der Schulter zur Hand (s = Seite: -1 links, 1 rechts)
+    _arm(ctx, s, hx, hy, col) {
+        const x0 = 22 * s;
+        const y0 = -46;
+        const x1 = hx * s;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        ctx.quadraticCurveTo((x0 + x1) / 2 + 9 * s, (y0 + hy) / 2 - 3, x1, hy);
+        ctx.strokeStyle = Art.ink(col);
+        ctx.lineWidth = 11.5;
+        ctx.stroke();
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 7;
+        ctx.stroke();
+        Art.body(ctx, x1, hy, 7.2, 6.6, col, { lineWidth: 2 });
     }
 
     draw(ctx, camera) {
         const pos = camera.worldToScreen(this.x, this.y);
         const cx = pos.x + this.w / 2;
-        const cy = pos.y + this.h / 2;
-        const flash = this.iFrames > 0 && Math.floor(this.iFrames * 20) % 2;
+        const fy = pos.y + this.h;
+        const t = Art.time;
+        const dead = this.dead;
+        const p2 = this.phase === 2 || this.hp <= this.maxHp / 2;
+        const stunned = !dead && this.state === 'stunned';
+        const sleepy = !dead && this.state === 'intro' && this.introTimer > 1.1;
+        const sporeK = !dead && this.state === 'spore_cloud' ? clamp(1 - this.stateTimer / 0.8, 0, 1) : 0;
+        const vineK = !dead && this.state === 'vine_attack' ? clamp(1 - this.stateTimer / 0.6, 0, 1) : 0;
+        const walking = !dead && this.state === 'wander';
+        const cap = p2 ? '#e3243f' : '#ff3b4f';
+        const armCol = '#f3d2a2';
 
-        if (this.dead) {
-            const t = 1 - this.deathTimer / 0.4;
-            ctx.save();
-            // Mushroom explodes into spore cloud
-            for (let i = 0; i < 20; i++) {
-                const a = (Math.PI * 2 * i) / 20 + t * 2;
-                const dist = t * 100;
-                ctx.globalAlpha = (1 - t) * 0.8;
-                ctx.fillStyle = i % 3 === 0 ? '#A020F0' : i % 3 === 1 ? '#FF4444' : '#FFFFFF';
-                ctx.beginPath();
-                ctx.arc(cx + Math.cos(a) * dist, cy + Math.sin(a) * dist, (1 - t) * (8 + i % 5), 0, Math.PI * 2);
-                ctx.fill();
-            }
-            // Central flash
-            ctx.globalAlpha = (1 - t);
-            ctx.fillStyle = '#FFF';
-            ctx.beginPath();
-            ctx.arc(cx, cy, (1 - t) * 50 + t * 80, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-            return;
+        // Haltung: Watscheln, Hochrecken und Stampfen, Zusammensacken
+        let sx = 1, sy = 1, tilt = 0;
+        if (dead) {
+            // Besiegt: steht erstarrt (Engine-Stillstand), danach schnell zusammenschrumpfen
+            const d = this.deathProgress();
+            const k = d < 0.2 ? 1 + d * 0.5 : Math.max(0.01, 1.1 * (1 - (d - 0.2) / 0.8));
+            sx = k * 1.06;
+            sy = k * 0.94;
+            tilt = -0.08;
+            ctx.globalAlpha *= Math.min(1, 2.5 - d * 2.5);
+        } else if (walking) {
+            const s = Math.sin(this.walk * 2) * 0.025;
+            sx = 1 + s;
+            sy = 1 - s;
+            tilt = Math.sin(this.walk) * 0.035;
+        } else if (stunned) {
+            sx = 1.05;
+            sy = 0.94;
+            tilt = Math.sin(t * 2.5) * 0.04;
+        } else if (vineK > 0) {
+            const s = vineK < 0.75 ? -vineK * 0.07 : 0.1 * Math.sin((vineK - 0.75) / 0.25 * Math.PI);
+            sx = 1 + s;
+            sy = 1 - s;
+        } else if (sporeK > 0) {
+            sx = 1 + Math.sin(t * 40) * 0.012;
+            sy = 1 + sporeK * 0.04;
+        } else {
+            const s = Math.sin(t * 2) * 0.015;
+            sx = 1 + s;
+            sy = 1 - s;
         }
-
         ctx.save();
-        if (flash) ctx.globalAlpha = 0.4;
+        ctx.translate(cx, fy);
+        ctx.rotate(tilt);
+        ctx.scale(sx, sy);
 
-        // Draw vines
-        for (const vine of this.vines) {
-            const p = Math.min(vine.progress, 1);
-            const vpos = camera.worldToScreen(vine.sx, vine.sy);
-            ctx.strokeStyle = '#228B22';
-            ctx.lineWidth = 4;
-            ctx.globalAlpha = flash ? 0.4 : 0.8;
+        // Füße
+        const st = walking ? Math.sin(this.walk) : 0;
+        Art.body(ctx, -19, -6 - Math.max(0, st) * 5, 13, 7.5, '#f0cc98', { highlight: false, lineWidth: 2 });
+        Art.body(ctx, 19, -6 - Math.max(0, -st) * 5, 13, 7.5, '#f0cc98', { highlight: false, lineWidth: 2 });
+
+        // Stiel
+        Art.shape(ctx, c => {
+            c.moveTo(-23, -62);
+            c.bezierCurveTo(-31, -46, -35, -14, -25, -5);
+            c.quadraticCurveTo(0, 1.5, 25, -5);
+            c.bezierCurveTo(35, -14, 31, -46, 23, -62);
+            c.closePath();
+        }, { x: -33, y: -64, w: 66, h: 64 }, '#fff0d2', { lineWidth: 2.2 });
+
+        // Hände: hängen, recken sich vor den Ranken hoch und stampfen, spreizen sich vor dem Sporenring
+        let hx = 41, hyR = -20, hyL = -20;
+        if (vineK > 0) {
+            const u = vineK < 0.75 ? vineK / 0.75 : 1 - (vineK - 0.75) / 0.25;
+            hx = 41 + u * 7;
+            hyR = hyL = -20 - u * 64;
+        } else if (sporeK > 0) {
+            hx = 50;
+            hyR = hyL = -44 - sporeK * 12 + Math.sin(t * 30) * 1.5;
+        } else if (stunned || dead) {
+            hx = 37;
+            hyR = hyL = -10;
+        } else {
+            const sw = walking ? Math.sin(this.walk) * 5 : Math.sin(t * 1.6) * 2;
+            hyR = -20 + sw;
+            hyL = -20 - sw;
+        }
+        const armsUp = hyR < -58;
+        if (!armsUp) {
+            this._arm(ctx, -1, hx, hyL, armCol);
+            this._arm(ctx, 1, hx, hyR, armCol);
+        }
+
+        // Lamellen unter dem Hut
+        Art.body(ctx, 0, -58, 46, 10.5, '#f7d4a8', { highlight: false, lineWidth: 2 });
+        ctx.strokeStyle = 'rgba(170,110,60,0.45)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        for (let i = 0; i < 7; i++) {
+            const a = 0.35 + i * 0.4;
+            ctx.moveTo(Math.cos(a) * 16, -58 + Math.sin(a) * 3.5);
+            ctx.lineTo(Math.cos(a) * 42, -58 + Math.sin(a) * 9);
+        }
+        ctx.stroke();
+
+        // Gesicht auf dem Stiel (nach den Lamellen, damit die bösen Brauen sichtbar bleiben)
+        const ey = -38;
+        if (dead) BossMushroomGiant.xEyes(ctx, 0, ey, 6.5, 9.5);
+        else if (stunned) BossMushroomGiant.spiralEyes(ctx, 0, ey, 7, 9.5);
+        else if (sleepy) Art.eyes(ctx, 0, ey, 7.2, { gap: 9.5, open: 0.1 });
+        else Art.eyes(ctx, 0, ey, 7.2, { gap: 9.5, look: this.look, angry: true, iris: p2 ? '#ff2e4d' : '#8b5cf6', seed: 2.3 });
+        Art.mouth(ctx, 0, -22, 17, dead || sporeK > 0 ? 'o' : (stunned ? 'open' : (sleepy ? 'smile' : 'teeth')));
+        Art.blush(ctx, 0, -29, 4.6, 18);
+
+        // Hut (bläht sich vor dem Sporenring auf)
+        ctx.save();
+        ctx.translate(0, -84);
+        const cs = 1 + sporeK * 0.1;
+        ctx.scale(cs * (1 + Math.sin(t * 34) * 0.012 * sporeK), cs);
+        if (p2 || sporeK > 0) Art.glow(ctx, 0, -4, 74, '#c77dff', (p2 ? 0.22 : 0) + sporeK * 0.55);
+        Art.shape(ctx, c => {
+            c.moveTo(-53, 24);
+            c.bezierCurveTo(-57, -14, -31, -30, 0, -30);
+            c.bezierCurveTo(31, -30, 57, -14, 53, 24);
+            c.quadraticCurveTo(0, 31, -53, 24);
+            c.closePath();
+        }, { x: -55, y: -30, w: 110, h: 58 }, cap, { lineWidth: 2.5 });
+        const spotGlow = (p2 ? 0.3 + 0.2 * Math.sin(t * 4) : 0) + sporeK * 0.6;
+        if (spotGlow > 0 && !dead) {
+            for (const s of this.spots) Art.glow(ctx, s[0], s[1], s[2] * 2.6, '#d59bff', spotGlow);
+        }
+        ctx.fillStyle = '#fff3dd';
+        ctx.beginPath();
+        for (const s of this.spots) {
+            ctx.moveTo(s[0] + s[2], s[1]);
+            ctx.ellipse(s[0], s[1], s[2], s[3], 0, 0, TAU);
+        }
+        ctx.fill();
+        Art.shine(ctx, -24, -17, 13, 4.5, -0.35, 0.32);
+        // Risse bei wenig HP
+        if (this.hp <= this.maxHp * 0.3) {
+            ctx.strokeStyle = '#7a0d22';
+            ctx.lineWidth = 1.8;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
             ctx.beginPath();
-            ctx.moveTo(vpos.x, vpos.y);
-            ctx.lineTo(vpos.x + vine.dx * p, vpos.y + vine.dy * p);
+            ctx.moveTo(-40, 17); ctx.lineTo(-33, 9); ctx.lineTo(-36, 3); ctx.lineTo(-29, -4);
+            ctx.moveTo(34, 18); ctx.lineTo(29, 11); ctx.lineTo(33, 5);
+            ctx.moveTo(-6, -29); ctx.lineTo(-2, -22); ctx.lineTo(-7, -16);
             ctx.stroke();
-            // Vine tip thorns
-            if (p > 0.5) {
-                ctx.fillStyle = '#32CD32';
-                ctx.beginPath();
-                ctx.arc(vpos.x + vine.dx * p, vpos.y + vine.dy * p, 6, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            ctx.globalAlpha = flash ? 0.4 : 1;
         }
-
-        // Stem (thick beige trunk)
-        const stemGrad = ctx.createLinearGradient(cx - 20, cy, cx + 20, cy);
-        stemGrad.addColorStop(0, '#D2B48C');
-        stemGrad.addColorStop(0.5, '#F5DEB3');
-        stemGrad.addColorStop(1, '#D2B48C');
-        ctx.fillStyle = stemGrad;
-        ctx.beginPath();
-        ctx.moveTo(cx - 22, cy + 50);
-        ctx.lineTo(cx - 18, cy - 10);
-        ctx.lineTo(cx + 18, cy - 10);
-        ctx.lineTo(cx + 22, cy + 50);
-        ctx.closePath();
-        ctx.fill();
-
-        // Mushroom cap (red dome with white spots)
-        const capGrad = ctx.createRadialGradient(cx - 10, cy - 35, 5, cx, cy - 20, 50);
-        capGrad.addColorStop(0, '#FF4444');
-        capGrad.addColorStop(0.7, '#CC0000');
-        capGrad.addColorStop(1, '#880000');
-        ctx.fillStyle = capGrad;
-        ctx.beginPath();
-        ctx.ellipse(cx, cy - 20, 48, 35, 0, Math.PI, 0);
-        ctx.closePath();
-        ctx.fill();
-
-        // White spots on cap
-        ctx.fillStyle = '#FFF';
-        const spots = [[-20, -35, 8], [10, -40, 6], [25, -28, 7], [-30, -25, 5], [0, -48, 5], [15, -20, 4]];
-        for (const [sx, sy, sr] of spots) {
-            ctx.beginPath();
-            ctx.arc(cx + sx, cy + sy, sr, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // Cap rim
-        ctx.fillStyle = '#AA0000';
-        ctx.beginPath();
-        ctx.ellipse(cx, cy - 5, 50, 10, 0, 0, Math.PI);
-        ctx.fill();
-
-        // Angry face on stem
-        ctx.fillStyle = '#222';
-        ctx.beginPath();
-        ctx.ellipse(cx - 10, cy + 12, 5, 4, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.ellipse(cx + 10, cy + 12, 5, 4, 0, 0, Math.PI * 2);
-        ctx.fill();
-        // Angry brows
-        ctx.strokeStyle = '#4A3520';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(cx - 18, cy + 6);
-        ctx.lineTo(cx - 6, cy + 9);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(cx + 18, cy + 6);
-        ctx.lineTo(cx + 6, cy + 9);
-        ctx.stroke();
-        // Angry mouth
-        ctx.fillStyle = '#1A1A1A';
-        ctx.beginPath();
-        ctx.arc(cx, cy + 25, 8, 0, Math.PI);
-        ctx.fill();
-
-        // Purple spore particles floating around
-        const t = Date.now() / 1000;
-        ctx.globalAlpha = flash ? 0.2 : 0.5;
-        for (const sp of this.sporeParticles) {
-            const fx = cx + sp.ox + Math.sin(t * sp.speed + sp.phase) * 12;
-            const fy = cy + sp.oy + Math.cos(t * sp.speed * 0.7 + sp.phase) * 8;
-            ctx.fillStyle = '#A020F0';
-            ctx.beginPath();
-            ctx.arc(fx, fy, 3, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // Stunned stars
-        if (this.state === 'stunned') {
-            ctx.globalAlpha = 0.8;
-            ctx.fillStyle = '#FF0';
-            ctx.font = '14px monospace';
-            for (let i = 0; i < 5; i++) {
-                const sa = Date.now() / 250 + i * Math.PI * 2 / 5;
-                ctx.fillText('\u2605', cx + Math.cos(sa) * 40 - 5, cy - 55 + Math.sin(sa) * 8);
-            }
-        }
-
-        // HP bar
-        ctx.globalAlpha = 1;
-        const barW = 100;
-        const barX = cx - barW / 2;
-        const barY = pos.y - 25;
-        ctx.fillStyle = '#FFF';
-        ctx.font = 'bold 9px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('RIESEN PILZ', cx, barY - 4);
-        ctx.textAlign = 'left';
-        ctx.fillStyle = '#222';
-        ctx.beginPath(); ctx.roundRect(barX, barY, barW, 7, 3); ctx.fill();
-        const hpPct = this.hp / this.maxHp;
-        ctx.fillStyle = hpPct > 0.4 ? '#A020F0' : hpPct > 0.2 ? '#FA0' : '#F00';
-        ctx.beginPath(); ctx.roundRect(barX + 1, barY + 1, (barW - 2) * hpPct, 5, 2); ctx.fill();
-
         ctx.restore();
+
+        if (armsUp) {
+            this._arm(ctx, -1, hx, hyL, armCol);
+            this._arm(ctx, 1, hx, hyR, armCol);
+        }
+
+        // Sporen schweben um den Hut; vor dem Sporenring strömen sie zusammen
+        if (!dead) {
+            ctx.fillStyle = '#f3dcff';
+            ctx.beginPath();
+            for (const sp of this.sporeParticles) {
+                const x = sp.ox + Math.sin(t * sp.speed + sp.phase) * 10;
+                const y = sp.oy + Math.cos(t * sp.speed * 0.7 + sp.phase) * 7;
+                Art.glow(ctx, x, y, 7, '#c77dff', 0.6);
+                ctx.moveTo(x + 1.6, y);
+                ctx.arc(x, y, 1.6, 0, TAU);
+            }
+            ctx.fill();
+        }
+        if (sporeK > 0) {
+            for (let i = 0; i < 8; i++) {
+                const a = i * TAU / 8 + sporeK * 2.5;
+                const r = 100 * (1 - sporeK) + 14;
+                Art.glow(ctx, Math.cos(a) * r, -84 + Math.sin(a) * r * 0.7, 9, '#b6ff5a', 0.5 + sporeK * 0.5);
+            }
+        }
+        if (stunned) BossMushroomGiant.dizzy(ctx, 0, -124, 34, '#ffd23f');
+        ctx.restore();
+    }
+
+    // Warnungen und Ranken (über allen Figuren, siehe overlay)
+    _drawOverlay(ctx, camera) {
+        if (this.dead) return;
+        const t = Art.time;
+        ctx.save();
+        const A = ctx.globalAlpha;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // Sporenring: gestrichelter Kreis, Pfeile genau in Flugrichtung der Sporen
+        if (this.state === 'spore_cloud') {
+            const k = clamp(1 - this.stateTimer / 0.8, 0, 1);
+            const c = camera.worldToScreen(this.centerX(), this.centerY());
+            const n = this.phase === 2 ? 10 : 6;
+            const r = 60 + k * 10;
+            ctx.globalAlpha = A * (0.35 + 0.5 * k);
+            ctx.setLineDash([6, 7]);
+            ctx.lineDashOffset = -t * 30;
+            ctx.strokeStyle = '#b6ff5a';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, r, 0, TAU);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.strokeStyle = '#eaffd0';
+            ctx.lineWidth = 3.2;
+            ctx.beginPath();
+            for (let i = 0; i < n; i++) {
+                const a = TAU * i / n;
+                const ca = Math.cos(a);
+                const sa = Math.sin(a);
+                const tip = r + 13 + k * 8;
+                const bx = c.x + ca * tip;
+                const by = c.y + sa * tip;
+                ctx.moveTo(bx - ca * 8 - sa * 6, by - sa * 8 + ca * 6);
+                ctx.lineTo(bx, by);
+                ctx.lineTo(bx - ca * 8 + sa * 6, by - sa * 8 - ca * 6);
+            }
+            ctx.stroke();
+        }
+
+        // Ranken-Warnung: gestrichelte Bahnen und rote Kreise dort, wo die Rankenspitzen treffen
+        if (this.state === 'vine_attack' && this.vinePlan.length) {
+            const k = clamp(1 - this.stateTimer / 0.6, 0, 1);
+            const o = camera.worldToScreen(this.vineOx, this.vineOy);
+            ctx.globalAlpha = A * (0.4 + 0.5 * k);
+            ctx.setLineDash([6, 8]);
+            ctx.lineDashOffset = -t * 40;
+            ctx.strokeStyle = '#b6ff7a';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            for (const a of this.vinePlan) {
+                // vom Boden an den Füßen bis zum Rand des Gefahrenkreises
+                const ex = o.x + Math.cos(a) * 200;
+                const ey = o.y + Math.sin(a) * 200;
+                const bx = o.x + Math.cos(a) * 14;
+                const by = o.y + 16 + Math.sin(a) * 10;
+                const l = Math.hypot(ex - bx, ey - by) || 1;
+                ctx.moveTo(bx, by);
+                ctx.lineTo(ex - (ex - bx) / l * 30, ey - (ey - by) / l * 30);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+            const pr = 30 * (0.9 + 0.1 * Math.sin(t * 14));
+            ctx.beginPath();
+            for (const a of this.vinePlan) {
+                const ex = o.x + Math.cos(a) * 200;
+                const ey = o.y + Math.sin(a) * 200;
+                ctx.moveTo(ex + pr, ey);
+                ctx.arc(ex, ey, pr, 0, TAU);
+            }
+            ctx.fillStyle = '#ff3d6e';
+            ctx.globalAlpha = A * (0.14 + 0.2 * k);
+            ctx.fill();
+            ctx.strokeStyle = '#ff3d6e';
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = A * (0.55 + 0.4 * k);
+            ctx.stroke();
+        }
+
+        for (const v of this.vines) this._drawVine(ctx, camera, v, A);
+        ctx.restore();
+    }
+
+    // Eine Ranke: bricht an den Füßen aus dem Boden, dornige Knospe an der Spitze
+    _drawVine(ctx, camera, v, A) {
+        const p = Math.min(v.progress, 1);
+        const fade = v.progress > 1.3 ? Math.max(0, (1.5 - v.progress) / 0.2) : 1;
+        const o = camera.worldToScreen(v.sx, v.sy);
+        const ex = o.x + v.dx * p;
+        const ey = o.y + v.dy * p;
+        const sx = o.x + v.dx * 0.07;
+        const sy = o.y + 16 + v.dy * 0.05;
+        const bend = Math.sin(v.seed * 2.3 + Art.time * 4) * 12 * p;
+        const mx = (sx + ex) / 2 - v.dy / 200 * bend;
+        const my = (sy + ey) / 2 + v.dx / 200 * bend;
+        ctx.globalAlpha = A * fade;
+        // aufgewühlte Erde am Austritt
+        ctx.fillStyle = 'rgba(70,40,20,0.55)';
+        ctx.beginPath();
+        ctx.ellipse(sx, sy, 7, 3.5, 0, 0, TAU);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.quadraticCurveTo(mx, my, ex, ey);
+        ctx.strokeStyle = '#1f5f2a';
+        ctx.lineWidth = 8.5;
+        ctx.stroke();
+        ctx.strokeStyle = '#43c552';
+        ctx.lineWidth = 5.5;
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(200,255,170,0.6)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // zwei Blätter
+        if (p > 0.35) {
+            const base = Math.atan2(v.dy, v.dx);
+            for (let i = 1; i <= 2; i++) {
+                const s = i * 0.33;
+                const bx = (1 - s) * (1 - s) * sx + 2 * (1 - s) * s * mx + s * s * ex;
+                const by = (1 - s) * (1 - s) * sy + 2 * (1 - s) * s * my + s * s * ey;
+                const la = base + (i === 1 ? -1 : 1);
+                Art.body(ctx, bx + Math.cos(la) * 6, by + Math.sin(la) * 6, 6, 2.8, '#5fd86a', { rot: la, highlight: false, lineWidth: 1.2 });
+            }
+        }
+        // Dornen-Knospe
+        const r = 4 + p * 3;
+        Art.star(ctx, ex, ey, r * 1.75, '#2f9a3c', { points: 6, inner: 0.5, rot: Art.time * 3 + v.seed, lineWidth: 1.2 });
+        Art.body(ctx, ex, ey, r, r, '#ff5ca8', { lineWidth: 1.6 });
     }
 }
 
 
 // ══════════════════════════════════════════════════════════════
-// BossMosquito - RIESEN MUECKE (World 6)
+// BossMosquito – Riesen-Mücke (Welt 6)
+// Große lila Mücke mit Rüssel, Streifen-Hinterleib und schwirrenden Flügeln.
+// Wirbel: zittert und zielt, eine rote Bahn zeigt vorher genau die Flugbahn.
+// Sturzflug: steigt auf, Ziel und Bahn werden markiert, dann Sturz.
+// An der Raumwand endet jeder Flug mit Betäubung (G-15). Höchstens 4 eigene Fledermäuse (G-09).
+// Phase 2 (halbe HP, nur Aussehen): glühender Hinterleib, rote Augen.
 // ══════════════════════════════════════════════════════════════
 class BossMosquito extends Enemy {
     constructor(x, y) {
@@ -3130,6 +3396,8 @@ class BossMosquito extends Enemy {
         this.phasesThroughWalls = true;
         this.isBoss = true;
         this.contactDamage = false;
+        this.flying = true;
+        this.fxColor = '#a45cff';
 
         this.state = 'intro';
         this.introTimer = 2;
@@ -3137,67 +3405,154 @@ class BossMosquito extends Enemy {
         this.stunnedTimer = 0;
         this.attackCycle = 0;
 
-        // Spin attack
+        // Wirbel und Sturzflug
         this.spinAngle = 0;
         this.spinVx = 0;
         this.spinVy = 0;
         this.spinDamageDealt = false;
-
-        // Arrow ram
+        this.dashA = 0;
         this.ramTarget = { x: 0, y: 0 };
         this.ramPhase = 'none';
         this.ramTimer = 0;
 
-        // Spawn timer
+        // Fledermäuse rufen (mit Obergrenze)
         this.spawnTimer = 12;
         this.spawnCooldown = 12;
+        this.minions = [];
 
-        // Wing animation
-        this.wingAnim = 0;
         this.bobTimer = 0;
-
-        // Attack cooldown
         this.attackTimer = 3;
         this.attackCooldown = 3.5;
+        this.look = { x: 0.3, y: 0.8 };   // Blickrichtung im Körper-System (x > 0 = nach vorn)
+        this.face = 1;
+        this._room = undefined;
+    }
+
+    // Hält die Mücke im Boss-Raum; true, wenn sie an die Wand gestoßen ist.
+    _keepInRoom() {
+        const r = this._room;
+        if (!r) return false;
+        const nx = clamp(this.x, r.x, r.x + r.w - this.w);
+        const ny = clamp(this.y, r.y, r.y + r.h - this.h);
+        const hit = Math.abs(nx - this.x) > 0.01 || Math.abs(ny - this.y) > 0.01;
+        this.x = nx;
+        this.y = ny;
+        return hit;
+    }
+
+    // Flug mit Gleiten an der Raumwand; true, wenn die Mücke frontal gegen die Wand fliegt
+    _dashMove(dt) {
+        const bx = this.x;
+        const by = this.y;
+        this.x += this.spinVx * dt;
+        this.y += this.spinVy * dt;
+        this._keepInRoom();
+        const want = Math.hypot(this.spinVx, this.spinVy) * dt;
+        return Math.hypot(this.x - bx, this.y - by) < want * 0.5;
+    }
+
+    // Vorausberechnete Flugbahn nach derselben Regel, als Punktliste [x0, y0, x1, y1, …] für die Warnbahn
+    _dashPath(a, len) {
+        const pts = this._pts || (this._pts = []);
+        pts.length = 0;
+        let x = this.centerX();
+        let y = this.centerY();
+        pts.push(x, y);
+        const r = this._room;
+        const ca = Math.cos(a);
+        const sa = Math.sin(a);
+        for (let d = 0; d < len; d += 8) {
+            let nx = x + ca * 8;
+            let ny = y + sa * 8;
+            if (r) {
+                nx = clamp(nx, r.x + this.w / 2, r.x + r.w - this.w / 2);
+                ny = clamp(ny, r.y + this.h / 2, r.y + r.h - this.h / 2);
+            }
+            if (Math.hypot(nx - x, ny - y) < 4) break;
+            x = nx;
+            y = ny;
+            pts.push(x, y);
+        }
+        return pts;
+    }
+
+    // Flug zu Ende: betäubt; an der Wand mit Sternen und Wackeln
+    _endDash(bump) {
+        this.state = 'stunned';
+        this.stunnedTimer = 2;
+        this.ramPhase = 'none';
+        if (bump && typeof FX !== 'undefined' && typeof Game !== 'undefined' && Game.particles) {
+            FX.burst(this.centerX(), this.centerY(), ['#ffffff', '#ffd23f', '#d6b8ff'], 10, 150, 0.45, { kind: 'star' });
+            if (Game.camera) Game.camera.shake(4, 0.2);
+        }
+    }
+
+    _dashHit(player, pcx, pcy, force) {
+        if (this.spinDamageDealt) return;
+        const ex = pcx - this.centerX();
+        const ey = pcy - this.centerY();
+        if (ex * ex + ey * ey < 2500) {
+            this.spinDamageDealt = true;
+            BossMushroomGiant.hurt(player, 2, Math.atan2(ey, ex), force);
+        }
     }
 
     update(dt, world, player, enemies, projectiles) {
         this.baseUpdate(dt, world);
         if (this.dead) return;
-
-        this.wingAnim += dt * 25;
+        if (this._room === undefined) this._room = BossMushroomGiant.room(world);
         this.bobTimer += dt;
 
-        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
-        const mc = { x: this.centerX(), y: this.centerY() };
+        const pcx = player.x + player.w / 2;
+        const pcy = player.y + player.h / 2;
+        const mcx = this.centerX();
+        const mcy = this.centerY();
+        const dx = pcx - mcx;
+        const dy = pcy - mcy;
+        const dist = Math.hypot(dx, dy) || 1;
+        const dashing = this.state === 'spin' || (this.state === 'arrow_ram' && this.ramPhase === 'charge');
+        if (!dashing) {
+            if (dx > dist * 0.2) this.face = 1;
+            else if (dx < -dist * 0.2) this.face = -1;
+            this.look.x = dx / dist * this.face;
+            this.look.y = dy / dist;
+        }
 
         if (this.state === 'intro') {
             this.introTimer -= dt;
-            if (this.introTimer <= 0) { this.state = 'hover'; this.stateTimer = 2; }
+            if (this.introTimer <= 0) this.state = 'hover';
             return;
         }
 
         if (this.state === 'stunned') {
             this.stunnedTimer -= dt;
-            if (this.stunnedTimer <= 0) { this.state = 'hover'; this.stateTimer = 2; }
+            if (this.stunnedTimer <= 0) this.state = 'hover';
+            return;
+        }
+
+        if (this.state === 'spin_wind') {
+            // Ankündigung: zittert, Rüssel glüht, Warnbahn am Boden
+            this.stateTimer -= dt;
+            BossMushroomGiant.overlay(this, pcx, pcy);
+            if (this.stateTimer <= 0) {
+                this.state = 'spin';
+                this.stateTimer = 1;
+                this.spinVx = Math.cos(this.dashA) * 250;
+                this.spinVy = Math.sin(this.dashA) * 250;
+                this.spinAngle = 0;
+                this.spinDamageDealt = false;
+                if (Math.abs(this.spinVx) > 1) this.face = this.spinVx > 0 ? 1 : -1;
+            }
             return;
         }
 
         if (this.state === 'spin') {
             this.stateTimer -= dt;
-            this.x += this.spinVx * dt;
-            this.y += this.spinVy * dt;
+            const blocked = this._dashMove(dt);
             this.spinAngle += dt * 15;
-            // Check collision with player
-            const dist = vecDist(mc, pc);
-            if (dist < 50 && !this.spinDamageDealt) {
-                this.spinDamageDealt = true;
-                player.takeDamage(2, angleBetween(mc, pc), 300);
-            }
-            if (this.stateTimer <= 0) {
-                this.state = 'stunned';
-                this.stunnedTimer = 2;
-            }
+            this._dashHit(player, pcx, pcy, 300);
+            if (blocked) this._endDash(true);
+            else if (this.stateTimer <= 0) this._endDash(false);
             return;
         }
 
@@ -3205,242 +3560,325 @@ class BossMosquito extends Enemy {
             if (this.ramPhase === 'rise') {
                 this.ramTimer -= dt;
                 this.y -= 120 * dt;
+                this._keepInRoom();
+                BossMushroomGiant.overlay(this, pcx, pcy);
                 if (this.ramTimer <= 0) {
                     this.ramPhase = 'charge';
                     this.ramTimer = 0.5;
-                    this.ramTarget = { x: pc.x, y: pc.y };
-                    const angle = angleBetween(mc, this.ramTarget);
-                    this.spinVx = Math.cos(angle) * 350;
-                    this.spinVy = Math.sin(angle) * 350;
+                    const a = Math.atan2(this.ramTarget.y - this.centerY(), this.ramTarget.x - this.centerX());
+                    this.dashA = a;
+                    this.spinVx = Math.cos(a) * 350;
+                    this.spinVy = Math.sin(a) * 350;
                     this.spinDamageDealt = false;
+                    if (Math.abs(this.spinVx) > 1) this.face = this.spinVx > 0 ? 1 : -1;
                 }
             } else if (this.ramPhase === 'charge') {
                 this.ramTimer -= dt;
-                this.x += this.spinVx * dt;
-                this.y += this.spinVy * dt;
-                const dist = vecDist(mc, pc);
-                if (dist < 50 && !this.spinDamageDealt) {
-                    this.spinDamageDealt = true;
-                    player.takeDamage(2, angleBetween(mc, pc), 350);
-                }
-                if (this.ramTimer <= 0) {
-                    this.state = 'stunned';
-                    this.stunnedTimer = 2;
-                }
+                const blocked = this._dashMove(dt);
+                this._dashHit(player, pcx, pcy, 350);
+                if (blocked) this._endDash(true);
+                else if (this.ramTimer <= 0) this._endDash(false);
+            } else {
+                this.state = 'hover';
             }
             return;
         }
 
-        // Hover state - buzzes side to side
-        const angle = angleBetween(mc, pc);
+        // Schweben: summt hin und her, langsam auf Mark zu
         const buzzX = Math.sin(this.bobTimer * 4) * 30 * dt;
-        this.x += Math.cos(angle) * this.speed * 0.5 * dt + buzzX;
-        this.y += Math.sin(angle) * this.speed * 0.5 * dt;
+        this.x += dx / dist * this.speed * 0.5 * dt + buzzX;
+        this.y += dy / dist * this.speed * 0.5 * dt;
+        this._keepInRoom();
 
-        // Spawn minions
+        // Fledermäuse rufen: höchstens 4 eigene gleichzeitig, insgesamt höchstens 40 Gegner (G-09)
         this.spawnTimer -= dt;
         if (this.spawnTimer <= 0 && enemies) {
             this.spawnTimer = this.spawnCooldown;
-            for (let i = 0; i < 2; i++) {
-                const sa = (Math.PI * 2 * i) / 2 + Math.random();
-                enemies.push(new GiantBat(
-                    mc.x + Math.cos(sa) * 60,
-                    mc.y + Math.sin(sa) * 60
-                ));
+            this.minions = this.minions.filter(m => !m.dead);
+            const n = Math.min(2, 4 - this.minions.length, 40 - enemies.length);
+            for (let i = 0; i < n; i++) {
+                const sa = Math.PI * i + Math.random();
+                let bx = mcx + Math.cos(sa) * 60;
+                let by = mcy + Math.sin(sa) * 60;
+                if (this._room) {
+                    bx = clamp(bx, this._room.x + 16, this._room.x + this._room.w - 16);
+                    by = clamp(by, this._room.y + 16, this._room.y + this._room.h - 16);
+                }
+                const bat = new GiantBat(bx, by);
+                enemies.push(bat);
+                this.minions.push(bat);
             }
         }
 
-        // Attack timer
+        // Angriffe abwechselnd
         this.attackTimer -= dt;
         if (this.attackTimer <= 0) {
             this.attackTimer = this.attackCooldown;
             this.attackCycle++;
             if (this.attackCycle % 2 === 1) {
-                // Spin attack
-                this.state = 'spin';
-                this.stateTimer = 1;
-                const a = angleBetween(mc, pc);
-                this.spinVx = Math.cos(a) * 250;
-                this.spinVy = Math.sin(a) * 250;
-                this.spinAngle = 0;
-                this.spinDamageDealt = false;
+                // Wirbel: Richtung jetzt festlegen und 0,55 s lang anzeigen
+                this.state = 'spin_wind';
+                this.stateTimer = 0.55;
+                this.dashA = Math.atan2(dy, dx);
             } else {
-                // Arrow ram
+                // Sturzflug: Ziel jetzt merken und während des Aufstiegs markieren
                 this.state = 'arrow_ram';
                 this.ramPhase = 'rise';
                 this.ramTimer = 0.6;
+                this.ramTarget.x = pcx;
+                this.ramTarget.y = pcy;
             }
         }
+    }
+
+    // Durchsichtiger Flügel mit Adern (Flügelwurzel im Ursprung, Winkel a)
+    _wing(ctx, a, alpha) {
+        const A = ctx.globalAlpha;
+        const wx = Math.cos(a) * 21;
+        const wy = Math.sin(a) * 21;
+        ctx.globalAlpha = A * alpha;
+        ctx.fillStyle = 'rgba(222,246,255,0.8)';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.ellipse(wx, wy, 25, 9, a, 0, TAU);
+        ctx.fill();
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(150,120,230,0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(wx * 2, wy * 2);
+        ctx.moveTo(wx * 0.6, wy * 0.6);
+        ctx.lineTo(wx * 1.5 - Math.sin(a) * 6, wy * 1.5 + Math.cos(a) * 6);
+        ctx.stroke();
+        ctx.globalAlpha = A;
     }
 
     draw(ctx, camera) {
         const pos = camera.worldToScreen(this.x, this.y);
         const cx = pos.x + this.w / 2;
         const cy = pos.y + this.h / 2;
-        const flash = this.iFrames > 0 && Math.floor(this.iFrames * 20) % 2;
+        const t = Art.time;
+        const dead = this.dead;
+        const p2 = this.hp <= this.maxHp / 2;
+        const stunned = !dead && this.state === 'stunned';
+        const rising = !dead && this.state === 'arrow_ram' && this.ramPhase === 'rise';
+        const winding = !dead && (this.state === 'spin_wind' || rising);
+        const charging = !dead && this.state === 'arrow_ram' && this.ramPhase === 'charge';
+        const body = '#9b5cff';
+        const dark = '#7440d8';
+        let k = 1, rot = 0, jx = 0, jy = Math.sin(t * 3.4) * 4;
+        if (dead) {
+            // Besiegt: erstarrt, dann schnell zusammenschrumpfen
+            const d = this.deathProgress();
+            k = d < 0.2 ? 1 + d * 0.5 : Math.max(0.01, 1.1 * (1 - (d - 0.2) / 0.8));
+            rot = 0.3 + d * 4;
+            jy = 0;
+            ctx.globalAlpha *= Math.min(1, 2.5 - d * 2.5);
+        } else if (this.state === 'spin') {
+            rot = this.spinAngle;
+        } else if (charging) {
+            rot = clamp(Math.atan2(this.spinVy, Math.abs(this.spinVx)), -0.8, 0.8);
+        } else if (winding) {
+            jx = Math.sin(t * 70) * 1.6;
+            rot = rising ? -0.3 : Math.sin(t * 24) * 0.1;
+        } else if (stunned) {
+            rot = Math.sin(t * 2.2) * 0.14;
+            jy = 6 + Math.sin(t * 2.2) * 2;
+        }
+        const flap = stunned ? 9 : (winding || charging || this.state === 'spin' ? 66 : 42);
+        const fa = -1.95 + Math.sin(t * flap) * (stunned ? 0.18 : 0.42);
+        const A = ctx.globalAlpha;
+        ctx.save();
+        ctx.translate(cx + jx, cy + jy);
+        ctx.scale(this.face * k, k);
+        ctx.rotate(rot);
 
-        if (this.dead) {
-            const t = 1 - this.deathTimer / 0.4;
-            ctx.save();
-            // Mosquito shatters into pieces
-            for (let i = 0; i < 14; i++) {
-                const a = (Math.PI * 2 * i) / 14 + t * 3;
-                const dist = t * 90;
-                ctx.globalAlpha = (1 - t) * 0.9;
-                ctx.fillStyle = i % 2 === 0 ? '#666' : '#8B4513';
-                ctx.beginPath();
-                const size = (1 - t) * (5 + (i % 4) * 3);
-                ctx.ellipse(cx + Math.cos(a) * dist, cy + Math.sin(a) * dist, size, size * 0.6, a, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            // Wing fragments
-            for (let i = 0; i < 6; i++) {
-                const a = (Math.PI * 2 * i) / 6 + t;
-                ctx.globalAlpha = (1 - t) * 0.4;
-                ctx.fillStyle = 'rgba(200,220,255,0.5)';
-                ctx.beginPath();
-                ctx.ellipse(cx + Math.cos(a) * t * 70, cy + Math.sin(a) * t * 70, (1 - t) * 15, (1 - t) * 8, a, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            ctx.restore();
+        // Unschärfe-Fächer und hinterer Flügel
+        if (!stunned && !dead) {
+            ctx.globalAlpha = A * 0.16;
+            ctx.fillStyle = '#e4f8ff';
+            ctx.beginPath();
+            ctx.moveTo(-3, -14);
+            ctx.arc(-3, -14, 46, -2.55, -1.3);
+            ctx.closePath();
+            ctx.fill();
+            ctx.globalAlpha = A;
+        }
+        ctx.save();
+        ctx.translate(-8, -15);
+        this._wing(ctx, fa - 0.3, 0.55);
+        ctx.restore();
+
+        // Beine hinten
+        const sw = Math.sin(t * 3 + 1) * 1.5;
+        ctx.strokeStyle = '#4a2396';
+        ctx.lineWidth = 2.2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-8, 8); ctx.lineTo(-16 + sw, 20); ctx.lineTo(-20 + sw, 31);
+        ctx.moveTo(0, 10); ctx.lineTo(-4 + sw, 23); ctx.lineTo(-7 + sw, 35);
+        ctx.moveTo(7, 9); ctx.lineTo(11 + sw, 21); ctx.lineTo(13 + sw, 33);
+        ctx.stroke();
+
+        // Hinterleib mit Streifen (glüht in Phase 2)
+        if (p2 && !dead) Art.glow(ctx, -26, 10, 42, '#ff4d8a', 0.7 + Math.sin(t * 5) * 0.2);
+        Art.body(ctx, -25, 9, 23, 12.5, body, { rot: 0.42, lineWidth: 2.2 });
+        ctx.strokeStyle = p2 ? '#ffb3dc' : '#ead6ff';
+        ctx.lineWidth = 3.2;
+        ctx.beginPath();
+        ctx.moveTo(-39.5, 12.1); ctx.quadraticCurveTo(-34.6, 4.9, -32.4, -3.9);
+        ctx.moveTo(-31.9, 17.1); ctx.quadraticCurveTo(-26.4, 8.6, -23.6, -1.5);
+        ctx.moveTo(-23.6, 20.5); ctx.quadraticCurveTo(-18.2, 12.2, -15.5, 2.4);
+        ctx.stroke();
+
+        // Brust
+        Art.body(ctx, 0, -2, 16, 14, dark, { lineWidth: 2.2 });
+
+        // Beine vorn
+        ctx.strokeStyle = '#4a2396';
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(-4, 10); ctx.lineTo(-11 - sw, 23); ctx.lineTo(-13 - sw, 34);
+        ctx.moveTo(4, 11); ctx.lineTo(3 - sw, 25); ctx.lineTo(1 - sw, 37);
+        ctx.moveTo(11, 8); ctx.lineTo(18 - sw, 20); ctx.lineTo(22 - sw, 30);
+        ctx.stroke();
+
+        // Kopf mit Fühlern
+        ctx.strokeStyle = '#4a2396';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(15, -22); ctx.quadraticCurveTo(15, -34, 22, -39);
+        ctx.moveTo(24, -22); ctx.quadraticCurveTo(28, -32, 35, -35);
+        ctx.stroke();
+        ctx.fillStyle = body;
+        ctx.beginPath();
+        ctx.moveTo(24.8, -39); ctx.arc(22, -39, 2.8, 0, TAU);
+        ctx.moveTo(37.8, -35); ctx.arc(35, -35, 2.8, 0, TAU);
+        ctx.fill();
+        Art.body(ctx, 20, -13, 14, 12.5, body, { lineWidth: 2.2 });
+
+        // Rüssel zeigt zu Mark, glüht vor Wirbel und Sturz
+        const na = charging || this.state === 'spin' ? 0.25 : clamp(Math.atan2(this.look.y, Math.max(0.25, this.look.x)), -0.7, 1.25);
+        const nx = 30 + Math.cos(na) * 34;
+        const ny = -7 + Math.sin(na) * 34;
+        Art.limb(ctx, 30, -7, nx, ny, 3.2, '#7a2446', { lineWidth: 1.6 });
+        ctx.strokeStyle = 'rgba(255,170,200,0.7)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(30 + Math.cos(na) * 4, -8 + Math.sin(na) * 4);
+        ctx.lineTo(30 + Math.cos(na) * 26, -8 + Math.sin(na) * 26);
+        ctx.stroke();
+        if (winding) Art.glow(ctx, nx, ny, 12, '#ff3d6e', 0.7 + Math.sin(t * 30) * 0.25);
+
+        // Augen
+        if (dead) BossMushroomGiant.xEyes(ctx, 21, -16, 5.4, 6.6);
+        else if (stunned) BossMushroomGiant.spiralEyes(ctx, 21, -16, 6, 6.6);
+        else Art.eyes(ctx, 21, -16, 6.2, { gap: 6.6, look: this.look, angry: true, iris: p2 ? '#ff2244' : '#ff6a3d', seed: 4.2 });
+
+        // vorderer Flügel
+        ctx.save();
+        ctx.translate(-3, -14);
+        this._wing(ctx, fa, 0.8);
+        ctx.restore();
+        ctx.restore();
+
+        if (stunned) BossMushroomGiant.dizzy(ctx, cx + this.face * 18, cy + jy - 44, 26, '#ffd23f');
+    }
+
+    // Warnbahn vor Wirbel und Sturzflug (über allen Figuren, siehe BossMushroomGiant.overlay)
+    _drawOverlay(ctx, camera) {
+        if (this.dead) return;
+        const t = Art.time;
+        let a, len, k;
+        const ram = this.state === 'arrow_ram' && this.ramPhase === 'rise';
+        if (this.state === 'spin_wind') {
+            a = this.dashA;
+            len = 250;
+            k = clamp(1 - this.stateTimer / 0.55, 0, 1);
+        } else if (ram) {
+            a = Math.atan2(this.ramTarget.y - this.centerY(), this.ramTarget.x - this.centerX());
+            len = 175;
+            k = clamp(1 - this.ramTimer / 0.6, 0, 1);
+        } else {
             return;
         }
-
+        // Flugbahn wie im Update (gleitet an der Wand, endet frontal an ihr)
+        const pts = this._dashPath(a, len);
+        const n = pts.length / 2;
+        const o = camera.worldToScreen(0, 0);
         ctx.save();
-        if (flash) ctx.globalAlpha = 0.4;
-
-        // Rotation for spin attack
-        if (this.state === 'spin') {
-            ctx.translate(cx, cy);
-            ctx.rotate(this.spinAngle);
-            ctx.translate(-cx, -cy);
-        }
-
-        // Translucent wings (flapping)
-        const wingFlap = Math.sin(this.wingAnim) * 0.6;
-        ctx.globalAlpha = flash ? 0.2 : 0.3;
-        ctx.fillStyle = '#CCE0FF';
-        ctx.strokeStyle = '#88AADD';
-        ctx.lineWidth = 1;
-        // Left wing
+        const A = ctx.globalAlpha;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
         ctx.beginPath();
-        ctx.ellipse(cx - 30, cy - 15 + wingFlap * 10, 28, 14 + wingFlap * 5, -0.3 + wingFlap * 0.2, 0, Math.PI * 2);
-        ctx.fill(); ctx.stroke();
-        // Right wing
-        ctx.beginPath();
-        ctx.ellipse(cx + 30, cy - 15 - wingFlap * 10, 28, 14 - wingFlap * 5, 0.3 - wingFlap * 0.2, 0, Math.PI * 2);
-        ctx.fill(); ctx.stroke();
-
-        ctx.globalAlpha = flash ? 0.4 : 1;
-
-        // Striped body
-        const bodyGrad = ctx.createLinearGradient(cx, cy - 20, cx, cy + 25);
-        bodyGrad.addColorStop(0, '#555');
-        bodyGrad.addColorStop(0.3, '#777');
-        bodyGrad.addColorStop(0.5, '#444');
-        bodyGrad.addColorStop(0.7, '#777');
-        bodyGrad.addColorStop(1, '#444');
-        ctx.fillStyle = bodyGrad;
-        ctx.beginPath();
-        ctx.ellipse(cx, cy + 5, 22, 28, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Stripes
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 2;
-        for (let i = -2; i <= 3; i++) {
-            const sy = cy + i * 8;
+        ctx.moveTo(pts[0] + o.x, pts[1] + o.y);
+        for (let i = 1; i < n; i++) ctx.lineTo(pts[i * 2] + o.x, pts[i * 2 + 1] + o.y);
+        if (n === 1) ctx.lineTo(pts[0] + o.x + 0.1, pts[1] + o.y);
+        // Gefahrenbahn so breit wie der Trefferbereich (50 um die Mitte), dazu eine Mittellinie
+        ctx.strokeStyle = '#ff3d6e';
+        ctx.lineWidth = 100;
+        ctx.globalAlpha = A * (0.13 + 0.15 * k);
+        ctx.stroke();
+        ctx.lineWidth = 3;
+        ctx.globalAlpha = A * (0.5 + 0.4 * k);
+        ctx.stroke();
+        // wandernde Pfeile entlang der Bahn
+        const total = (n - 1) * 8;
+        if (total > 16) {
             ctx.beginPath();
-            const sw = 20 - Math.abs(i) * 3;
-            ctx.moveTo(cx - sw, sy);
-            ctx.lineTo(cx + sw, sy);
+            const cnt = Math.max(1, Math.round(total / 55));
+            for (let i = 0; i < cnt; i++) {
+                const s = (t * 110 + i * total / cnt) % total;
+                const seg = Math.min(n - 2, Math.floor(s / 8));
+                const f = (s - seg * 8) / 8;
+                const x0 = pts[seg * 2], y0 = pts[seg * 2 + 1];
+                const x1 = pts[seg * 2 + 2], y1 = pts[seg * 2 + 3];
+                const l = Math.hypot(x1 - x0, y1 - y0) || 1;
+                const ux = (x1 - x0) / l, uy = (y1 - y0) / l;
+                const px = x0 + (x1 - x0) * f + o.x, py = y0 + (y1 - y0) * f + o.y;
+                ctx.moveTo(px - ux * 10 - uy * 13, py - uy * 10 + ux * 13);
+                ctx.lineTo(px + ux * 3, py + uy * 3);
+                ctx.lineTo(px - ux * 10 + uy * 13, py - uy * 10 - ux * 13);
+            }
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 4;
+            ctx.globalAlpha = A * (0.6 + 0.4 * k);
             ctx.stroke();
         }
-
-        // Head
-        ctx.fillStyle = '#666';
-        ctx.beginPath();
-        ctx.arc(cx, cy - 22, 14, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Compound eyes (red, big)
-        ctx.fillStyle = '#CC0000';
-        ctx.beginPath();
-        ctx.arc(cx - 10, cy - 25, 8, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(cx + 10, cy - 25, 8, 0, Math.PI * 2);
-        ctx.fill();
-        // Eye facets
-        ctx.fillStyle = '#FF3333';
-        ctx.beginPath();
-        ctx.arc(cx - 11, cy - 26, 3, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(cx + 11, cy - 26, 3, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Proboscis (long needle nose)
-        ctx.strokeStyle = '#444';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(cx, cy - 30);
-        ctx.lineTo(cx, cy - 65);
-        ctx.stroke();
-        ctx.strokeStyle = '#666';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(cx, cy - 30);
-        ctx.lineTo(cx, cy - 65);
-        ctx.stroke();
-
-        // Legs (thin)
-        ctx.strokeStyle = '#555';
-        ctx.lineWidth = 1.5;
-        for (let side = -1; side <= 1; side += 2) {
-            for (let i = 0; i < 3; i++) {
-                const ly = cy + i * 10;
-                ctx.beginPath();
-                ctx.moveTo(cx + side * 18, ly);
-                ctx.lineTo(cx + side * 38, ly + 12 + i * 3);
-                ctx.stroke();
-            }
-        }
-
-        // Stunned stars
-        if (this.state === 'stunned') {
-            ctx.globalAlpha = 0.8;
-            ctx.fillStyle = '#FF0';
-            ctx.font = '12px monospace';
-            for (let i = 0; i < 4; i++) {
-                const sa = Date.now() / 250 + i * Math.PI / 2;
-                ctx.fillText('\u2605', cx + Math.cos(sa) * 35 - 4, cy - 70 + Math.sin(sa) * 6);
-            }
-        }
-
-        // HP bar
-        ctx.globalAlpha = 1;
-        const barW = 95;
-        const barX = cx - barW / 2;
-        const barY = pos.y - 30;
-        ctx.fillStyle = '#FFF';
-        ctx.font = 'bold 9px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('RIESEN MUECKE', cx, barY - 4);
-        ctx.textAlign = 'left';
-        ctx.fillStyle = '#222';
-        ctx.beginPath(); ctx.roundRect(barX, barY, barW, 7, 3); ctx.fill();
-        const hpPct = this.hp / this.maxHp;
-        ctx.fillStyle = hpPct > 0.4 ? '#C44' : hpPct > 0.2 ? '#FA0' : '#F00';
-        ctx.beginPath(); ctx.roundRect(barX + 1, barY + 1, (barW - 2) * hpPct, 5, 2); ctx.fill();
-
         ctx.restore();
+        // Zielkreuz am gemerkten Ziel des Sturzflugs
+        if (ram) {
+            const p = camera.worldToScreen(this.ramTarget.x, this.ramTarget.y);
+            const r = 16 - k * 4;
+            ctx.save();
+            ctx.globalAlpha = A * (0.6 + 0.4 * k);
+            ctx.strokeStyle = '#ff3d6e';
+            ctx.lineWidth = 2.5;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, r, 0, TAU);
+            ctx.moveTo(p.x - r - 6, p.y); ctx.lineTo(p.x - r + 4, p.y);
+            ctx.moveTo(p.x + r + 6, p.y); ctx.lineTo(p.x + r - 4, p.y);
+            ctx.moveTo(p.x, p.y - r - 6); ctx.lineTo(p.x, p.y - r + 4);
+            ctx.moveTo(p.x, p.y + r + 6); ctx.lineTo(p.x, p.y + r - 4);
+            ctx.stroke();
+            ctx.restore();
+        }
     }
 }
 
 
 // ══════════════════════════════════════════════════════════════
-// BossSnowEagle - SCHNEE ADLER (World 7)
+// BossSnowEagle – Schnee-Adler (Welt 7)
+// Weißer Adler mit eisblauen Frost-Flügeln, Federhaube, goldenem Hakenschnabel und Eiskristallen.
+// Eisregen: Flügel hoch, blaue Warnpunkte und Bahnen zeigen, wo die Eisfedern fallen –
+// nur auf freien Stellen im Raum (G-11).
+// Frostwind: erst Windlinien als Ankündigung, dann schiebt eine schwache Böe Mark mit
+// Wandkollision (G-04: früher 400/s ohne Kollision, Mark flog aus der Karte).
+// Phase 2 (halbe HP, nur Aussehen): stärkere Frost-Aura, tiefblaue Federn, Eisspitzen.
 // ══════════════════════════════════════════════════════════════
 class BossSnowEagle extends Enemy {
     constructor(x, y) {
@@ -3452,6 +3890,8 @@ class BossSnowEagle extends Enemy {
         this.phasesThroughWalls = true;
         this.isBoss = true;
         this.contactDamage = false;
+        this.flying = true;
+        this.fxColor = '#7fd8ff';
 
         this.state = 'intro';
         this.introTimer = 2;
@@ -3462,72 +3902,100 @@ class BossSnowEagle extends Enemy {
         this.attackTimer = 3;
         this.attackCooldown = 3.5;
 
-        // Wing animation
-        this.wingAnim = 0;
-        this.wingSpread = 1;
-
-        // Frost particles trailing behind
-        this.frostTrail = [];
-
-        // Wind push
+        this.wingAnim = 0;         // zusätzlicher Flügelschlag in der Böe
+        this.trailAcc = 0;         // Frostspur: Partikel pro Zeit statt Zufall pro Bild (G-17)
+        this.rainSpots = [];       // geplante Eisfedern {x, y, vx, vy}
+        this.windUp = 0;           // Ankündigung des Frostwinds (Sekunden)
+        this.windAngle = 0;
         this.windActive = false;
-        this.windTimer = 0;
+        this.windPx = 0;           // Mark (für die Windpfeile)
+        this.windPy = 0;
+        this.look = { x: 0, y: 1 };
+        this._room = undefined;
+        // Federn eines Flügels: x, y, rx (Länge/2), ry, Drehung (Schulter im Ursprung).
+        // Lange „Finger“ am Handgelenk wie beim echten Adler, darunter kurze Armfedern.
+        this.primaries = [[40.5, -35, 13, 4.4, -1.05], [46.8, -31.9, 15, 4.4, -0.62], [50.2, -25.5, 15.5, 4.3, -0.2],
+            [49.2, -18.7, 14.5, 4.2, 0.2], [45.1, -14.1, 12.5, 4, 0.58],
+            [27, -3, 9, 3.8, 0.85], [20, 2, 9.5, 3.8, 1.1], [13, 5, 9.5, 3.7, 1.3], [6, 6, 9, 3.6, 1.45]];
+        // Schwanzfedern: x, y, rx, ry, Drehung
+        this.tailFeathers = [[-12, 32, 4, 12, 0.55], [-6, 35, 4.2, 13, 0.27], [0, 36.5, 4.4, 13.5, 0],
+            [6, 35, 4.2, 13, -0.27], [12, 32, 4, 12, -0.55]];
+    }
+
+    // Schnee-Glitzer aus den Flügeln (Partikel mit gemeinsamer Obergrenze)
+    _emitSnow(mcx, mcy) {
+        if (typeof Game === 'undefined' || !Game.particles || typeof Particle === 'undefined') return;
+        const side = Math.random() < 0.5 ? -1 : 1;
+        const p = new Particle(mcx + side * randRange(20, 62), mcy + randRange(-6, 14),
+            randRange(-12, 12), randRange(10, 30), Math.random() < 0.5 ? '#ffffff' : '#bdefff', randRange(0.6, 1));
+        p.radius = randRange(1.2, 2.4);
+        p.drag = 1;
+        p.gravity = 16;
+        Game.particles.push(p);
+    }
+
+    // Eisregen planen: acht Eisfedern über Mark, nur auf freien Stellen im Raum (G-11)
+    _planIceRain(world, pcx, pcy) {
+        this.rainSpots.length = 0;
+        const room = this._room;
+        for (let i = 0; i < 8; i++) {
+            const x = pcx + (i - 3.5) * 40 + randRange(-12, 12);
+            if (room && (x < room.x + 8 || x > room.x + room.w - 8)) continue;
+            // Start 160 über Mark; liegt dort eine Wand, weiter unten die erste freie Stelle
+            let y = pcy - 160;
+            if (room) y = Math.max(y, room.y + 10);
+            while (y < pcy && world.isWall(x, y)) y += 8;
+            if (world.isWall(x, y)) continue;
+            this.rainSpots.push({ x, y, vx: randRange(-20, 20), vy: randRange(150, 220) });
+        }
     }
 
     update(dt, world, player, enemies, projectiles) {
         this.baseUpdate(dt, world);
         if (this.dead) return;
+        if (this._room === undefined) this._room = BossMushroomGiant.room(world);
 
-        this.wingAnim += dt * 3;
+        const pcx = player.x + player.w / 2;
+        const pcy = player.y + player.h / 2;
+        const mcx = this.centerX();
+        const mcy = this.centerY();
+        const dx = pcx - mcx;
+        const dy = pcy - mcy;
+        const dist = Math.hypot(dx, dy) || 1;
+        this.look.x = dx / dist;
+        this.look.y = dy / dist;
 
-        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
-        const mc = { x: this.centerX(), y: this.centerY() };
-
-        // Update frost trail
-        if (Math.random() < 0.3) {
-            this.frostTrail.push({
-                x: mc.x + randRange(-40, 40),
-                y: mc.y + randRange(-20, 20),
-                life: 0.8,
-                maxLife: 0.8,
-                size: randRange(2, 5)
-            });
+        // Frostspur: zeitbasiert (G-17), in der Böe dichter
+        this.trailAcc += dt * (this.windActive ? 16 : 8);
+        while (this.trailAcc >= 1) {
+            this.trailAcc -= 1;
+            this._emitSnow(mcx, mcy);
         }
-        for (const p of this.frostTrail) {
-            p.life -= dt;
-            p.y += 10 * dt;
-        }
-        this.frostTrail = this.frostTrail.filter(p => p.life > 0);
 
         if (this.state === 'intro') {
             this.introTimer -= dt;
-            if (this.introTimer <= 0) { this.state = 'soar'; this.stateTimer = 2.5; }
+            if (this.introTimer <= 0) this.state = 'soar';
             return;
         }
 
         if (this.state === 'stunned') {
             this.stunnedTimer -= dt;
-            this.wingSpread = 0.5;
-            if (this.stunnedTimer <= 0) { this.state = 'soar'; this.stateTimer = 2.5; this.wingSpread = 1; }
+            if (this.stunnedTimer <= 0) this.state = 'soar';
             return;
         }
 
         if (this.state === 'ice_rain') {
             this.stateTimer -= dt;
+            BossMushroomGiant.overlay(this, pcx, pcy);
             if (this.stateTimer <= 0) {
-                // Spawn ice feather projectiles from above
                 if (projectiles) {
-                    const count = 8;
-                    for (let i = 0; i < count; i++) {
-                        const spawnX = pc.x + (i - count / 2) * 40 + randRange(-15, 15);
-                        const spawnY = mc.y - 200;
-                        projectiles.push(new Projectile(
-                            spawnX, spawnY,
-                            randRange(-20, 20), randRange(150, 220),
-                            1, 'enemy', 60
-                        ));
+                    for (const s of this.rainSpots) {
+                        const p = new Projectile(s.x, s.y, s.vx, s.vy, 1, 'enemy', 60);
+                        p.isIce = true;
+                        projectiles.push(p);
                     }
                 }
+                this.rainSpots.length = 0;
                 this.state = 'stunned';
                 this.stunnedTimer = 2;
             }
@@ -3535,14 +4003,22 @@ class BossSnowEagle extends Enemy {
         }
 
         if (this.state === 'frost_wind') {
-            this.stateTimer -= dt;
+            this.windAngle = Math.atan2(dy, dx);
+            this.windPx = pcx;
+            this.windPy = pcy;
+            BossMushroomGiant.overlay(this, pcx, pcy);
+            if (this.windUp > 0) {
+                // Ankündigung: nur Windlinien, noch kein Schub
+                this.windUp -= dt;
+                return;
+            }
             this.windActive = true;
-            // Push player away
-            const angle = angleBetween(mc, pc);
-            const pushForce = 400 * dt;
-            player.x += Math.cos(angle) * pushForce;
-            player.y += Math.sin(angle) * pushForce;
-
+            this.wingAnim += dt * 11;
+            this.stateTimer -= dt;
+            // Böe: schiebt Mark vom Adler weg, mit Wandkollision und deutlich schwächer als früher (G-04)
+            if (!player.dead && !player.autoActive && player._moveWithCollision) {
+                player._moveWithCollision(Math.cos(this.windAngle) * 130 * dt, Math.sin(this.windAngle) * 130 * dt, world);
+            }
             if (this.stateTimer <= 0) {
                 this.windActive = false;
                 this.state = 'stunned';
@@ -3551,225 +4027,314 @@ class BossSnowEagle extends Enemy {
             return;
         }
 
-        // Soar state - circle around player
-        this.wingSpread = 1;
-        const dist = vecDist(mc, pc);
-        const angle = angleBetween(mc, pc);
-        const orbitAngle = angle + Math.PI / 2;
+        // Kreisen um Mark
+        const orbitAngle = Math.atan2(dy, dx) + Math.PI / 2;
         if (dist > 180) {
-            this.x += Math.cos(angle) * this.speed * dt;
-            this.y += Math.sin(angle) * this.speed * dt;
+            this.x += this.look.x * this.speed * dt;
+            this.y += this.look.y * this.speed * dt;
         } else if (dist < 120) {
-            this.x -= Math.cos(angle) * this.speed * 0.5 * dt;
-            this.y -= Math.sin(angle) * this.speed * 0.5 * dt;
+            this.x -= this.look.x * this.speed * 0.5 * dt;
+            this.y -= this.look.y * this.speed * 0.5 * dt;
         }
         this.x += Math.cos(orbitAngle) * this.speed * 0.6 * dt;
         this.y += Math.sin(orbitAngle) * this.speed * 0.6 * dt;
 
-        // Attack timer
         this.attackTimer -= dt;
         if (this.attackTimer <= 0) {
             this.attackTimer = this.attackCooldown;
             this.attackCycle++;
             if (this.attackCycle % 2 === 1) {
                 this.state = 'ice_rain';
-                this.stateTimer = 0.8;
+                this.stateTimer = 0.9;
+                this._planIceRain(world, pcx, pcy);
             } else {
                 this.state = 'frost_wind';
+                this.windUp = 0.9;
                 this.stateTimer = 1.5;
+                this.windAngle = Math.atan2(dy, dx);
+                this.windPx = pcx;
+                this.windPy = pcy;
             }
         }
+    }
+
+    // Ein Flügel (s = Seite: -1 links, 1 rechts). flap/lift: Flügelschlag und Anheben (Bogenmaß)
+    _wing(ctx, s, flap, lift, p2, glowK) {
+        const t = Art.time;
+        ctx.save();
+        ctx.translate(14 * s, -8);
+        ctx.scale(s * 0.82, 0.82);
+        ctx.rotate(-(flap * 0.3 + lift));
+        // Schwung- und Armfedern (eisblau)
+        const feathers = this.primaries;
+        Art.shape(ctx, c => {
+            for (const f of feathers) {
+                c.moveTo(f[0] + f[2] * Math.cos(f[4]), f[1] + f[2] * Math.sin(f[4]));
+                c.ellipse(f[0], f[1], f[2], f[3], f[4], 0, TAU);
+            }
+        }, { x: 0, y: -46, w: 66, h: 62 }, p2 ? '#2fa4ff' : '#5cc4ff', { outline: '#1d4f8c', lineWidth: 1.8 });
+        // Deckfedern (weiß) mit gewelltem Unterrand
+        Art.shape(ctx, c => {
+            c.moveTo(-4, -8);
+            c.quadraticCurveTo(10, -30, 30, -30);
+            c.quadraticCurveTo(41, -29, 39, -19);
+            c.quadraticCurveTo(35, -10, 29, -8);
+            c.quadraticCurveTo(26, -2, 21, -4);
+            c.quadraticCurveTo(17, 1, 12, -1);
+            c.quadraticCurveTo(7, 3, 2, 1);
+            c.quadraticCurveTo(-2, 3, -4, 4);
+            c.closePath();
+        }, { x: -4, y: -30, w: 45, h: 34 }, '#f5f9ff', { outline: '#2e4f86', lineWidth: 2.2 });
+        // Federlinie
+        ctx.strokeStyle = 'rgba(80,150,220,0.5)';
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.moveTo(6, -12); ctx.quadraticCurveTo(18, -20, 31, -20);
+        ctx.stroke();
+        // Eisspitzen auf der Vorderkante (Phase 2)
+        if (p2) {
+            ctx.fillStyle = '#c9f4ff';
+            ctx.strokeStyle = '#2f7fd0';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(8, -22); ctx.lineTo(10, -33); ctx.lineTo(15, -25);
+            ctx.moveTo(17, -27); ctx.lineTo(21, -39); ctx.lineTo(25, -29);
+            ctx.moveTo(27, -30); ctx.lineTo(33, -40); ctx.lineTo(35, -29);
+            ctx.fill();
+            ctx.stroke();
+        }
+        // Eiskristall funkelt an der Flügelspitze
+        const tw = 0.5 + 0.5 * Math.sin(t * 5 + s);
+        Art.sparkle(ctx, 60, -38, 2.5 + tw * 3 + glowK * 3, '#ffffff', 0.55 + tw * 0.45);
+        if (glowK > 0) Art.glow(ctx, 46, -24, 30, '#7fe3ff', glowK * 0.7);
+        ctx.restore();
     }
 
     draw(ctx, camera) {
         const pos = camera.worldToScreen(this.x, this.y);
         const cx = pos.x + this.w / 2;
         const cy = pos.y + this.h / 2;
-        const flash = this.iFrames > 0 && Math.floor(this.iFrames * 20) % 2;
-
-        if (this.dead) {
-            const t = 1 - this.deathTimer / 0.4;
-            ctx.save();
-            // Eagle dissolves into ice crystals
-            for (let i = 0; i < 18; i++) {
-                const a = (Math.PI * 2 * i) / 18 + t * 2;
-                const dist = t * 110;
-                ctx.globalAlpha = (1 - t) * 0.8;
-                ctx.fillStyle = i % 3 === 0 ? '#ADE8FF' : i % 3 === 1 ? '#FFF' : '#78C8F0';
-                ctx.save();
-                ctx.translate(cx + Math.cos(a) * dist, cy + Math.sin(a) * dist);
-                ctx.rotate(a + t * 3);
-                const s = (1 - t) * (4 + i % 6);
-                ctx.fillRect(-s / 2, -s / 2, s, s);
-                ctx.restore();
-            }
-            // Central ice burst
-            ctx.globalAlpha = (1 - t) * 0.6;
-            ctx.fillStyle = '#E0F0FF';
-            ctx.beginPath();
-            ctx.arc(cx, cy, (1 - t) * 50 + t * 70, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-            return;
+        const t = Art.time;
+        const dead = this.dead;
+        const p2 = this.hp <= this.maxHp / 2;
+        const stunned = !dead && this.state === 'stunned';
+        const rainK = !dead && this.state === 'ice_rain' ? clamp(1 - this.stateTimer / 0.9, 0, 1) : 0;
+        const windUpK = !dead && this.state === 'frost_wind' && this.windUp > 0 ? clamp(1 - this.windUp / 0.9, 0, 1) : 0;
+        const gust = !dead && this.state === 'frost_wind' && this.windUp <= 0;
+        const white = '#f5f9ff';
+        const line = '#2e4f86';
+        let k = 1;
+        let bob = Math.sin(t * 2.2) * 4;
+        if (dead) {
+            // Besiegt: erstarrt, dann schnell zusammenschrumpfen
+            const d = this.deathProgress();
+            k = d < 0.2 ? 1 + d * 0.5 : Math.max(0.01, 1.1 * (1 - (d - 0.2) / 0.8));
+            bob = 0;
+            ctx.globalAlpha *= Math.min(1, 2.5 - d * 2.5);
         }
-
+        // Flügel: ruhiger Schlag, Böe schnell, erhoben vor Angriffen, hängend wenn betäubt
+        let flap = Math.sin(t * 2.6 + this.wingAnim);
+        let lift = 0;
+        if (stunned || dead) {
+            flap = Math.sin(t * 1.5) * 0.2;
+            lift = -0.35;
+        } else if (rainK > 0) {
+            lift = 0.2 + rainK * 0.45;
+            flap *= 0.3;
+        } else if (windUpK > 0) {
+            lift = 0.25 + windUpK * 0.45;
+            flap = Math.sin(t * 20) * 0.08;
+        }
         ctx.save();
-        if (flash) ctx.globalAlpha = 0.4;
+        ctx.translate(cx, cy + bob);
+        ctx.scale(k, k);
 
-        // Frost trail particles
-        for (const p of this.frostTrail) {
-            const pp = camera.worldToScreen(p.x, p.y);
-            ctx.globalAlpha = (p.life / p.maxLife) * 0.4;
-            ctx.fillStyle = '#ADE8FF';
-            ctx.beginPath();
-            ctx.arc(pp.x, pp.y, p.size, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        ctx.globalAlpha = flash ? 0.4 : 1;
+        // Frost-Aura
+        if (!dead) Art.glow(ctx, 0, 0, 80, '#9fe6ff', (p2 ? 0.42 : 0.24) + rainK * 0.3 + (gust ? 0.2 : 0));
 
-        const wingFlap = Math.sin(this.wingAnim) * 0.4 * this.wingSpread;
-
-        // Wind visual effect
-        if (this.windActive) {
-            ctx.globalAlpha = 0.15;
-            ctx.strokeStyle = '#ADE8FF';
-            ctx.lineWidth = 3;
-            for (let i = 0; i < 8; i++) {
-                const wa = (Math.PI * 2 * i) / 8 + Date.now() / 200;
-                const wr = 50 + i * 15;
-                ctx.beginPath();
-                ctx.arc(cx, cy, wr, wa, wa + 0.8);
-                ctx.stroke();
+        // Schwanzfedern: blaue Spitzen, darüber weiß
+        const tail = this.tailFeathers;
+        Art.shape(ctx, c => {
+            for (const f of tail) {
+                c.moveTo(f[0] + f[2] * Math.cos(f[4]), f[1] + f[2] * Math.sin(f[4]));
+                c.ellipse(f[0], f[1], f[2], f[3], f[4], 0, TAU);
             }
-            ctx.globalAlpha = flash ? 0.4 : 1;
-        }
+        }, { x: -20, y: 22, w: 40, h: 30 }, p2 ? '#2fa4ff' : '#5cc4ff', { outline: '#1d4f8c', lineWidth: 1.6 });
+        Art.shape(ctx, c => {
+            for (const f of tail) {
+                const oy = f[1] - 3.5;
+                c.moveTo(f[0] + f[2] * Math.cos(f[4]), oy + f[2] * Math.sin(f[4]));
+                c.ellipse(f[0], oy, f[2], f[3] * 0.72, f[4], 0, TAU);
+            }
+        }, { x: -20, y: 20, w: 40, h: 24 }, white, { outline: false });
 
-        // Wings (majestic, white with ice-blue tips)
-        for (let side = -1; side <= 1; side += 2) {
-            const wingY = cy + wingFlap * 25 * side;
-            // Outer wing (ice-blue tip)
-            ctx.fillStyle = '#78C8F0';
-            ctx.beginPath();
-            ctx.moveTo(cx + side * 10, cy);
-            ctx.quadraticCurveTo(cx + side * 45, wingY - 20, cx + side * 55, wingY + 5);
-            ctx.quadraticCurveTo(cx + side * 40, cy + 15, cx + side * 10, cy + 10);
-            ctx.closePath();
-            ctx.fill();
-            // Inner wing (white)
-            ctx.fillStyle = '#F0F4FF';
-            ctx.beginPath();
-            ctx.moveTo(cx + side * 5, cy - 5);
-            ctx.quadraticCurveTo(cx + side * 30, wingY - 15, cx + side * 42, wingY);
-            ctx.quadraticCurveTo(cx + side * 25, cy + 10, cx + side * 5, cy + 8);
-            ctx.closePath();
-            ctx.fill();
-            // Feather details
-            ctx.strokeStyle = '#B0D4E8';
-            ctx.lineWidth = 1;
-            for (let f = 0; f < 4; f++) {
-                const fx = cx + side * (15 + f * 10);
-                ctx.beginPath();
-                ctx.moveTo(fx, cy - 2);
-                ctx.lineTo(fx + side * 5, wingY + f * 2);
-                ctx.stroke();
+        // Flügel
+        this._wing(ctx, -1, flap, lift, p2, rainK);
+        this._wing(ctx, 1, flap, lift, p2, rainK);
+
+        // Körper mit Brustfedern
+        Art.body(ctx, 0, 6, 21, 26, white, { outline: line, lineWidth: 2.2 });
+        ctx.strokeStyle = 'rgba(80,150,220,0.55)';
+        ctx.lineWidth = 1.4;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-4, 5); ctx.lineTo(0, 8); ctx.lineTo(4, 5);
+        ctx.moveTo(-10, 13); ctx.lineTo(-6, 16); ctx.lineTo(-2, 13);
+        ctx.moveTo(2, 13); ctx.lineTo(6, 16); ctx.lineTo(10, 13);
+        ctx.stroke();
+
+        // Krallen
+        Art.body(ctx, -8, 30, 4.5, 3, '#ffc233', { highlight: false, lineWidth: 1.4 });
+        Art.body(ctx, 8, 30, 4.5, 3, '#ffc233', { highlight: false, lineWidth: 1.4 });
+        ctx.strokeStyle = '#6b4a00';
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.moveTo(-10.5, 32); ctx.lineTo(-11.5, 35.5);
+        ctx.moveTo(-5.5, 32); ctx.lineTo(-4.5, 35.5);
+        ctx.moveTo(5.5, 32); ctx.lineTo(4.5, 35.5);
+        ctx.moveTo(10.5, 32); ctx.lineTo(11.5, 35.5);
+        ctx.stroke();
+
+        // Federhaube, Kopf, Augen, Hakenschnabel
+        Art.shape(ctx, c => {
+            c.moveTo(-7 + 3.2 * Math.cos(-0.55), -36 + 3.2 * Math.sin(-0.55)); c.ellipse(-7, -36, 3.2, 9, -0.55, 0, TAU);
+            c.moveTo(3.4, -39); c.ellipse(0, -39, 3.4, 10, 0, 0, TAU);
+            c.moveTo(7 + 3.2 * Math.cos(0.55), -36 + 3.2 * Math.sin(0.55)); c.ellipse(7, -36, 3.2, 9, 0.55, 0, TAU);
+        }, { x: -12, y: -49, w: 24, h: 20 }, p2 ? '#2fa4ff' : '#5cc4ff', { outline: '#1d4f8c', lineWidth: 1.6 });
+        Art.body(ctx, 0, -24, 14, 13, white, { outline: line, lineWidth: 2.2 });
+        if (dead) BossMushroomGiant.xEyes(ctx, 0, -26.5, 4.2, 6);
+        else if (stunned) BossMushroomGiant.spiralEyes(ctx, 0, -26.5, 4.6, 6);
+        else Art.eyes(ctx, 0, -26, 4.6, { gap: 6, look: this.look, angry: true, iris: p2 ? '#0f7fff' : '#28a8ff', seed: 1.7 });
+        // kräftiger Hakenschnabel mit dunkler Spitze
+        Art.shape(ctx, c => {
+            c.moveTo(-6, -20.5);
+            c.quadraticCurveTo(0, -23.5, 6, -20.5);
+            c.quadraticCurveTo(6.2, -12, 1.6, -6.5);
+            c.quadraticCurveTo(0, -4.8, -1.2, -7.6);
+            c.quadraticCurveTo(-5.6, -12, -6, -20.5);
+            c.closePath();
+        }, { x: -6, y: -23.5, w: 12.4, h: 19 }, '#ffc233', { lineWidth: 1.6 });
+        ctx.fillStyle = '#d18a00';
+        ctx.beginPath();
+        ctx.moveTo(2.6, -9.5); ctx.quadraticCurveTo(1.6, -6.5, 0, -5.4); ctx.quadraticCurveTo(-0.8, -6.8, -0.9, -8.6);
+        ctx.fill();
+
+        // Vor dem Eisregen bildet sich Eis über dem Kopf
+        if (rainK > 0) {
+            for (let i = 0; i < 3; i++) {
+                const a = t * 3 + i * TAU / 3;
+                Art.sparkle(ctx, Math.cos(a) * 20, -52 + Math.sin(a) * 5, 3 + rainK * 4, '#ffffff', 0.5 + rainK * 0.5);
+            }
+            Art.glow(ctx, 0, -52, 18 + rainK * 12, '#7fe3ff', rainK * 0.8);
+        }
+        ctx.restore();
+
+        if (stunned) {
+            for (let i = 0; i < 3; i++) {
+                const a = t * 4 + i * TAU / 3;
+                Art.sparkle(ctx, cx + Math.cos(a) * 26, cy + bob - 50 + Math.sin(a) * 8, 5 + Math.sin(a) * 1.5, '#dff8ff', 0.95);
             }
         }
+    }
 
-        // Body (white, streamlined)
-        const bodyGrad = ctx.createRadialGradient(cx, cy - 5, 3, cx, cy, 25);
-        bodyGrad.addColorStop(0, '#FFFFFF');
-        bodyGrad.addColorStop(0.7, '#E8EEF4');
-        bodyGrad.addColorStop(1, '#C8D4E0');
-        ctx.fillStyle = bodyGrad;
-        ctx.beginPath();
-        ctx.ellipse(cx, cy, 18, 25, 0, 0, Math.PI * 2);
-        ctx.fill();
+    // Warnpunkte für den Eisregen und Windlinien (über allen Figuren, siehe BossMushroomGiant.overlay)
+    _drawOverlay(ctx, camera) {
+        if (this.dead) return;
+        const t = Art.time;
+        ctx.save();
+        const A = ctx.globalAlpha;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
 
-        // Head
-        ctx.fillStyle = '#F8FCFF';
-        ctx.beginPath();
-        ctx.arc(cx, cy - 25, 14, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Sharp yellow beak
-        ctx.fillStyle = '#E8B000';
-        ctx.beginPath();
-        ctx.moveTo(cx, cy - 28);
-        ctx.lineTo(cx - 5, cy - 35);
-        ctx.lineTo(cx + 5, cy - 35);
-        ctx.closePath();
-        ctx.fill();
-        // Beak hook
-        ctx.fillStyle = '#CC9500';
-        ctx.beginPath();
-        ctx.moveTo(cx - 3, cy - 35);
-        ctx.lineTo(cx, cy - 40);
-        ctx.lineTo(cx + 3, cy - 35);
-        ctx.closePath();
-        ctx.fill();
-
-        // Cold blue eyes
-        ctx.fillStyle = '#2288CC';
-        ctx.beginPath();
-        ctx.arc(cx - 7, cy - 27, 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(cx + 7, cy - 27, 4, 0, Math.PI * 2);
-        ctx.fill();
-        // Eye shine
-        ctx.fillStyle = '#AAE4FF';
-        ctx.beginPath();
-        ctx.arc(cx - 8, cy - 28, 1.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(cx + 6, cy - 28, 1.5, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Tail feathers
-        ctx.fillStyle = '#D0E0F0';
-        for (let i = -2; i <= 2; i++) {
+        if (this.state === 'ice_rain' && this.rainSpots.length) {
+            const k = clamp(1 - this.stateTimer / 0.9, 0, 1);
+            // Fallbahnen der Eisfedern
             ctx.beginPath();
-            ctx.moveTo(cx + i * 5, cy + 22);
-            ctx.lineTo(cx + i * 8, cy + 40);
-            ctx.lineTo(cx + i * 3, cy + 38);
-            ctx.closePath();
-            ctx.fill();
-        }
-
-        // Stunned stars
-        if (this.state === 'stunned') {
-            ctx.globalAlpha = 0.8;
-            ctx.fillStyle = '#ADE8FF';
-            ctx.font = '12px monospace';
-            for (let i = 0; i < 5; i++) {
-                const sa = Date.now() / 250 + i * Math.PI * 2 / 5;
-                ctx.fillText('\u2744', cx + Math.cos(sa) * 42 - 5, cy - 40 + Math.sin(sa) * 7);
+            for (const s of this.rainSpots) {
+                const p = camera.worldToScreen(s.x, s.y);
+                const l = 130 / Math.hypot(s.vx, s.vy);
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(p.x + s.vx * l, p.y + s.vy * l);
+            }
+            ctx.strokeStyle = '#1f6fd6';
+            ctx.lineWidth = 12;
+            ctx.globalAlpha = A * (0.2 + 0.22 * k);
+            ctx.stroke();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2.2;
+            ctx.globalAlpha = A * (0.45 + 0.45 * k);
+            ctx.stroke();
+            // Startpunkte: pulsierende Eiskreise mit Kristall
+            ctx.globalAlpha = A;
+            const pr = 9 + Math.sin(t * 12) * 1.5;
+            for (const s of this.rainSpots) {
+                const p = camera.worldToScreen(s.x, s.y);
+                Art.glow(ctx, p.x, p.y, 16, '#7fd8ff', 0.5 + 0.4 * k);
+                Art.ring(ctx, p.x, p.y, pr, '#e8fbff', 2, 0.6 + 0.4 * k);
+                Art.sparkle(ctx, p.x, p.y, 4 + k * 3, '#ffffff', 0.95);
             }
         }
 
-        // HP bar
-        ctx.globalAlpha = 1;
-        const barW = 100;
-        const barX = cx - barW / 2;
-        const barY = pos.y - 30;
-        ctx.fillStyle = '#FFF';
-        ctx.font = 'bold 9px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('SCHNEE ADLER', cx, barY - 4);
-        ctx.textAlign = 'left';
-        ctx.fillStyle = '#222';
-        ctx.beginPath(); ctx.roundRect(barX, barY, barW, 7, 3); ctx.fill();
-        const hpPct = this.hp / this.maxHp;
-        ctx.fillStyle = hpPct > 0.4 ? '#5AC8FA' : hpPct > 0.2 ? '#FA0' : '#F00';
-        ctx.beginPath(); ctx.roundRect(barX + 1, barY + 1, (barW - 2) * hpPct, 5, 2); ctx.fill();
-
+        if (this.state === 'frost_wind') {
+            const gust = this.windUp <= 0;
+            const k = gust ? 1 : clamp(1 - this.windUp / 0.9, 0, 1);
+            const a = this.windAngle;
+            const ca = Math.cos(a);
+            const sa = Math.sin(a);
+            const o = camera.worldToScreen(this.centerX(), this.centerY());
+            const speed = gust ? 420 : 170;
+            const len = gust ? 46 : 26;
+            // Windlinien vom Adler weg, an Mark vorbei
+            ctx.beginPath();
+            for (let i = 0; i < 14; i++) {
+                const lane = ((i * 5) % 14 - 6.5) * 11;
+                const along = 40 + ((t * speed + i * 83) % 400);
+                const wob = Math.sin(t * 5 + i * 1.7) * 5;
+                const x0 = o.x + ca * along - sa * (lane + wob);
+                const y0 = o.y + sa * along + ca * (lane + wob);
+                ctx.moveTo(x0, y0);
+                ctx.quadraticCurveTo(x0 + ca * len * 0.5 - sa * 4, y0 + sa * len * 0.5 + ca * 4, x0 + ca * len, y0 + sa * len);
+            }
+            ctx.strokeStyle = '#1f6fd6';
+            ctx.lineWidth = gust ? 5.5 : 4.5;
+            ctx.globalAlpha = A * (gust ? 0.6 : 0.3 + 0.35 * k);
+            ctx.stroke();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = gust ? 2.2 : 1.8;
+            ctx.globalAlpha = A * (gust ? 0.95 : 0.45 + 0.45 * k);
+            ctx.stroke();
+            // große Pfeile an Mark zeigen, wohin der Wind schiebt
+            const p = camera.worldToScreen(this.windPx, this.windPy);
+            const pulse = (t * (gust ? 3 : 1.6)) % 1;
+            ctx.beginPath();
+            for (let i = 0; i < 2; i++) {
+                const d = 24 + i * 18 + pulse * 10;
+                const bx = p.x + ca * d;
+                const by = p.y + sa * d;
+                ctx.moveTo(bx - ca * 11 - sa * 13, by - sa * 11 + ca * 13);
+                ctx.lineTo(bx, by);
+                ctx.lineTo(bx - ca * 11 + sa * 13, by - sa * 11 - ca * 13);
+            }
+            ctx.strokeStyle = '#1f6fd6';
+            ctx.lineWidth = 8;
+            ctx.globalAlpha = A * (0.45 + 0.4 * k);
+            ctx.stroke();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3.5;
+            ctx.globalAlpha = A * (0.6 + 0.4 * k);
+            ctx.stroke();
+        }
         ctx.restore();
     }
 }
 
 
 // ══════════════════════════════════════════════════════════════
-// BossFirePhoenix - FEUER PHOENIX (World 8)
+// BossFirePhoenix – Feuer-Phönix (Welt 8)
+// Feuervogel mit Flammengefieder, Flammenschweif, Flammenkrone und Glut-Aura.
+// Feuerbälle: vor dem Schnabel wächst ein Feuerball, Ziellinien zeigen die drei Flugbahnen.
+// Feuerring: der Körper lodert auf, ein Warnring mit Pfeilen zeigt die Flugrichtungen.
+// Phase 2 (halbe HP): heißere, hellere Flammen, größere Aura, doppelte Angriffe.
 // ══════════════════════════════════════════════════════════════
 class BossFirePhoenix extends Enemy {
     constructor(x, y) {
@@ -3782,6 +4347,8 @@ class BossFirePhoenix extends Enemy {
         this.isBoss = true;
         this.contactDamage = false;
         this.phase = 1;
+        this.flying = true;
+        this.fxColor = '#ff7a1a';
 
         this.state = 'intro';
         this.introTimer = 2;
@@ -3792,30 +4359,40 @@ class BossFirePhoenix extends Enemy {
         this.attackTimer = 3;
         this.attackCooldown = 3;
 
-        // Wing flicker
-        this.wingAnim = 0;
+        this.emberAcc = 0;         // Glut aus dem Schweif: Partikel pro Zeit statt Zufall pro Bild (G-17)
+        this.aimX = 0;             // Ziel der Feuerbälle, bei der Ankündigung festgelegt
+        this.aimY = 0;
+        this.look = { x: 0, y: 1 };
 
-        // Ember particles
+        // Glutfunken um den Körper (Werte fest, Bewegung über Art.time)
         this.embers = [];
-        for (let i = 0; i < 12; i++) {
+        for (let i = 0; i < 10; i++) {
             this.embers.push({
-                ox: randRange(-45, 45),
-                oy: randRange(-40, 40),
+                ox: randRange(-52, 52),
+                oy: randRange(-30, 40),
                 phase: Math.random() * Math.PI * 2,
-                speed: randRange(1, 3),
-                size: randRange(2, 5)
+                speed: randRange(0.4, 0.9),
+                size: randRange(3, 5.5),
             });
         }
+    }
 
-        // Flame tail particles
-        this.tailParticles = [];
+    // Glut aus dem Schweif (Partikel mit gemeinsamer Obergrenze)
+    _emitEmber(mcx, mcy) {
+        if (typeof Game === 'undefined' || !Game.particles || typeof Particle === 'undefined') return;
+        const r = Math.random();
+        const color = r < 0.4 ? '#ffd23f' : (r < 0.8 ? '#ff8a1f' : '#ff4a1f');
+        const p = new Particle(mcx + randRange(-14, 14), mcy + randRange(30, 50),
+            randRange(-25, 25), randRange(10, 45), color, randRange(0.4, 0.8));
+        p.radius = randRange(1.6, 3.2);
+        p.drag = 2;
+        p.gravity = -70;
+        Game.particles.push(p);
     }
 
     update(dt, world, player, enemies, projectiles) {
         this.baseUpdate(dt, world);
         if (this.dead) return;
-
-        this.wingAnim += dt * 6;
 
         if (this.hp <= 35 && this.phase === 1) {
             this.phase = 2;
@@ -3823,61 +4400,47 @@ class BossFirePhoenix extends Enemy {
             this.speed = 50;
         }
 
-        const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
-        const mc = { x: this.centerX(), y: this.centerY() };
+        const pcx = player.x + player.w / 2;
+        const pcy = player.y + player.h / 2;
+        const mcx = this.centerX();
+        const mcy = this.centerY();
+        const dx = pcx - mcx;
+        const dy = pcy - mcy;
+        const dist = Math.hypot(dx, dy) || 1;
+        this.look.x = dx / dist;
+        this.look.y = dy / dist;
 
-        // Update tail particles
-        if (Math.random() < 0.5) {
-            this.tailParticles.push({
-                x: mc.x + randRange(-10, 10),
-                y: mc.y + 35 + randRange(-5, 5),
-                vx: randRange(-20, 20),
-                vy: randRange(20, 60),
-                life: randRange(0.3, 0.7),
-                maxLife: 0.7,
-                size: randRange(3, 7)
-            });
+        // Glut aus dem Schweif: zeitbasiert (G-17)
+        this.emberAcc += dt * (this.phase === 2 ? 22 : 14);
+        while (this.emberAcc >= 1) {
+            this.emberAcc -= 1;
+            this._emitEmber(mcx, mcy);
         }
-        for (const p of this.tailParticles) {
-            p.x += p.vx * dt;
-            p.y += p.vy * dt;
-            p.vy -= 30 * dt;
-            p.life -= dt;
-        }
-        this.tailParticles = this.tailParticles.filter(p => p.life > 0);
 
         if (this.state === 'intro') {
             this.introTimer -= dt;
-            if (this.introTimer <= 0) { this.state = 'fly'; this.stateTimer = 2; }
+            if (this.introTimer <= 0) this.state = 'fly';
             return;
         }
 
         if (this.state === 'stunned') {
             this.stunnedTimer -= dt;
-            if (this.stunnedTimer <= 0) { this.state = 'fly'; this.stateTimer = 2; }
+            if (this.stunnedTimer <= 0) this.state = 'fly';
             return;
         }
 
         if (this.state === 'fireball') {
             this.stateTimer -= dt;
+            BossMushroomGiant.overlay(this, pcx, pcy);
             if (this.stateTimer <= 0) {
-                // Shoot 3 fireballs toward player, Juri position, and Crocodile position
+                // Drei Feuerbälle: auf das gemerkte Ziel und je 50 daneben; Phase 2 doppelt
                 if (projectiles) {
-                    const targets = [
-                        { x: pc.x, y: pc.y },
-                        { x: pc.x + 50, y: pc.y },
-                        { x: pc.x - 50, y: pc.y }
-                    ];
                     const multiplier = this.phase === 2 ? 2 : 1;
                     for (let m = 0; m < multiplier; m++) {
-                        for (const tgt of targets) {
-                            const a = angleBetween(mc, tgt);
+                        for (let i = -1; i <= 1; i++) {
+                            const a = Math.atan2(this.aimY - mcy, this.aimX + i * 50 - mcx);
                             const speed = 180 + m * 30;
-                            projectiles.push(new Projectile(
-                                mc.x, mc.y,
-                                Math.cos(a) * speed, Math.sin(a) * speed,
-                                2, 'enemy', 120
-                            ));
+                            projectiles.push(new Projectile(mcx, mcy, Math.cos(a) * speed, Math.sin(a) * speed, 2, 'enemy', 120));
                         }
                     }
                 }
@@ -3889,8 +4452,9 @@ class BossFirePhoenix extends Enemy {
 
         if (this.state === 'fire_wave') {
             this.stateTimer -= dt;
+            BossMushroomGiant.overlay(this, pcx, pcy);
             if (this.stateTimer <= 0) {
-                // Ring of projectiles expanding outward
+                // Feuerring nach außen; Phase 2 ein zweiter, versetzter Ring
                 if (projectiles) {
                     const count = 12;
                     const multiplier = this.phase === 2 ? 2 : 1;
@@ -3898,35 +4462,29 @@ class BossFirePhoenix extends Enemy {
                         for (let i = 0; i < count; i++) {
                             const a = (Math.PI * 2 * i) / count + m * (Math.PI / count);
                             const speed = 160 + m * 40;
-                            projectiles.push(new Projectile(
-                                mc.x, mc.y,
-                                Math.cos(a) * speed, Math.sin(a) * speed,
-                                1, 'enemy', 80
-                            ));
+                            projectiles.push(new Projectile(mcx, mcy, Math.cos(a) * speed, Math.sin(a) * speed, 1, 'enemy', 80));
                         }
                     }
                 }
+                if (typeof Game !== 'undefined' && Game.camera) Game.camera.shake(3, 0.2);
                 this.state = 'stunned';
                 this.stunnedTimer = 2;
             }
             return;
         }
 
-        // Fly state - circle and approach player
-        const dist = vecDist(mc, pc);
-        const angle = angleBetween(mc, pc);
-        const orbitAngle = angle + Math.PI / 2;
+        // Fliegen: kreist um Mark und nähert sich
+        const orbitAngle = Math.atan2(dy, dx) + Math.PI / 2;
         if (dist > 160) {
-            this.x += Math.cos(angle) * this.speed * dt;
-            this.y += Math.sin(angle) * this.speed * dt;
+            this.x += this.look.x * this.speed * dt;
+            this.y += this.look.y * this.speed * dt;
         } else if (dist < 100) {
-            this.x -= Math.cos(angle) * this.speed * 0.4 * dt;
-            this.y -= Math.sin(angle) * this.speed * 0.4 * dt;
+            this.x -= this.look.x * this.speed * 0.4 * dt;
+            this.y -= this.look.y * this.speed * 0.4 * dt;
         }
         this.x += Math.cos(orbitAngle) * this.speed * 0.5 * dt;
         this.y += Math.sin(orbitAngle) * this.speed * 0.5 * dt;
 
-        // Attack timer
         this.attackTimer -= dt;
         if (this.attackTimer <= 0) {
             this.attackTimer = this.attackCooldown;
@@ -3934,6 +4492,8 @@ class BossFirePhoenix extends Enemy {
             if (this.attackCycle % 2 === 1) {
                 this.state = 'fireball';
                 this.stateTimer = 0.7;
+                this.aimX = pcx;
+                this.aimY = pcy;
             } else {
                 this.state = 'fire_wave';
                 this.stateTimer = 0.9;
@@ -3941,231 +4501,243 @@ class BossFirePhoenix extends Enemy {
         }
     }
 
+    // Flammenflügel als Pfad (rechte Seite, Schulter im Ursprung); f = Flackern je Spitze
+    _wingPath(c, f0, f1, f2, f3, f4) {
+        c.moveTo(0, -8);
+        c.quadraticCurveTo(6, -28, 24 + f0, -44 + f0);
+        c.quadraticCurveTo(26, -31, 33, -28);
+        c.quadraticCurveTo(38, -40, 46 + f1, -40 + f1 * 0.5);
+        c.quadraticCurveTo(43, -27, 49, -21);
+        c.quadraticCurveTo(57, -26, 62 + f2, -22);
+        c.quadraticCurveTo(54, -14, 56, -9);
+        c.quadraticCurveTo(64, -8, 67 + f3, -3);
+        c.quadraticCurveTo(57, 0, 54, 5);
+        c.quadraticCurveTo(58, 9, 59 + f4, 13);
+        c.quadraticCurveTo(40, 13, 22, 12);
+        c.quadraticCurveTo(10, 12, 0, 8);
+        c.closePath();
+    }
+
+    // Ein Flügel aus drei Flammenschichten (s = Seite)
+    _wing(ctx, s, lift, flare, hot) {
+        const t = Art.time;
+        ctx.save();
+        ctx.translate(12 * s, -6);
+        ctx.scale(s * 0.8 * flare, 0.8 * flare);
+        ctx.rotate(-lift);
+        const w = i => Math.sin(t * 11 + i * 1.7 + s) * 2.5;
+        Art.shape(ctx, c => this._wingPath(c, w(0), w(1), w(2), w(3), w(4)),
+            { x: 0, y: -44, w: 67, h: 57 }, hot ? '#ff5a1f' : '#ff3d1f', { lineWidth: 2.2 });
+        ctx.scale(0.72, 0.72);
+        Art.shape(ctx, c => this._wingPath(c, w(2), w(3), w(4), w(0), w(1)),
+            { x: 0, y: -44, w: 67, h: 57 }, hot ? '#ffb21f' : '#ff8c1a', { outline: false, flat: true });
+        // innerste Glut als einfache Flamme
+        const f = w(3);
+        ctx.fillStyle = hot ? '#fff6b8' : '#ffd84a';
+        ctx.beginPath();
+        ctx.moveTo(2, 4);
+        ctx.quadraticCurveTo(10, -22, 30 + f, -30 + f);
+        ctx.quadraticCurveTo(26, -8, 40, -4);
+        ctx.quadraticCurveTo(22, 8, 2, 4);
+        ctx.fill();
+        ctx.restore();
+    }
+
     draw(ctx, camera) {
         const pos = camera.worldToScreen(this.x, this.y);
         const cx = pos.x + this.w / 2;
         const cy = pos.y + this.h / 2;
-        const flash = this.iFrames > 0 && Math.floor(this.iFrames * 20) % 2;
-
-        if (this.dead) {
-            const t = 1 - this.deathTimer / 0.4;
-            ctx.save();
-            // Phoenix death: massive fire explosion then rebirth sparkles
-            for (let i = 0; i < 24; i++) {
-                const a = (Math.PI * 2 * i) / 24 + t * 4;
-                const dist = t * 120;
-                ctx.globalAlpha = (1 - t) * 0.9;
-                const hue = 20 + (i * 15) % 40;
-                ctx.fillStyle = `hsl(${hue}, 100%, ${50 + i * 2}%)`;
-                ctx.beginPath();
-                ctx.arc(cx + Math.cos(a) * dist, cy + Math.sin(a) * dist, (1 - t) * (6 + i % 8), 0, Math.PI * 2);
-                ctx.fill();
-            }
-            // Inner white-hot core
-            ctx.globalAlpha = (1 - t);
-            const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, (1 - t) * 60);
-            coreGrad.addColorStop(0, '#FFF');
-            coreGrad.addColorStop(0.4, '#FFD700');
-            coreGrad.addColorStop(1, '#FF4500');
-            ctx.fillStyle = coreGrad;
-            ctx.beginPath();
-            ctx.arc(cx, cy, (1 - t) * 60 + t * 40, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-            return;
+        const t = Art.time;
+        const dead = this.dead;
+        const hot = this.phase === 2 || this.hp <= this.maxHp / 2;
+        const stunned = !dead && this.state === 'stunned';
+        const ballK = !dead && this.state === 'fireball' ? clamp(1 - this.stateTimer / 0.7, 0, 1) : 0;
+        const waveK = !dead && this.state === 'fire_wave' ? clamp(1 - this.stateTimer / 0.9, 0, 1) : 0;
+        let k = 1;
+        let bob = Math.sin(t * 2.4) * 4;
+        if (dead) {
+            // Besiegt: erstarrt, dann schnell zusammenschrumpfen
+            const d = this.deathProgress();
+            k = d < 0.2 ? 1 + d * 0.5 : Math.max(0.01, 1.1 * (1 - (d - 0.2) / 0.8));
+            bob = 0;
+            ctx.globalAlpha *= Math.min(1, 2.5 - d * 2.5);
         }
-
+        // Flügel: Schlag, vor den Angriffen erhoben, betäubt hängend
+        let lift = Math.sin(t * 5) * 0.22;
+        if (stunned || dead) lift = -0.3 + Math.sin(t * 1.5) * 0.05;
+        else if (ballK > 0) lift = 0.25 + ballK * 0.2;
+        else if (waveK > 0) lift = 0.35 + Math.sin(t * 30) * 0.05;
+        const flare = 1 + waveK * 0.14;
+        const fl = stunned || dead ? 0.6 : 1;     // Flammen kleiner, wenn betäubt
         ctx.save();
-        if (flash) ctx.globalAlpha = 0.4;
+        ctx.translate(cx, cy + bob);
+        ctx.scale(k, k);
 
-        // Tail fire particles (behind body)
-        for (const p of this.tailParticles) {
-            const pp = camera.worldToScreen(p.x, p.y);
-            const lifeRatio = p.life / p.maxLife;
-            ctx.globalAlpha = lifeRatio * 0.6;
-            const hue = 20 + (1 - lifeRatio) * 30;
-            ctx.fillStyle = `hsl(${hue}, 100%, ${50 + (1 - lifeRatio) * 20}%)`;
-            ctx.beginPath();
-            ctx.arc(pp.x, pp.y, p.size * lifeRatio, 0, Math.PI * 2);
-            ctx.fill();
+        // Glut-Aura
+        if (!dead) {
+            Art.glow(ctx, 0, 0, 88 + waveK * 30, '#ff5a1a', (hot ? 0.5 : 0.36) + Math.sin(t * 6) * 0.06 + waveK * 0.3);
+            if (hot) Art.glow(ctx, 0, -4, 56, '#ffd23f', 0.28);
         }
-        ctx.globalAlpha = flash ? 0.4 : 1;
 
-        // Glow aura
-        ctx.globalAlpha = 0.1;
-        const auraGrad = ctx.createRadialGradient(cx, cy, 10, cx, cy, 70);
-        auraGrad.addColorStop(0, '#FF6600');
-        auraGrad.addColorStop(1, 'transparent');
-        ctx.fillStyle = auraGrad;
-        ctx.beginPath();
-        ctx.arc(cx, cy, 70, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = flash ? 0.4 : 1;
-
-        const wingFlap = Math.sin(this.wingAnim) * 0.5;
-
-        // Flame wings
-        for (let side = -1; side <= 1; side += 2) {
-            const wingY = cy + wingFlap * 20 * side;
-            // Outer wing (red-orange flame)
-            const wingGrad = ctx.createLinearGradient(cx, cy, cx + side * 55, wingY);
-            wingGrad.addColorStop(0, '#FF6600');
-            wingGrad.addColorStop(0.5, '#FF4400');
-            wingGrad.addColorStop(1, '#CC0000');
-            ctx.fillStyle = wingGrad;
-            ctx.beginPath();
-            ctx.moveTo(cx + side * 8, cy - 10);
-            ctx.quadraticCurveTo(cx + side * 40, wingY - 30, cx + side * 55, wingY - 5);
-            ctx.quadraticCurveTo(cx + side * 45, wingY + 15, cx + side * 8, cy + 15);
-            ctx.closePath();
-            ctx.fill();
-            // Inner wing (yellow-orange glow)
-            ctx.fillStyle = '#FFaa22';
-            ctx.globalAlpha = flash ? 0.3 : 0.7;
-            ctx.beginPath();
-            ctx.moveTo(cx + side * 5, cy - 5);
-            ctx.quadraticCurveTo(cx + side * 30, wingY - 18, cx + side * 40, wingY);
-            ctx.quadraticCurveTo(cx + side * 28, wingY + 10, cx + side * 5, cy + 10);
-            ctx.closePath();
-            ctx.fill();
-            ctx.globalAlpha = flash ? 0.4 : 1;
-
-            // Flame tips on wings
-            const tipX = cx + side * 55;
-            const tipY = wingY - 5;
-            for (let f = 0; f < 3; f++) {
-                const flicker = Math.sin(Date.now() / 80 + f * 2 + side) * 4;
-                ctx.fillStyle = f === 0 ? '#FF0' : '#F80';
-                ctx.globalAlpha = flash ? 0.3 : 0.6;
-                ctx.beginPath();
-                ctx.arc(tipX + side * (f * 5) + flicker, tipY - f * 3, 4 - f, 0, Math.PI * 2);
-                ctx.fill();
+        // Flammenschweif
+        Art.shape(ctx, c => {
+            for (let i = -1; i <= 1; i++) {
+                const sway = Math.sin(t * 5 + i * 1.3) * 5;
+                const len = (34 + (i === 0 ? 8 : 0) + Math.sin(t * 9 + i) * 3) * fl;
+                c.moveTo(i * 8 - 7, 20);
+                c.quadraticCurveTo(i * 12 - 9 + sway * 0.5, 20 + len * 0.55, i * 17 + sway, 20 + len);
+                c.quadraticCurveTo(i * 12 + 9 + sway * 0.5, 20 + len * 0.55, i * 8 + 7, 20);
             }
-            ctx.globalAlpha = flash ? 0.4 : 1;
+        }, { x: -28, y: 18, w: 56, h: 46 }, hot ? '#ff5a1f' : '#ff3d1f', { lineWidth: 1.8 });
+        ctx.fillStyle = hot ? '#fff6b8' : '#ffd84a';
+        ctx.beginPath();
+        for (let i = -1; i <= 1; i++) {
+            const sway = Math.sin(t * 5 + i * 1.3) * 5;
+            const len = (22 + (i === 0 ? 6 : 0) + Math.sin(t * 11 + i) * 2) * fl;
+            ctx.moveTo(i * 8 - 3.5, 22);
+            ctx.quadraticCurveTo(i * 10 - 4 + sway * 0.4, 22 + len * 0.55, i * 13 + sway * 0.8, 22 + len);
+            ctx.quadraticCurveTo(i * 10 + 4 + sway * 0.4, 22 + len * 0.55, i * 8 + 3.5, 22);
         }
-
-        // Body (orange/red/yellow gradient)
-        const bodyGrad = ctx.createRadialGradient(cx - 5, cy - 10, 3, cx, cy, 28);
-        bodyGrad.addColorStop(0, '#FFD700');
-        bodyGrad.addColorStop(0.4, '#FF8C00');
-        bodyGrad.addColorStop(0.8, '#FF4500');
-        bodyGrad.addColorStop(1, '#CC2200');
-        ctx.fillStyle = bodyGrad;
-        ctx.beginPath();
-        ctx.ellipse(cx, cy, 20, 28, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Head
-        const headGrad = ctx.createRadialGradient(cx, cy - 28, 2, cx, cy - 25, 15);
-        headGrad.addColorStop(0, '#FFD700');
-        headGrad.addColorStop(1, '#FF6600');
-        ctx.fillStyle = headGrad;
-        ctx.beginPath();
-        ctx.arc(cx, cy - 25, 13, 0, Math.PI * 2);
-        ctx.fill();
+        // Flügel
+        this._wing(ctx, -1, lift, flare * (0.85 + 0.15 * fl), hot);
+        this._wing(ctx, 1, lift, flare * (0.85 + 0.15 * fl), hot);
 
-        // Head crest flames
-        for (let i = -2; i <= 2; i++) {
-            const flicker = Math.sin(Date.now() / 100 + i) * 3;
-            ctx.fillStyle = i === 0 ? '#FF0' : '#F80';
-            ctx.beginPath();
-            ctx.moveTo(cx + i * 5, cy - 35);
-            ctx.lineTo(cx + i * 3 + flicker, cy - 48 - Math.abs(i) * 3);
-            ctx.lineTo(cx + i * 7, cy - 35);
-            ctx.closePath();
-            ctx.fill();
+        // Körper mit goldener Brustflamme
+        Art.body(ctx, 0, 4, 19, 25, '#ff8a1f', { lineWidth: 2.2 });
+        Art.shape(ctx, c => {
+            c.moveTo(0, -6);
+            c.quadraticCurveTo(11, 8, 0, 22);
+            c.quadraticCurveTo(-11, 8, 0, -6);
+            c.closePath();
+        }, { x: -8, y: -6, w: 16, h: 28 }, hot ? '#fff3a0' : '#ffd23f', { outline: false, highlight: false });
+
+        // Flammenkrone
+        const cr = i => Math.sin(t * 13 + i * 2) * 2 * fl;
+        Art.shape(ctx, c => {
+            c.moveTo(-9, -32);
+            c.quadraticCurveTo(-14, -36 - 6 * fl, -12 + cr(0), -32 - 20 * fl);
+            c.quadraticCurveTo(-6, -36 - 8 * fl, -4, -36);
+            c.quadraticCurveTo(-4, -36 - 12 * fl, 1 + cr(1), -32 - 26 * fl);
+            c.quadraticCurveTo(5, -36 - 10 * fl, 4, -36);
+            c.quadraticCurveTo(8, -36 - 8 * fl, 13 + cr(2), -32 - 18 * fl);
+            c.quadraticCurveTo(13, -36 - 4 * fl, 9, -32);
+            c.closePath();
+        }, { x: -14, y: -58, w: 28, h: 26 }, hot ? '#ff5a1f' : '#ff3d1f', { lineWidth: 1.8 });
+
+        // Kopf, Augen, Schnabel
+        Art.body(ctx, 0, -24, 14, 13, '#ff9a24', { lineWidth: 2.2 });
+        if (dead) BossMushroomGiant.xEyes(ctx, 0, -26, 4.2, 6.2);
+        else if (stunned) BossMushroomGiant.spiralEyes(ctx, 0, -26, 4.6, 6.2);
+        else Art.eyes(ctx, 0, -25.5, 4.8, { gap: 6.2, look: this.look, angry: true, iris: hot ? '#fff3a0' : '#ffd23f', seed: 5.5 });
+        Art.shape(ctx, c => {
+            c.moveTo(-4.5, -19.5);
+            c.quadraticCurveTo(0, -21, 4.5, -19.5);
+            c.quadraticCurveTo(2, -14, 0, -11);
+            c.quadraticCurveTo(-2, -14, -4.5, -19.5);
+            c.closePath();
+        }, { x: -5, y: -21, w: 10, h: 10 }, '#ffe08a', { lineWidth: 1.4 });
+
+        // Feuerball wächst vor dem Schnabel (Ankündigung)
+        if (ballK > 0) {
+            const bx = this.look.x * 26;
+            const by = -14 + this.look.y * 20;
+            Art.glow(ctx, bx, by, 14 + ballK * 18, '#ff8a1f', 0.6 + ballK * 0.4);
+            Art.body(ctx, bx, by, 2.5 + ballK * 6, 2.5 + ballK * 6, '#ffe066', { outline: '#ff5a1f', lineWidth: 1.6 });
+            Art.glow(ctx, bx, by, 4 + ballK * 5, '#ffffff', 0.9);
         }
+        ctx.restore();
 
-        // Sharp beak
-        ctx.fillStyle = '#8B4513';
-        ctx.beginPath();
-        ctx.moveTo(cx - 4, cy - 30);
-        ctx.lineTo(cx, cy - 42);
-        ctx.lineTo(cx + 4, cy - 30);
-        ctx.closePath();
-        ctx.fill();
-
-        // Fierce red eyes
-        ctx.fillStyle = '#FF0000';
-        ctx.beginPath();
-        ctx.arc(cx - 7, cy - 27, 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(cx + 7, cy - 27, 4, 0, Math.PI * 2);
-        ctx.fill();
-        // Eye glow
-        ctx.fillStyle = '#FF6';
-        ctx.beginPath();
-        ctx.arc(cx - 7, cy - 28, 1.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(cx + 7, cy - 28, 1.5, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Long fire tail
-        ctx.fillStyle = '#FF6600';
-        for (let i = 0; i < 5; i++) {
-            const flicker = Math.sin(Date.now() / 120 + i * 1.3) * (3 + i);
-            ctx.beginPath();
-            ctx.moveTo(cx + (i - 2) * 5, cy + 25);
-            ctx.lineTo(cx + (i - 2) * 7 + flicker, cy + 50 + i * 6);
-            ctx.lineTo(cx + (i - 2) * 3, cy + 25);
-            ctx.closePath();
-            ctx.fill();
-        }
-        // Inner tail glow
-        ctx.fillStyle = '#FFD700';
-        ctx.globalAlpha = flash ? 0.3 : 0.6;
-        for (let i = 0; i < 3; i++) {
-            const flicker = Math.sin(Date.now() / 90 + i * 2) * 3;
-            ctx.beginPath();
-            ctx.moveTo(cx + (i - 1) * 4, cy + 26);
-            ctx.lineTo(cx + (i - 1) * 4 + flicker, cy + 42 + i * 5);
-            ctx.lineTo(cx + (i - 1) * 2, cy + 26);
-            ctx.closePath();
-            ctx.fill();
-        }
-        ctx.globalAlpha = flash ? 0.4 : 1;
-
-        // Floating ember particles
-        const t = Date.now() / 1000;
-        for (const em of this.embers) {
-            const ex = cx + em.ox + Math.sin(t * em.speed + em.phase) * 8;
-            const ey = cy + em.oy - Math.abs(Math.sin(t * em.speed * 0.5 + em.phase)) * 15;
-            ctx.globalAlpha = flash ? 0.2 : 0.5;
-            ctx.fillStyle = Math.random() > 0.5 ? '#FF6' : '#F80';
-            ctx.beginPath();
-            ctx.arc(ex, ey, em.size, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // Stunned stars
-        if (this.state === 'stunned') {
-            ctx.globalAlpha = 0.8;
-            ctx.fillStyle = '#FFD700';
-            ctx.font = '14px monospace';
-            for (let i = 0; i < 5; i++) {
-                const sa = Date.now() / 250 + i * Math.PI * 2 / 5;
-                ctx.fillText('\u2605', cx + Math.cos(sa) * 45 - 5, cy - 48 + Math.sin(sa) * 8);
+        // Glutfunken steigen um den Phönix auf
+        if (!dead) {
+            for (const em of this.embers) {
+                const ph = (t * em.speed * 0.5 + em.phase) % 1;
+                const ex = cx + em.ox + Math.sin(t * em.speed * 3 + em.phase) * 6;
+                const ey = cy + em.oy - ph * 30;
+                Art.glow(ctx, ex, ey, em.size * 1.6, ph < 0.5 ? '#ffd23f' : '#ff8a1f', Math.sin(ph * Math.PI) * 0.9);
             }
         }
+        if (stunned) BossMushroomGiant.dizzy(ctx, cx, cy + bob - 62, 30, '#ffd23f');
+    }
 
-        // HP bar
-        ctx.globalAlpha = 1;
-        const barW = 105;
-        const barX = cx - barW / 2;
-        const barY = pos.y - 30;
-        ctx.fillStyle = '#FFF';
-        ctx.font = 'bold 9px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('FEUER PHOENIX', cx, barY - 4);
-        ctx.textAlign = 'left';
-        ctx.fillStyle = '#222';
-        ctx.beginPath(); ctx.roundRect(barX, barY, barW, 7, 3); ctx.fill();
-        const hpPct = this.hp / this.maxHp;
-        ctx.fillStyle = hpPct > 0.4 ? '#F60' : hpPct > 0.2 ? '#FA0' : '#F00';
-        ctx.beginPath(); ctx.roundRect(barX + 1, barY + 1, (barW - 2) * hpPct, 5, 2); ctx.fill();
+    // Ziellinien und Warnring (über allen Figuren, siehe BossMushroomGiant.overlay)
+    _drawOverlay(ctx, camera) {
+        if (this.dead) return;
+        const t = Art.time;
+        const mcx = this.centerX();
+        const mcy = this.centerY();
+        const c = camera.worldToScreen(mcx, mcy);
+        ctx.save();
+        const A = ctx.globalAlpha;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
 
+        if (this.state === 'fireball') {
+            const k = clamp(1 - this.stateTimer / 0.7, 0, 1);
+            ctx.beginPath();
+            for (let i = -1; i <= 1; i++) {
+                const a = Math.atan2(this.aimY - mcy, this.aimX + i * 50 - mcx);
+                ctx.moveTo(c.x + Math.cos(a) * 40, c.y + Math.sin(a) * 40);
+                ctx.lineTo(c.x + Math.cos(a) * 320, c.y + Math.sin(a) * 320);
+            }
+            ctx.setLineDash([10, 9]);
+            ctx.lineDashOffset = -t * 60;
+            ctx.strokeStyle = '#ff5a1f';
+            ctx.lineWidth = 5;
+            ctx.globalAlpha = A * (0.25 + 0.35 * k);
+            ctx.stroke();
+            ctx.strokeStyle = '#ffe066';
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = A * (0.45 + 0.5 * k);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            // Zielkreuz am gemerkten Ziel
+            const p = camera.worldToScreen(this.aimX, this.aimY);
+            const r = 15 - k * 4;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, r, 0, TAU);
+            ctx.moveTo(p.x - r - 6, p.y); ctx.lineTo(p.x - r + 4, p.y);
+            ctx.moveTo(p.x + r + 6, p.y); ctx.lineTo(p.x + r - 4, p.y);
+            ctx.moveTo(p.x, p.y - r - 6); ctx.lineTo(p.x, p.y - r + 4);
+            ctx.moveTo(p.x, p.y + r + 6); ctx.lineTo(p.x, p.y + r - 4);
+            ctx.strokeStyle = '#ff3d1f';
+            ctx.lineWidth = 2.5;
+            ctx.globalAlpha = A * (0.6 + 0.4 * k);
+            ctx.stroke();
+        }
+
+        if (this.state === 'fire_wave') {
+            // Warnring mit Pfeilen genau in Flugrichtung der Feuerkugeln
+            const k = clamp(1 - this.stateTimer / 0.9, 0, 1);
+            const n = this.phase === 2 ? 24 : 12;
+            const r = 62 + k * 12;
+            ctx.setLineDash([7, 7]);
+            ctx.lineDashOffset = t * 40;
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, r, 0, TAU);
+            ctx.strokeStyle = '#ff5a1f';
+            ctx.lineWidth = 3;
+            ctx.globalAlpha = A * (0.35 + 0.5 * k);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            for (let i = 0; i < n; i++) {
+                const a = n === 24 ? (Math.PI * 2 * (i >> 1)) / 12 + (i & 1) * (Math.PI / 12) : (Math.PI * 2 * i) / 12;
+                const ca = Math.cos(a);
+                const sa = Math.sin(a);
+                const tip = r + 12 + k * 8;
+                const bx = c.x + ca * tip;
+                const by = c.y + sa * tip;
+                ctx.moveTo(bx - ca * 7 - sa * 5, by - sa * 7 + ca * 5);
+                ctx.lineTo(bx, by);
+                ctx.lineTo(bx - ca * 7 + sa * 5, by - sa * 7 - ca * 5);
+            }
+            ctx.strokeStyle = '#ffe066';
+            ctx.lineWidth = 3;
+            ctx.globalAlpha = A * (0.45 + 0.5 * k);
+            ctx.stroke();
+        }
         ctx.restore();
     }
 }
