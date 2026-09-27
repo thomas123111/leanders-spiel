@@ -35,7 +35,9 @@ class World {
     }
 
     load(levelData) {
-        this.tiles = levelData;
+        // Kopie, damit Änderungen (Startfeld, Boss-Tür) die Vorlage nicht zerstören –
+        // sonst startet Mark beim zweiten Spielen in der Wand und die Boss-Tür fehlt.
+        this.tiles = levelData.map(row => row.slice());
         this.height = levelData.length;
         this.width = levelData[0].length;
         this.pixelWidth = this.width * TILE_SIZE;

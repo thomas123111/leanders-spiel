@@ -31,13 +31,10 @@
         }
         canvas {
             display: block;
-            image-rendering: pixelated;
-            image-rendering: crisp-edges;
-            box-shadow:
-                0 0 0 1px rgba(255,255,255,0.08),
-                0 24px 70px rgba(0,0,0,0.55),
-                0 0 80px rgba(120, 90, 180, 0.12);
-            border-radius: 10px;
+            position: fixed;
+            left: 0;
+            top: 0;
+            touch-action: none;
         }
     </style>
 </head>
@@ -45,6 +42,8 @@
     <canvas id="game"></canvas>
 
 <script src="js/utils.js?v=8.3.7"></script>
+<script src="js/art.js?v=8.3.7"></script>
+<script src="js/fx.js?v=8.3.7"></script>
 <script src="js/sound.js?v=8.3.7"></script>
 <script src="js/input.js?v=8.3.7"></script>
 <script src="js/camera.js?v=8.3.7"></script>

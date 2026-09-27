@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Figuren-Galerie</title>
+<style>
+    html, body { margin: 0; background: #1b1330; color: #eee; font: 13px system-ui, sans-serif; }
+    #bar { position: sticky; top: 0; z-index: 2; background: #120b22; padding: 8px 12px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    #bar input { width: 320px; }
+    canvas { display: block; }
+    #err { color: #ff8080; white-space: pre-wrap; padding: 0 12px; }
+</style>
+</head>
+<body>
+<div id="bar">
+    <b>Figuren-Galerie</b>
+    <label>nur: <input id="nur" placeholder="Ghost,BossGhost (leer = alle)"></label>
+    <label>Zoom <input id="zoom" type="range" min="1" max="4" step="0.5" value="2" style="width:100px"></label>
+    <label><input id="sim" type="checkbox"> Bewegung simulieren</label>
+    <label>Boden <select id="boden">
+        <option value="#5b6b8c">Stein</option><option value="#3f7a4f">Wiese</option>
+        <option value="#a8d8f0">Eis</option><option value="#4a2a3a">Lava</option><option value="#2a2440">Dunkel</option>
+    </select></label>
+    <span id="info"></span>
+</div>
+<div id="err"></div>
+<canvas id="c"></canvas>
+
+<script src="../js/utils.js"></script>
+<script src="../js/art.js"></script>
+<script src="../js/fx.js"></script>
+<script>
+// Ton und Spiel-Objekt als Attrappen, damit Figurencode ohne main.js läuft.
+const Sound = new Proxy({}, { get: () => () => {} });
+</script>
+<script src="../js/input.js"></script>
+<script src="../js/camera.js"></script>
+<script src="../js/world.js"></script>
+<script src="../js/weapons.js"></script>
+<script src="../js/loot.js"></script>
+<script src="../js/entities.js"></script>
+<script src="../js/entities2.js"></script>
+<script src="../js/player.js"></script>
+<script>
+const Game = {
+    state: 'PLAYING', currentWorld: 1, particles: [], projectiles: [], enemies: [], companions: [], chests: [],
+    coinDrops: [], keyDrops: [], props: [], coins: 0, jewels: 0, hudScale: 1, renderScale: 1, hudW: 800, hudH: 400,
+    camera: null, world: null, player: null, vibrate() {}, doHitstop() {},
+};
+const errors = new Set();
+function logErr(name, e) {
+    const key = name + ': ' + (e && e.message);
+    if (errors.has(key)) return;
+    errors.add(key);
+    document.getElementById('err').textContent += key + '\n';
+    console.error(name, e);
+}
+
+const KLASSEN = [
+    // Welt 1–4
+    'Ghost', 'KeyGhost', 'BossGhost', 'RoboChick', 'MiniRoboChick', 'Drone', 'GiantEgg', 'BossGhostChick',
+    'Slime', 'BossSlime', 'ShadowKnight', 'GiantBat', 'KeyKnight', 'BossKnightBat',
+    // Welt 5–8
+    'WalkingMushroom', 'BossMushroomGiant', 'SwampMosquito', 'CrocodileKid', 'BossMosquito',
+    'IcePenguin', 'BossSnowEagle', 'LavaBall', 'BossFirePhoenix',
+    // Welt 9–15
+    'ShadowGhost', 'ShadowWraith', 'BossShadowMaster', 'AngryFruit', 'GiantPlant', 'BossFruitKing',
+    'PixelGhost', 'PixelRobot', 'StarKnight', 'SkeletonArcher', 'BoomerangSkeleton', 'BossSkeletonRider',
+    'PoisonSnake', 'BossHydra', 'StoneSamurai', 'BossStoneDemon',
+    // Welt 16–21
+    'AppleNinja', 'KiwiNinja', 'BossFruitGiant', 'MiniTRex', 'Triceratops', 'BossStingRex',
+    'TimeClock', 'BossTimeSphere', 'ShadowCrocodileRunner', 'BossShadowCrocodile',
+    'FootballEnemy', 'BossFootball', 'ScrapRaccoon', 'BossScrapRaccoon',
+    // Training
+    'TrainingTargetRobot', 'TrainingPatrolRobot', 'TrainingShooterRobot',
+    'TutorialRobotSmall', 'TutorialRobotMedium', 'TutorialRobotBig', 'ShieldRobot', 'ShooterRobot', 'StandRobot',
+    // Mark & Freunde, Loot
+    'Player', 'Juri', 'ShadowCrocodile', 'Chest', 'KeyDrop', 'CoinDrop', 'SkullProp', 'Projectile',
+];
+const ZUSTAENDE = ['ruhig', 'getroffen', 'wenig HP', 'stirbt'];
+
+function klasse(name) {
+    try { return new Function('return typeof ' + name + ' !== "undefined" ? ' + name + ' : null')(); } catch (e) { return null; }
+}
+
+function flatWorld(wTiles, hTiles) {
+    const rows = [];
+    for (let y = 0; y < hTiles; y++) {
+        const row = [];
+        for (let x = 0; x < wTiles; x++) row.push(x === 0 || y === 0 || x === wTiles - 1 || y === hTiles - 1 ? TILE_WALL : TILE_FLOOR);
+        rows.push(row);
+    }
+    const w = new World();
+    w.load(rows);
+    return w;
+}
+
+const params = new URLSearchParams(location.search);
+document.getElementById('nur').value = params.get('nur') || '';
+document.getElementById('zoom').value = params.get('zoom') || '2';
+document.getElementById('sim').checked = params.get('sim') === '1';
+
+let cells = [];
+function build() {
+    const filter = document.getElementById('nur').value.split(',').map(s => s.trim()).filter(Boolean);
+    const names = filter.length ? filter : KLASSEN;
+    cells = [];
+    for (const name of names) {
+        const K = klasse(name);
+        if (!K) { logErr(name, new Error('Klasse fehlt')); continue; }
+        for (const zustand of ZUSTAENDE) {
+            const isBossName = /^Boss/.test(name);
+            const cw = isBossName ? 300 : 150;
+            const ch = isBossName ? 260 : 130;
+            const world = flatWorld(Math.ceil(cw / 32) + 8, Math.ceil(ch / 32) + 8);
+            let e;
+            try {
+                if (name === 'Projectile') { e = new K(0, 0, 200, 0, 3, 'player', 100); e.w = 10; e.h = 10; }
+                else if (name === 'CoinDrop') e = new K(0, 0, 5);
+                else e = new K(0, 0);
+            } catch (err) { logErr(name, err); continue; }
+            cells.push({ name, zustand, K, e, cw, ch, world, boss: isBossName, t0: Math.random() * 10 });
+        }
+    }
+    layout();
+}
+
+let W = 0, H = 0;
+function layout() {
+    const zoom = +document.getElementById('zoom').value;
+    const maxW = Math.max(600, window.innerWidth - 4) / zoom;
+    let x = 0, y = 0, rowH = 0;
+    for (const c of cells) {
+        if (x + c.cw > maxW) { x = 0; y += rowH; rowH = 0; }
+        c.ox = x; c.oy = y;
+        x += c.cw; rowH = Math.max(rowH, c.ch);
+    }
+    W = maxW; H = y + rowH;
+    const cv = document.getElementById('c');
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.style.width = (W * zoom) + 'px';
+    cv.style.height = (H * zoom) + 'px';
+    cv.width = Math.round(W * zoom * dpr);
+    cv.height = Math.round(H * zoom * dpr);
+    Game.renderScale = zoom * dpr;
+    document.getElementById('info').textContent = cells.length / ZUSTAENDE.length + ' Figuren';
+}
+
+function place(c) {
+    const e = c.e;
+    const w = e.w || 20, h = e.h || 20;
+    // Figur mittig in der Zelle, 4 Kacheln vom Weltrand entfernt
+    e.x = 4 * 32 + c.cw / 2 - w / 2;
+    e.y = 4 * 32 + c.ch / 2 - h / 2 + 8;
+}
+
+let last = performance.now();
+function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    Art.time += dt;
+    const cv = document.getElementById('c');
+    const ctx = cv.getContext('2d');
+    const s = Game.renderScale;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#1b1330';
+    ctx.fillRect(0, 0, cv.width, cv.height);
+    const sim = document.getElementById('sim').checked;
+    const boden = document.getElementById('boden').value;
+    for (const c of cells) {
+        const e = c.e;
+        if (!c.placed || !sim) { place(c); c.placed = true; }
+        // Zustand herstellen
+        e.dead = false;
+        e.hitFlash = 0;
+        if (e.maxHp) e.hp = c.zustand === 'wenig HP' ? Math.max(1, Math.round(e.maxHp * 0.2)) : e.maxHp;
+        if (c.zustand === 'stirbt') {
+            e.dead = true;
+            e.deathTimer = 0.4 * (0.9 - ((Art.time + c.t0) % 1.2) / 1.5);
+            if (e.deathTimer < 0.02) e.deathTimer = 0.02;
+            if (e.constructor.name === 'Player') e.deathTimer = 1.5 * (1 - ((Art.time + c.t0) % 1.6) / 1.6);
+        }
+        const cam = {
+            x: 4 * 32 - 0, y: 4 * 32 - 0, width: c.cw, height: c.ch, shakeX: 0, shakeY: 0,
+            worldToScreen(x, y) { return { x: x - this.x, y: y - this.y }; },
+            screenToWorld(x, y) { return { x: x + this.x, y: y + this.y }; },
+            shake() {}, follow() {},
+        };
+        Game.world = c.world;
+        Game.camera = cam;
+        // Attrappe des Spielers rechts von der Figur
+        if (!c.dummy) c.dummy = typeof Player !== 'undefined' ? new Player(e.x + c.cw * 0.4, e.y) : null;
+        if (c.dummy) { c.dummy.x = e.x + c.cw * 0.42; c.dummy.y = e.y - 10; }
+        Game.player = c.dummy;
+        if (sim && c.zustand !== 'stirbt') {
+            try {
+                if (typeof e.update === 'function') {
+                    if (e.constructor.name === 'Player') e.update(dt, c.world);
+                    else if (e.constructor.name === 'Chest' || e.constructor.name === 'KeyDrop' || e.constructor.name === 'CoinDrop') e.update(dt, c.dummy);
+                    else if (e.constructor.name === 'Projectile') { e.update(dt, c.world); if (e.dead || Math.abs(e.x - (4 * 32 + c.cw / 2)) > c.cw / 2) { e.dead = false; e.lifetime = 3; place(c); } }
+                    else e.update(dt, c.world, c.dummy, [], Game.projectiles);
+                }
+            } catch (err) { logErr(c.name + '.update', err); }
+            // In der Zelle halten
+            const cx = 4 * 32 + c.cw / 2;
+            const cy = 4 * 32 + c.ch / 2;
+            if (Math.abs(e.x + e.w / 2 - cx) > c.cw * 0.35 || Math.abs(e.y + e.h / 2 - cy) > c.ch * 0.35) place(c);
+        }
+        if (c.zustand === 'getroffen') {
+            e.hitFlash = 0.1;
+            if (e.iFrames !== undefined && !sim) e.iFrames = 0;
+        }
+        ctx.save();
+        ctx.setTransform(s, 0, 0, s, c.ox * s, c.oy * s);
+        ctx.beginPath();
+        ctx.rect(0, 0, c.cw, c.ch);
+        ctx.clip();
+        ctx.fillStyle = boden;
+        ctx.fillRect(0, 0, c.cw, c.ch);
+        ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+        for (let gx = 0; gx < c.cw; gx += 32) { ctx.beginPath(); ctx.moveTo(gx + 0.5, 0); ctx.lineTo(gx + 0.5, c.ch); ctx.stroke(); }
+        for (let gy = 0; gy < c.ch; gy += 32) { ctx.beginPath(); ctx.moveTo(0, gy + 0.5); ctx.lineTo(c.cw, gy + 0.5); ctx.stroke(); }
+        try {
+            if (e.w && typeof Art !== 'undefined') {
+                const p = cam.worldToScreen(e.x + e.w / 2, e.y + e.h / 2);
+                const flying = e.flying !== undefined ? e.flying : !!e.phasesThroughWalls;
+                const sh = e.shadow || {};
+                let rx = sh.rx || Math.max(6, e.w * 0.46), ry = sh.ry || rx * 0.36, dy = sh.dy !== undefined ? sh.dy : e.h / 2 - 1;
+                if (flying && sh.dy === undefined) { dy += 8; rx *= 0.8; ry *= 0.8; }
+                if (!e.noShadow) Art.groundShadow(ctx, p.x, p.y + dy, rx, ry, sh.alpha || (flying ? 0.2 : 0.34));
+            }
+            if (e.hitFlash > 0) FX.drawFlashing(ctx, e, cam, s, 0.75);
+            else e.draw(ctx, cam);
+        } catch (err) { logErr(c.name + '.draw', err); }
+        for (const p of Game.particles) { try { p.update(dt); p.draw(ctx, cam); } catch (err) {} }
+        ctx.restore();
+        ctx.save();
+        ctx.setTransform(s, 0, 0, s, c.ox * s, c.oy * s);
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(0, c.ch - 14, c.cw, 14);
+        ctx.fillStyle = '#fff';
+        ctx.font = '9px system-ui';
+        ctx.fillText(c.name + ' · ' + c.zustand, 4, c.ch - 4);
+        ctx.restore();
+    }
+    Game.particles = Game.particles.filter(p => !p.dead).slice(-200);
+    Game.projectiles = Game.projectiles.filter(p => !p.dead).slice(-100);
+    requestAnimationFrame(frame);
+}
+
+for (const id of ['nur', 'zoom']) document.getElementById(id).addEventListener('change', () => { build(); });
+window.addEventListener('resize', layout);
+Input.init(document.getElementById('c'));
+build();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

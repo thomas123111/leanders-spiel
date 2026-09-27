@@ -60,14 +60,34 @@ const Game = {
     fadeDir: 0, // 0=none, 1=fading out, -1=fading in
     fadeCallback: null,
 
+    // Darstellung: logische Sicht (Welt-Einheiten) und Pixel pro Einheit
+    viewW: 800,
+    viewH: 400,
+    renderScale: 1,
+    hudScale: 1,
+    hudW: 800,
+    hudH: 400,
+    cssW: 800,
+    cssH: 400,
+    quality: 1,
+    paused: false,
+    _drawList: [],
+    _frameTimes: [],
+    _qualityTimer: 0,
+
     init() {
         this.canvas = document.getElementById('game');
-        this.ctx = this.canvas.getContext('2d');
+        this.ctx = this.canvas.getContext('2d', { alpha: false });
         this.resize();
         window.addEventListener('resize', () => this.resize());
+        window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 250));
+        if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.resize());
 
         document.addEventListener('fullscreenchange', () => this.resize());
         document.addEventListener('webkitfullscreenchange', () => this.resize());
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) this.onHidden();
+        });
 
         Sound.init();
         Input.init(this.canvas);
@@ -1572,20 +1592,72 @@ const Game = {
         this.fadeCallback = null;
     },
 
+    // Canvas an Bildschirm anpassen: scharf (devicePixelRatio), unverzerrt, Figuren groß genug fürs Handy.
     resize() {
-        const w = window.innerWidth;
-        const h = window.innerHeight;
-        this.canvas.style.width = w + 'px';
-        this.canvas.style.height = h + 'px';
-        const logicalH = 480;
-        const logicalW = Math.round(logicalH * (w / h));
-        this.canvas.width = Math.max(640, logicalW);
-        this.canvas.height = logicalH;
+        const vv = window.visualViewport;
+        const cssW = Math.max(1, Math.round(vv ? vv.width : window.innerWidth));
+        const cssH = Math.max(1, Math.round(vv ? vv.height : window.innerHeight));
+        const dpr = Math.min(window.devicePixelRatio || 1, 2) * this.quality;
+        this.cssW = cssW;
+        this.cssH = cssH;
+        this.canvas.style.width = cssW + 'px';
+        this.canvas.style.height = cssH + 'px';
+        this.canvas.width = Math.max(1, Math.round(cssW * dpr));
+        this.canvas.height = Math.max(1, Math.round(cssH * dpr));
+
+        // Kurze Bildschirmseite zeigt ~330–470 Welt-Einheiten (Handy quer: ~360 → Figuren schön groß).
+        const shortSide = Math.min(cssW, cssH);
+        const viewShort = clamp(shortSide * 0.92, 330, 470);
+        const cssPerUnit = shortSide / viewShort;
+        this.viewW = cssW / cssPerUnit;
+        this.viewH = cssH / cssPerUnit;
+        this.renderScale = this.canvas.width / this.viewW;
+
+        // HUD in CSS-Pixeln, auf Tablets etwas größer.
+        const uiZoom = clamp(shortSide / 400, 1, 1.45);
+        this.hudScale = (this.canvas.width / cssW) * uiZoom;
+        this.hudW = cssW / uiZoom;
+        this.hudH = cssH / uiZoom;
+
         if (this.camera) {
-            this.camera.width = this.canvas.width;
-            this.camera.height = this.canvas.height;
+            this.camera.width = this.viewW;
+            this.camera.height = this.viewH;
         }
+        if (typeof World !== 'undefined' && this.world && this.world.invalidateCache) this.world.invalidateCache();
         this.syncTitleMenuOverlayLayout();
+    },
+
+    // Bildrate beobachten und Auflösung bei Bedarf senken/heben (schwache Handys).
+    _trackPerformance(frameMs) {
+        const ft = this._frameTimes;
+        ft.push(frameMs);
+        if (ft.length > 90) ft.shift();
+        this._qualityTimer += frameMs / 1000;
+        if (this._qualityTimer < 3 || ft.length < 60 || this.state !== 'PLAYING') return;
+        this._qualityTimer = 0;
+        const sorted = ft.slice().sort((a, b) => a - b);
+        const median = sorted[Math.floor(sorted.length / 2)];
+        let q = this.quality;
+        if (median > 24 && q > 0.55) q = Math.max(0.55, q - 0.15);
+        else if (median < 15 && q < 1) q = Math.min(1, q + 0.1);
+        if (q !== this.quality) {
+            this.quality = q;
+            this.resize();
+        }
+    },
+
+    onHidden() {
+        if (this.state === 'PLAYING' || this.state === 'BOSS_INTRO') this.pause(true);
+        Sound.suspend && Sound.suspend();
+    },
+
+    pause(on) {
+        if (this.state !== 'PLAYING' && this.state !== 'BOSS_INTRO') {
+            this.paused = false;
+            return;
+        }
+        this.paused = !!on;
+        if (typeof UI !== 'undefined' && UI.showPause) UI.showPause(this.paused);
     },
 
     startNewGame() {
@@ -1718,9 +1790,14 @@ const Game = {
         // Player always has 5 hearts (20 HP)
 
         // Camera
-        this.camera = new Camera(this.canvas.width, this.canvas.height);
-        this.camera.x = this.player.x - this.canvas.width / 2;
-        this.camera.y = this.player.y - this.canvas.height / 2;
+        this.camera = new Camera(this.viewW, this.viewH);
+        this.camera.x = clamp(this.player.x - this.viewW / 2, 0, Math.max(0, this.world.pixelWidth - this.viewW));
+        this.camera.y = clamp(this.player.y - this.viewH / 2, 0, Math.max(0, this.world.pixelHeight - this.viewH));
+        if (typeof FX !== 'undefined') {
+            FX.reset();
+            FX.setAmbient(this.world.theme, this.viewW, this.viewH);
+        }
+        this._lastCam = { x: this.camera.x, y: this.camera.y };
 
         // Find valid floor positions for spawning (away from player)
         this._floorTiles = [];
@@ -2049,8 +2126,12 @@ const Game = {
     },
 
     gameLoop(timestamp) {
-        const dt = Math.min((timestamp - this.lastTime) / 1000, 0.05);
+        const rawMs = timestamp - this.lastTime;
+        const dt = this.paused ? 0 : Math.min(rawMs / 1000, 0.05);
         this.lastTime = timestamp;
+        if (rawMs > 0 && rawMs < 250) this._trackPerformance(rawMs);
+        Art.time += dt;
+        FX.update(dt);
 
         // Fade transitions
         if (this.fadeDir !== 0) {
@@ -2065,8 +2146,18 @@ const Game = {
             }
         }
 
-        this.update(dt);
-        this.render();
+        if (!this.paused) this.update(dt);
+        else Input.postUpdate();
+        try {
+            this.render();
+        } catch (err) {
+            // Ein Zeichenfehler darf das Spiel nicht einfrieren.
+            if (!this._renderErrorShown) {
+                this._renderErrorShown = true;
+                console.error('Zeichenfehler:', err);
+            }
+            this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        }
         requestAnimationFrame(t => this.gameLoop(t));
     },
 
@@ -2248,8 +2339,10 @@ const Game = {
         // Enemies
         const playerBush = this.world && this.world.isBush(this.player.x + this.player.w / 2, this.player.y + this.player.h / 2);
         for (const enemy of this.enemies) {
+            if (enemy.hitFlash > 0) enemy.hitFlash -= dt;
             if (enemy.dead) {
                 enemy.deathTimer -= dt;
+                if (!enemy._deathFxDone) this._onEnemyDeathFx(enemy);
                 continue;
             }
             const enemyBush = this.world && this.world.isBush(enemy.centerX(), enemy.centerY());
@@ -2490,107 +2583,168 @@ const Game = {
         if (!this.player.dead) {
             this.camera.follow(this.player, this.world.pixelWidth, this.world.pixelHeight, dt);
         }
+        const last = this._lastCam || { x: this.camera.x, y: this.camera.y };
+        FX.updateAmbient(dt, this.viewW, this.viewH, this.camera.x - last.x, this.camera.y - last.y);
+        this._lastCam = { x: this.camera.x, y: this.camera.y };
 
         Input.postUpdate();
     },
 
+    // Einmalige Effekte, wenn ein Gegner stirbt.
+    _onEnemyDeathFx(enemy) {
+        enemy._deathFxDone = true;
+        const cx = enemy.centerX();
+        const cy = enemy.centerY();
+        const color = enemy.fxColor || '#ffe066';
+        const big = enemy.isBoss;
+        FX.burst(cx, cy, [color, '#ffffff', Art.light(color, 0.4)], big ? 26 : 12, big ? 260 : 150, big ? 0.9 : 0.5);
+        FX.burst(cx, cy, 'rgba(235,225,255,0.9)', big ? 10 : 5, 60, big ? 0.9 : 0.55, { kind: 'smoke', size: big ? 7 : 4.5 });
+        FX.ring(cx, cy, Art.light(color, 0.3), big ? 120 : Math.max(26, enemy.w * 1.4), big ? 0.6 : 0.3, big ? 5 : 3);
+    },
+
+    // ── Zeichnen ──
+
+    // Bodenschatten einer Figur. Steuerbar über e.flying / e.shadow = {rx, ry, dy, alpha}.
+    _drawShadow(ctx, e) {
+        if (e.noShadow || (e.dead && e.deathTimer <= 0)) return;
+        const c = this.camera.worldToScreen(e.x + e.w / 2, e.y + e.h / 2);
+        const flying = e.flying !== undefined ? e.flying : !!e.phasesThroughWalls;
+        const sh = e.shadow || {};
+        let rx = sh.rx || Math.max(6, e.w * (e.isBoss ? 0.5 : 0.46));
+        let ry = sh.ry || rx * 0.36;
+        let dy = sh.dy !== undefined ? sh.dy : e.h / 2 - 1;
+        let a = sh.alpha || (flying ? 0.2 : 0.34);
+        if (flying && sh.dy === undefined) {
+            dy += 8;
+            rx *= 0.8;
+            ry *= 0.8;
+        }
+        if (e.dead) a *= Math.max(0, e.deathTimer / 0.4);
+        Art.groundShadow(ctx, c.x, c.y + dy, rx, ry, a);
+    },
+
+    _drawEntity(ctx, e) {
+        const camera = this.camera;
+        const inBush = this.world && e !== this.player && !e.isBoss && typeof e.centerX === 'function' &&
+            this.world.isBush(e.centerX(), e.centerY());
+        const playerInBush = e === this.player && this.world &&
+            this.world.isBush(e.x + e.w / 2, e.y + e.h / 2);
+        ctx.save();
+        if (inBush || playerInBush) ctx.globalAlpha = 0.35;
+        try {
+            if (e.hitFlash > 0 && !e.dead) {
+                FX.drawFlashing(ctx, e, camera, this.renderScale, Math.min(0.85, e.hitFlash * 7));
+            } else {
+                e.draw(ctx, camera);
+            }
+        } catch (err) {
+            const name = e.constructor ? e.constructor.name : '?';
+            this._drawErrors = this._drawErrors || {};
+            if (!this._drawErrors[name]) {
+                this._drawErrors[name] = true;
+                console.error('Zeichenfehler in ' + name + ':', err);
+            }
+        }
+        ctx.restore();
+    },
+
+    _drawEnemyBars(ctx) {
+        for (const e of this.enemies) {
+            if (e.dead || e.isBoss || e.maxHp < 6 || e.hp >= e.maxHp || e.hideHpBar) continue;
+            if (!isOnScreen(e, this.camera, 20)) continue;
+            const p = this.camera.worldToScreen(e.x + e.w / 2, e.y);
+            const w = clamp(e.w * 0.9, 16, 40);
+            const k = clamp(e.hp / e.maxHp, 0, 1);
+            ctx.fillStyle = 'rgba(20,8,40,0.75)';
+            ctx.beginPath();
+            ctx.roundRect(p.x - w / 2 - 1, p.y - 9, w + 2, 5, 2.5);
+            ctx.fill();
+            ctx.fillStyle = k > 0.5 ? '#6ee06e' : (k > 0.25 ? '#ffc23d' : '#ff4d5e');
+            ctx.beginPath();
+            ctx.roundRect(p.x - w / 2, p.y - 8, Math.max(1.5, w * k), 3, 1.5);
+            ctx.fill();
+        }
+    },
+
     render() {
         const ctx = this.ctx;
-        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
 
-        if (this.state === 'TITLE') {
-            Renderer.drawTitleScreen(ctx, this);
-            return;
-        }
+        const inWorld = this.world && this.camera && this.player &&
+            !['TITLE', 'WORLD_SELECT', 'EXTRA_MENU', 'SHOP'].includes(this.state);
 
-        if (this.state === 'WORLD_SELECT' || this.state === 'EXTRA_MENU') {
-            ctx.fillStyle = '#09111b';
+        if (!inWorld) {
+            ctx.fillStyle = '#140b2a';
             ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-            ctx.fillStyle = 'rgba(255,255,255,0.05)';
-            ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            ctx.setTransform(this.hudScale, 0, 0, this.hudScale, 0, 0);
+            if (this.state === 'TITLE') Renderer.drawTitleScreen(ctx, this);
+            else if (this.state === 'SHOP') Renderer.drawShopScreen(ctx, this);
             return;
         }
 
-        if (this.state === 'SHOP') {
-            Renderer.drawShopScreen(ctx, this);
-            return;
-        }
-
-        // Background
-        ctx.fillStyle = '#111';
+        const camera = this.camera;
+        ctx.fillStyle = (this.world.palette && this.world.palette.void) || '#140b2a';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        ctx.setTransform(this.renderScale, 0, 0, this.renderScale, 0, 0);
 
-        // World
-        this.world.draw(ctx, this.camera);
+        // Welt (Boden, Wände)
+        this.world.draw(ctx, camera);
+        FX.drawRings(ctx, camera);
 
-        // Chests
-        for (const chest of this.chests) {
-            chest.draw(ctx, this.camera);
+        // Figuren sammeln, von oben nach unten sortieren
+        const list = this._drawList;
+        list.length = 0;
+        for (const c of this.chests) list.push(c);
+        for (const k of this.keyDrops) if (!k.collected) list.push(k);
+        for (const c of this.coinDrops) if (!c.collected) list.push(c);
+        for (const p of this.props) list.push(p);
+        for (const e of this.enemies) {
+            if (e.dead && e.deathTimer <= 0) continue;
+            if (!e.isBoss && !isOnScreen(e, camera, 40)) continue;
+            list.push(e);
         }
+        for (const c of this.companions) list.push(c);
+        list.push(this.player);
+        list.sort((a, b) => (a.y + a.h) - (b.y + b.h));
 
-        // Key drops
-        for (const key of this.keyDrops) {
-            key.draw(ctx, this.camera);
+        for (const e of list) {
+            if (e === this.player && this.player.dead) continue;
+            if (e.w !== undefined && (typeof e.centerX === 'function' || e === this.player)) this._drawShadow(ctx, e);
         }
+        for (const e of list) this._drawEntity(ctx, e);
 
-        // Coin drops
-        for (const coin of this.coinDrops) {
-            coin.draw(ctx, this.camera);
-        }
-
-        // Props
-        for (const prop of this.props) {
-            prop.draw(ctx, this.camera);
-        }
-
-        // Enemies (with offscreen culling)
-        for (const enemy of this.enemies) {
-            if (enemy.dead && enemy.deathTimer <= 0) continue;
-            if (!enemy.isBoss && !isOnScreen(enemy, this.camera)) continue;
-            ctx.save();
-            if (this.world && this.world.isBush(enemy.centerX(), enemy.centerY())) {
-                ctx.globalAlpha = 0.3;
-            }
-            enemy.draw(ctx, this.camera);
-            ctx.restore();
-        }
-
-        // Projectiles (with offscreen culling)
+        // Geschosse und Partikel über den Figuren
         for (const proj of this.projectiles) {
-            if (!isOnScreen({ x: proj.x - 5, y: proj.y - 5, w: 10, h: 10 }, this.camera, 10)) continue;
-            proj.draw(ctx, this.camera);
+            if (!isOnScreen({ x: proj.x - 8, y: proj.y - 8, w: 16, h: 16 }, camera, 16)) continue;
+            try { proj.draw(ctx, camera); } catch (err) { /* einzelnes Geschoss überspringen */ }
         }
-
-        // Companions
-        for (const c of this.companions) {
-            ctx.save();
-            if (this.world && this.world.isBush(c.centerX(), c.centerY())) {
-                ctx.globalAlpha = 0.3;
-            }
-            c.draw(ctx, this.camera);
-            ctx.restore();
-        }
-
-        // Player
-        if (this.player) {
-            ctx.save();
-            if (this.world && this.world.isBush(this.player.x + this.player.w / 2, this.player.y + this.player.h / 2)) {
-                ctx.globalAlpha = 0.3;
-            }
-            this.player.draw(ctx, this.camera);
-            ctx.restore();
-        }
-
-        // Particles (with offscreen culling)
         for (const p of this.particles) {
-            if (!isOnScreen({ x: p.x - 5, y: p.y - 5, w: 10, h: 10 }, this.camera, 10)) continue;
-            p.draw(ctx, this.camera);
+            if (!isOnScreen({ x: p.x - 6, y: p.y - 6, w: 12, h: 12 }, camera, 12)) continue;
+            try { p.draw(ctx, camera); } catch (err) { p.dead = true; }
+        }
+        if (this.world.drawOverlay) this.world.drawOverlay(ctx, camera);
+        this._drawEnemyBars(ctx);
+        FX.drawFloaters(ctx, camera);
+
+        // Hinweis an Truhen
+        for (const chest of this.chests) {
+            if (!chest.opened && chest.canInteract(this.player)) {
+                const pos = camera.worldToScreen(chest.x + chest.w / 2, chest.y - 12 + Math.sin(Art.time * 5) * 2);
+                Art.text(ctx, Input.isMobile ? 'Tippen!' : 'Klick!', pos.x, pos.y, { size: 9, color: '#ffe066' });
+            }
         }
 
-        // HUD
-        Renderer.drawHUD(ctx, this.player, this);
+        // Bildschirm-Ebene: Umgebungspartikel, Licht, Vignette, Blitz
+        FX.drawAmbient(ctx);
+        if (this.world.drawLighting) this.world.drawLighting(ctx, camera, this.viewW, this.viewH);
+        FX.drawVignette(ctx, this.viewW, this.viewH, (this.world.palette && this.world.palette.vignette) || 0.45);
+        FX.drawScreenFlash(ctx, this.viewW, this.viewH);
 
-        // Overlays
+        // HUD in CSS-Pixel-Koordinaten
+        ctx.setTransform(this.hudScale, 0, 0, this.hudScale, 0, 0);
+        Renderer.drawHUD(ctx, this.player, this);
         if (this.state === 'GAME_OVER') {
             Renderer.drawGameOver(ctx);
         } else if (this.state === 'WIN') {
@@ -2599,22 +2753,9 @@ const Game = {
             Renderer.drawWorldClearScreen(ctx, this.currentWorld);
         }
 
-        // Chest interaction hint
-        for (const chest of this.chests) {
-            if (!chest.opened && chest.canInteract(this.player)) {
-                const pos = this.camera.worldToScreen(chest.x + chest.w / 2, chest.y - 10);
-                ctx.save();
-                ctx.fillStyle = '#FFF';
-                ctx.font = '10px monospace';
-                ctx.textAlign = 'center';
-                ctx.fillText(Input.isMobile ? 'Tippen' : 'Klick', pos.x, pos.y);
-                ctx.restore();
-            }
-        }
-
-        // Fade overlay
         if (this.fadeAlpha > 0) {
-            ctx.fillStyle = `rgba(0,0,0,${this.fadeAlpha})`;
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.fillStyle = `rgba(10,4,24,${this.fadeAlpha})`;
             ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         }
     }

@@ -30,6 +30,10 @@ class Enemy {
         if (this.iFrames > 0 || this.dead) return;
         this.hp -= amount;
         this.iFrames = 0.2;
+        this.hitFlash = 0.12;
+        if (typeof FX !== 'undefined' && amount > 0) {
+            FX.text(this.centerX(), this.y - 2, Math.round(amount * 10) / 10, this.isBoss ? '#ffd23f' : '#ffffff', this.isBoss ? 13 : 10);
+        }
         if (knockbackAngle !== undefined && knockbackForce) {
             this.knockbackVx = Math.cos(knockbackAngle) * knockbackForce;
             this.knockbackVy = Math.sin(knockbackAngle) * knockbackForce;
@@ -800,41 +804,7 @@ class BossGhost extends Enemy {
     }
 }
 
-// ── Particle ──
-class Particle {
-    constructor(x, y, vx, vy, color, lifetime) {
-        this.x = x;
-        this.y = y;
-        this.vx = vx;
-        this.vy = vy;
-        this.color = color;
-        this.lifetime = lifetime || 0.5;
-        this.maxLifetime = this.lifetime;
-        this.radius = randRange(2, 5);
-        this.dead = false;
-    }
-
-    update(dt) {
-        this.x += this.vx * dt;
-        this.y += this.vy * dt;
-        this.vx *= 0.95;
-        this.vy *= 0.95;
-        this.lifetime -= dt;
-        if (this.lifetime <= 0) this.dead = true;
-    }
-
-    draw(ctx, camera) {
-        const pos = camera.worldToScreen(this.x, this.y);
-        const alpha = this.lifetime / this.maxLifetime;
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.arc(pos.x, pos.y, this.radius * alpha, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-    }
-}
+// (Particle wohnt jetzt in js/fx.js)
 
 // ══════════════════════════════════════════
 // ── World 2: Roboter-Küken Enemies ──

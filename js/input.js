@@ -1,4 +1,5 @@
-// ── Input Manager ──
+// ── Eingabe: Touch (zwei Sticks + Tasten), Maus und Tastatur ──
+// Koordinaten der Zeiger sind HUD-Koordinaten (CSS-Pixel / uiZoom), siehe Game.hudScale.
 
 const Input = {
     keys: {},
@@ -6,211 +7,190 @@ const Input = {
     direction: { x: 0, y: 0 },
     aimAngle: 0,
     aimDirection: { x: 0, y: 0 },
-    attackPressed: false,
-    attackHeld: false,
+    aiming: false,          // Ziel-Stick oder Maus zielt gerade aktiv
+    attackPressed: false,   // einmalig in diesem Frame
+    attackHeld: false,      // Feuer gehalten
     dodgeTriggered: false,
+    swapPressed: false,
+    abilityPressed: false,
+    pausePressed: false,
     isMobile: false,
+    lastInput: 'keyboard',  // 'touch' | 'mouse' | 'keyboard'
 
-    // Touch state
-    _moveTouch: null,
-    _moveTouchStart: null,
-    _aimTouch: null,
-    _aimTouchStart: null,
-
-    // Dual joystick display
-    joystick: { active: false, baseX: 0, baseY: 0, stickX: 0, stickY: 0 },
-    aimJoystick: { active: false, baseX: 0, baseY: 0, stickX: 0, stickY: 0 },
-
-    // Long press for dodge
-    _moveHoldStart: 0,
-    DODGE_HOLD_TIME: 400,
+    // Sticks (HUD-Koordinaten)
+    joystick: { active: false, id: null, baseX: 0, baseY: 0, stickX: 0, stickY: 0, startTime: 0 },
+    aimJoystick: { active: false, id: null, baseX: 0, baseY: 0, stickX: 0, stickY: 0, startTime: 0, moved: false },
+    STICK_RADIUS: 46,
+    buttonsDown: {},        // pointerId → Tasten-ID
+    _pending: {},           // Tasten, die in diesem Frame ausgelöst wurden
+    _lastMoveTap: 0,
 
     init(canvas) {
         this.canvas = canvas;
-        this.isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-        this.canvas.tabIndex = 0;
-        this.canvas.style.outline = 'none';
-        const focusCanvas = () => {
-            try {
-                this.canvas.focus({ preventScroll: true });
-            } catch (e) {
-                this.canvas.focus();
-            }
-        };
-        focusCanvas();
+        this.isMobile = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+        if (this.isMobile) this.lastInput = 'touch';
+        canvas.style.touchAction = 'none';
 
-        // Keyboard
         window.addEventListener('keydown', e => {
-            if (!this.keys[e.code]) this.keys[e.code] = { down: true, time: Date.now() };
-            this.keys[e.code].down = true;
+            if (e.repeat && this.keys[e.code] && this.keys[e.code].down) return;
+            if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) && Game.state === 'PLAYING') e.preventDefault();
+            this.keys[e.code] = { down: true, time: performance.now() };
+            this.lastInput = 'keyboard';
+            if (e.code === 'Escape' || e.code === 'KeyP') this.pausePressed = true;
         });
         window.addEventListener('keyup', e => {
             if (this.keys[e.code]) this.keys[e.code].down = false;
         });
+        window.addEventListener('blur', () => this.releaseAll());
 
-        // Mouse
-        canvas.addEventListener('mousemove', e => {
-            this._setMouseFromEvent(e);
-        });
-        canvas.addEventListener('mousedown', e => {
-            this._setMouseFromEvent(e);
-            this.mouse.down = true;
-            this.mouse.pressed = true;
-            focusCanvas();
-        });
-        canvas.addEventListener('mouseup', e => {
-            this._setMouseFromEvent(e);
-            this.mouse.down = false;
-        });
-        window.addEventListener('mousedown', e => {
-            if (e.button !== 0) return;
-            this._setMouseFromEvent(e);
-            this.mouse.down = true;
-            this.mouse.pressed = true;
-            focusCanvas();
-        }, true);
-        window.addEventListener('mouseup', e => {
-            if (e.button !== 0) return;
-            this._setMouseFromEvent(e);
-            this.mouse.down = false;
-        }, true);
-        window.addEventListener('pointerdown', e => {
-            if (e.pointerType === 'mouse' && e.button !== 0) return;
-            if (typeof e.clientX === 'number') this._setMouseFromEvent(e);
-            this.mouse.down = true;
-            this.mouse.pressed = true;
-            focusCanvas();
-        }, true);
-        window.addEventListener('pointerup', e => {
-            if (typeof e.clientX === 'number') this._setMouseFromEvent(e);
-            this.mouse.down = false;
-        }, true);
-        canvas.addEventListener('pointerdown', focusCanvas);
-        window.addEventListener('pointerdown', focusCanvas, true);
-
-        // Touch
-        canvas.addEventListener('touchstart', e => { e.preventDefault(); this._handleTouchStart(e); }, { passive: false });
-        canvas.addEventListener('touchmove', e => { e.preventDefault(); this._handleTouchMove(e); }, { passive: false });
-        canvas.addEventListener('touchend', e => { e.preventDefault(); this._handleTouchEnd(e); }, { passive: false });
-        canvas.addEventListener('touchcancel', e => { e.preventDefault(); this._handleTouchEnd(e); }, { passive: false });
-        window.addEventListener('touchstart', e => {
-            if (e.touches && e.touches.length > 0) {
-                this._handleTouchStart(e);
-            }
-        }, { passive: false, capture: true });
-        window.addEventListener('touchmove', e => {
-            if (e.touches && e.touches.length > 0) {
-                this._handleTouchMove(e);
-            }
-        }, { passive: false, capture: true });
-        window.addEventListener('touchend', e => {
-            this._handleTouchEnd(e);
-        }, { passive: false, capture: true });
-        window.addEventListener('touchcancel', e => {
-            this._handleTouchEnd(e);
-        }, { passive: false, capture: true });
+        canvas.addEventListener('pointerdown', e => this._down(e));
+        canvas.addEventListener('pointermove', e => this._move(e));
+        canvas.addEventListener('pointerup', e => this._up(e));
+        canvas.addEventListener('pointercancel', e => this._up(e));
+        canvas.addEventListener('lostpointercapture', e => this._up(e));
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
     },
 
-    _setMouseFromEvent(e) {
+    _pos(e) {
         const rect = this.canvas.getBoundingClientRect();
-        const scaleX = this.canvas.width / rect.width;
-        const scaleY = this.canvas.height / rect.height;
-        this.mouse.x = (e.clientX - rect.left) * scaleX;
-        this.mouse.y = (e.clientY - rect.top) * scaleY;
+        const z = Game.hudScale / (this.canvas.width / Math.max(1, rect.width));
+        return { x: (e.clientX - rect.left) / z, y: (e.clientY - rect.top) / z };
     },
 
-    _handleTouchStart(e) {
-        this.attackPressed = true;
+    _down(e) {
+        const p = this._pos(e);
+        const touch = e.pointerType === 'touch' || e.pointerType === 'pen';
+        this.lastInput = touch ? 'touch' : 'mouse';
+        if (touch) this.isMobile = true;
+        try { this.canvas.setPointerCapture(e.pointerId); } catch (err) { /* egal */ }
+        if (typeof Sound !== 'undefined' && Sound.resume) Sound.resume();
 
-        const rect = this.canvas.getBoundingClientRect();
-        const scaleX = this.canvas.width / rect.width;
-        const scaleY = this.canvas.height / rect.height;
+        // Tasten (Pause, Ausweichen, Waffe, Auto) haben Vorrang
+        const btn = typeof HUD !== 'undefined' ? HUD.hitTest(p.x, p.y) : null;
+        if (btn) {
+            this.buttonsDown[e.pointerId] = btn;
+            this._pending[btn] = true;
+            e.preventDefault();
+            return;
+        }
 
-        // Set mouse position from first touch (for button click detection)
-        if (e.changedTouches.length > 0) {
-            const t0 = e.changedTouches[0];
-            this.mouse.x = (t0.clientX - rect.left) * scaleX;
-            this.mouse.y = (t0.clientY - rect.top) * scaleY;
+        if (!touch) {
+            this.mouse.x = p.x;
+            this.mouse.y = p.y;
+            if (e.button === 0) {
+                this.mouse.down = true;
+                this.mouse.pressed = true;
+            }
+            return;
+        }
+
+        const w = Game.hudW;
+        const now = performance.now();
+        if (p.x < w * 0.5 && this.joystick.id === null) {
+            const j = this.joystick;
+            j.id = e.pointerId;
+            j.active = true;
+            j.baseX = clamp(p.x, this.STICK_RADIUS + 8, w * 0.5 - 20);
+            j.baseY = clamp(p.y, this.STICK_RADIUS + 60, Game.hudH - this.STICK_RADIUS - 8);
+            j.stickX = p.x;
+            j.stickY = p.y;
+            j.startTime = now;
+            // Doppeltippen links = Ausweichen
+            if (now - this._lastMoveTap < 300) this._pending.dodge = true;
+            this._lastMoveTap = now;
+        } else if (p.x >= w * 0.5 && this.aimJoystick.id === null) {
+            const j = this.aimJoystick;
+            j.id = e.pointerId;
+            j.active = true;
+            j.baseX = clamp(p.x, w * 0.5 + 20, w - this.STICK_RADIUS - 8);
+            j.baseY = clamp(p.y, this.STICK_RADIUS + 60, Game.hudH - this.STICK_RADIUS - 8);
+            j.stickX = p.x;
+            j.stickY = p.y;
+            j.startTime = now;
+            j.moved = false;
+            this.attackPressed = true;
+            this.attackHeld = true;
+            this.mouse.x = p.x;
+            this.mouse.y = p.y;
             this.mouse.pressed = true;
         }
+        e.preventDefault();
+    },
 
-        for (const touch of e.changedTouches) {
-            const x = (touch.clientX - rect.left) * scaleX;
-            const y = (touch.clientY - rect.top) * scaleY;
-            const screenHalf = this.canvas.width / 2;
-
-            if (x < screenHalf && this._moveTouch === null) {
-                // Left side: movement joystick
-                this._moveTouch = touch.identifier;
-                this._moveTouchStart = { x, y };
-                this._moveHoldStart = Date.now();
-                this.joystick.active = true;
-                this.joystick.baseX = x;
-                this.joystick.baseY = y;
-                this.joystick.stickX = x;
-                this.joystick.stickY = y;
-            } else if (x >= screenHalf && this._aimTouch === null) {
-                // Right side: aim joystick
-                this._aimTouch = touch.identifier;
-                this._aimTouchStart = { x, y };
-                this.aimJoystick.active = true;
-                this.aimJoystick.baseX = x;
-                this.aimJoystick.baseY = y;
-                this.aimJoystick.stickX = x;
-                this.aimJoystick.stickY = y;
-                this.attackHeld = true;
-            }
+    _move(e) {
+        const p = this._pos(e);
+        if (e.pointerType === 'mouse') {
+            this.mouse.x = p.x;
+            this.mouse.y = p.y;
+            return;
+        }
+        if (e.pointerId === this.joystick.id) {
+            this.joystick.stickX = p.x;
+            this.joystick.stickY = p.y;
+        } else if (e.pointerId === this.aimJoystick.id) {
+            this.aimJoystick.stickX = p.x;
+            this.aimJoystick.stickY = p.y;
+            if (Math.hypot(p.x - this.aimJoystick.baseX, p.y - this.aimJoystick.baseY) > 10) this.aimJoystick.moved = true;
         }
     },
 
-    _handleTouchMove(e) {
-        const rect = this.canvas.getBoundingClientRect();
-        const scaleX = this.canvas.width / rect.width;
-        const scaleY = this.canvas.height / rect.height;
-
-        for (const touch of e.changedTouches) {
-            const x = (touch.clientX - rect.left) * scaleX;
-            const y = (touch.clientY - rect.top) * scaleY;
-
-            if (touch.identifier === this._moveTouch) {
-                this.joystick.stickX = x;
-                this.joystick.stickY = y;
-            }
-            if (touch.identifier === this._aimTouch) {
-                this.aimJoystick.stickX = x;
-                this.aimJoystick.stickY = y;
-            }
+    _up(e) {
+        if (this.buttonsDown[e.pointerId]) {
+            delete this.buttonsDown[e.pointerId];
+            return;
+        }
+        if (e.pointerType === 'mouse') {
+            if (e.button === 0) this.mouse.down = false;
+            return;
+        }
+        if (e.pointerId === this.joystick.id) {
+            this.joystick.id = null;
+            this.joystick.active = false;
+            this.direction = { x: 0, y: 0 };
+        }
+        if (e.pointerId === this.aimJoystick.id) {
+            this.aimJoystick.id = null;
+            this.aimJoystick.active = false;
+            this.attackHeld = false;
+            this.aimDirection = { x: 0, y: 0 };
         }
     },
 
-    _handleTouchEnd(e) {
-        for (const touch of e.changedTouches) {
-            if (touch.identifier === this._moveTouch) {
-                this._moveTouch = null;
-                this._moveTouchStart = null;
-                this.joystick.active = false;
-                this.direction = { x: 0, y: 0 };
-                this._moveHoldStart = 0;
-            }
-            if (touch.identifier === this._aimTouch) {
-                this._aimTouch = null;
-                this._aimTouchStart = null;
-                this.aimJoystick.active = false;
-                this.attackHeld = false;
-                this.aimDirection = { x: 0, y: 0 };
-            }
-        }
+    releaseAll() {
+        for (const k of Object.keys(this.keys)) this.keys[k].down = false;
+        this.joystick.id = null;
+        this.joystick.active = false;
+        this.aimJoystick.id = null;
+        this.aimJoystick.active = false;
+        this.buttonsDown = {};
+        this.mouse.down = false;
+        this.attackHeld = false;
+        this.direction = { x: 0, y: 0 };
+    },
+
+    // Umrechnung Welt-Bildschirm (logische Einheiten) → HUD-Koordinaten
+    viewToHud(x, y) {
+        const k = Game.renderScale / Game.hudScale;
+        return { x: x * k, y: y * k };
     },
 
     update(dt, playerScreenPos) {
-        // ── Movement Direction (left joystick / WASD) ──
-        if (this._moveTouch !== null && this._moveTouchStart) {
-            const dx = this.joystick.stickX - this.joystick.baseX;
-            const dy = this.joystick.stickY - this.joystick.baseY;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const deadzone = 10;
-            if (dist > deadzone) {
-                this.direction = vecNormalize({ x: dx, y: dy });
+        // ── Bewegung ──
+        const j = this.joystick;
+        if (j.active) {
+            const dx = j.stickX - j.baseX;
+            const dy = j.stickY - j.baseY;
+            const dist = Math.hypot(dx, dy);
+            // Stick-Basis folgt dem Daumen, wenn er weit zieht
+            if (dist > this.STICK_RADIUS * 1.35) {
+                const over = dist - this.STICK_RADIUS * 1.35;
+                j.baseX += (dx / dist) * over;
+                j.baseY += (dy / dist) * over;
+            }
+            const dead = 7;
+            if (dist > dead) {
+                const k = Math.min(1, (dist - dead) / (this.STICK_RADIUS * 0.55));
+                this.direction = { x: (dx / dist) * k, y: (dy / dist) * k };
             } else {
                 this.direction = { x: 0, y: 0 };
             }
@@ -223,53 +203,56 @@ const Input = {
             this.direction = vecNormalize({ x: dx, y: dy });
         }
 
-        // ── Aim Direction (right joystick / mouse) ──
-        if (this._aimTouch !== null && this._aimTouchStart) {
-            const dx = this.aimJoystick.stickX - this.aimJoystick.baseX;
-            const dy = this.aimJoystick.stickY - this.aimJoystick.baseY;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const deadzone = 8;
-            if (dist > deadzone) {
-                this.aimDirection = vecNormalize({ x: dx, y: dy });
+        // ── Zielen ──
+        const a = this.aimJoystick;
+        this.aiming = false;
+        if (a.active) {
+            const dx = a.stickX - a.baseX;
+            const dy = a.stickY - a.baseY;
+            const dist = Math.hypot(dx, dy);
+            if (dist > this.STICK_RADIUS * 1.35) {
+                const over = dist - this.STICK_RADIUS * 1.35;
+                a.baseX += (dx / dist) * over;
+                a.baseY += (dy / dist) * over;
+            }
+            if (dist > 9) {
+                this.aimDirection = { x: dx / dist, y: dy / dist };
                 this.aimAngle = Math.atan2(dy, dx);
-                this.attackPressed = true;
+                this.aiming = true;
             }
-        } else if (playerScreenPos) {
-            // Mouse aim on desktop
-            this.aimAngle = Math.atan2(
-                this.mouse.y - playerScreenPos.y,
-                this.mouse.x - playerScreenPos.x
-            );
+        } else if (this.lastInput === 'mouse' && playerScreenPos) {
+            const ph = this.viewToHud(playerScreenPos.x, playerScreenPos.y);
+            this.aimAngle = Math.atan2(this.mouse.y - ph.y, this.mouse.x - ph.x);
+            this.aimDirection = { x: Math.cos(this.aimAngle), y: Math.sin(this.aimAngle) };
+            this.aiming = true;
         }
 
-        // ── Attack (mouse click on desktop) ──
-        if (!this.isMobile) {
-            if (this.mouse.pressed) {
-                this.attackPressed = true;
-            }
+        if (this.lastInput === 'mouse' && !a.active) {
+            if (this.mouse.pressed) this.attackPressed = true;
+            this.attackHeld = this.mouse.down;
+        }
+        if (this.lastInput === 'keyboard' && (this._key('KeyJ') || this._key('Enter'))) {
+            this.attackHeld = true;
+            this.attackPressed = true;
         }
 
-        // ── Dodge (long press / Space) ──
-        this.dodgeTriggered = false;
-        if (this._key('Space') || this._key('ShiftLeft') || this._key('ShiftRight')) {
-            this.dodgeTriggered = true;
-        }
-        if (this._moveTouch !== null && this._moveHoldStart > 0) {
-            const holdTime = Date.now() - this._moveHoldStart;
-            if (holdTime > this.DODGE_HOLD_TIME) {
-                this.dodgeTriggered = true;
-                this._moveHoldStart = 0;
-            }
-        }
+        // ── Tasten ──
+        this.dodgeTriggered = !!this._pending.dodge || this._key('Space') || this._key('ShiftLeft') || this._key('ShiftRight');
+        this.swapPressed = !!this._pending.swap || this.keyPressed('KeyQ');
+        this.abilityPressed = !!this._pending.ability || this.keyPressed('KeyE');
+        if (this._pending.pause) this.pausePressed = true;
     },
 
     postUpdate() {
         this.mouse.pressed = false;
         this.attackPressed = false;
+        this.pausePressed = false;
+        this._pending = {};
+        if (this.lastInput === 'keyboard' && !this.aimJoystick.active && !this.mouse.down) this.attackHeld = false;
     },
 
     _key(code) {
-        return this.keys[code] && this.keys[code].down;
+        return !!(this.keys[code] && this.keys[code].down);
     },
 
     _keyPressed: {},
@@ -281,5 +264,5 @@ const Input = {
         }
         if (!down) this._keyPressed[code] = false;
         return false;
-    }
+    },
 };

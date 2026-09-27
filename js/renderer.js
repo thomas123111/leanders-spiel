@@ -1,4 +1,4 @@
-﻿// ── Renderer / HUD ──
+// ── Renderer / HUD ──
 
 const Renderer = {
     drawHUD(ctx, player, game) {
@@ -73,7 +73,7 @@ const Renderer = {
         ctx.font = mobile ? 'bold 10px monospace' : 'bold 11px monospace';
         ctx.textAlign = 'right';
         const worldLabel = game.currentWorld === 0 ? 'Training' : 'Welt ' + game.currentWorld;
-        ctx.fillText(mobile ? worldLabel : (worldLabel + ': ' + worldNames[worldIndex]), ctx.canvas.width - 10, mobile ? 13 : 14);
+        ctx.fillText(mobile ? worldLabel : (worldLabel + ': ' + worldNames[worldIndex]), Game.hudW - 10, mobile ? 13 : 14);
         ctx.textAlign = 'left';
 
         // Coin counter
@@ -97,12 +97,12 @@ const Renderer = {
         ctx.fillText(String(game.jewels || 0), 32, mobile ? 78 : 82);
 
         if (game.currentWorld === 0) {
-            this._drawButton(ctx, ctx.canvas.width - (mobile ? 104 : 118), 34, mobile ? 96 : 110, 24, 'STARTSEITE', mobile ? 10 : 11);
+            this._drawButton(ctx, Game.hudW - (mobile ? 104 : 118), 34, mobile ? 96 : 110, 24, 'STARTSEITE', mobile ? 10 : 11);
         }
 
         // ── Key indicator ──
         if (game.hasKey) {
-            const kx = ctx.canvas.width - (mobile ? 28 : 40);
+            const kx = Game.hudW - (mobile ? 28 : 40);
             const ky = mobile ? 28 : 30;
             ctx.fillStyle = '#FFD700';
             ctx.font = mobile ? 'bold 12px monospace' : 'bold 14px monospace';
@@ -115,7 +115,7 @@ const Renderer = {
             ctx.fillStyle = '#FFD700';
             ctx.font = mobile ? '10px monospace' : '12px monospace';
             ctx.textAlign = 'center';
-            ctx.fillText(mobile ? 'Schl\u00fcssel gefunden! Boss-T\u00fcr suchen!' : 'Schl\u00fcssel gefunden! Finde die Boss-T\u00fcr!', ctx.canvas.width / 2, mobile ? 19 : 20);
+            ctx.fillText(mobile ? 'Schl\u00fcssel gefunden! Boss-T\u00fcr suchen!' : 'Schl\u00fcssel gefunden! Finde die Boss-T\u00fcr!', Game.hudW / 2, mobile ? 19 : 20);
             ctx.textAlign = 'left';
 
             // Arrow pointing to boss door
@@ -130,8 +130,8 @@ const Renderer = {
 
                 if (dist > 100) {
                     const arrowDist = 70;
-                    const ax = ctx.canvas.width / 2 + Math.cos(angle) * arrowDist;
-                    const ay = ctx.canvas.height / 2 + Math.sin(angle) * arrowDist;
+                    const ax = Game.hudW / 2 + Math.cos(angle) * arrowDist;
+                    const ay = Game.hudH / 2 + Math.sin(angle) * arrowDist;
                     ctx.save();
                     ctx.translate(ax, ay);
                     ctx.rotate(angle);
@@ -158,7 +158,7 @@ const Renderer = {
 
         // ── Auto ability indicator ──
         if (player.hasAuto) {
-            const autoX = ctx.canvas.width - (mobile ? 110 : 120);
+            const autoX = Game.hudW - (mobile ? 110 : 120);
             const autoY = mobile ? 42 : 45;
             if (player.autoActive) {
                 ctx.fillStyle = '#0FF';
@@ -188,10 +188,10 @@ const Renderer = {
         // ── Weapon indicator ──
         ctx.fillStyle = '#CCC';
         ctx.font = '11px monospace';
-        ctx.fillText(player.activeWeapon.name, 12, ctx.canvas.height - 12);
+        ctx.fillText(player.activeWeapon.name, 12, Game.hudH - 12);
         if (player.rangedWeapon) {
             ctx.fillStyle = '#888';
-            ctx.fillText('[Q] Waffe wechseln', 12, ctx.canvas.height - 26);
+            ctx.fillText('[Q] Waffe wechseln', 12, Game.hudH - 26);
         }
 
         // ── Mobile controls overlay ──
@@ -226,20 +226,20 @@ const Renderer = {
             };
             const boss = bossNames[game.currentWorld] || { name: 'BOSS', color: '#F00' };
             ctx.fillStyle = 'rgba(0,0,0,0.7)';
-            ctx.fillRect(0, ctx.canvas.height / 2 - 40, ctx.canvas.width, 80);
+            ctx.fillRect(0, Game.hudH / 2 - 40, Game.hudW, 80);
             // Boss name with glow
             ctx.textAlign = 'center';
             ctx.globalAlpha = 0.3;
             ctx.fillStyle = boss.color;
             ctx.font = 'bold 36px monospace';
-            ctx.fillText(boss.name, ctx.canvas.width / 2 + 2, ctx.canvas.height / 2 + 12);
+            ctx.fillText(boss.name, Game.hudW / 2 + 2, Game.hudH / 2 + 12);
             ctx.globalAlpha = 1;
             ctx.fillStyle = boss.color;
             ctx.font = 'bold 32px monospace';
-            ctx.fillText(boss.name, ctx.canvas.width / 2, ctx.canvas.height / 2 + 10);
+            ctx.fillText(boss.name, Game.hudW / 2, Game.hudH / 2 + 10);
             ctx.fillStyle = '#FFF';
             ctx.font = '14px monospace';
-            ctx.fillText('Mach dich bereit!', ctx.canvas.width / 2, ctx.canvas.height / 2 + 30);
+            ctx.fillText('Mach dich bereit!', Game.hudW / 2, Game.hudH / 2 + 30);
             ctx.textAlign = 'left';
         }
 
@@ -352,10 +352,10 @@ const Renderer = {
         const knobRadius = 20;
 
         // ── Left Joystick (Movement) ──
-        this._drawJoystick(ctx, Input.joystick, 100, ctx.canvas.height - 100, joystickRadius, knobRadius, '#FFF', 'Bewegen');
+        this._drawJoystick(ctx, Input.joystick, 100, Game.hudH - 100, joystickRadius, knobRadius, '#FFF', 'Bewegen');
 
         // ── Right Joystick (Aim & Attack) ──
-        this._drawJoystick(ctx, Input.aimJoystick, ctx.canvas.width - 100, ctx.canvas.height - 100, joystickRadius, knobRadius, '#F66', 'Zielen & Hauen');
+        this._drawJoystick(ctx, Input.aimJoystick, Game.hudW - 100, Game.hudH - 100, joystickRadius, knobRadius, '#F66', 'Zielen & Hauen');
     },
 
     _drawJoystick(ctx, joystickState, defaultX, defaultY, radius, knobRadius, color, label) {
@@ -524,8 +524,8 @@ const Renderer = {
 
     drawTitleScreen(ctx, game) {
         this._buttons = [];
-        const cw = ctx.canvas.width;
-        const ch = ctx.canvas.height;
+        const cw = Game.hudW;
+        const ch = Game.hudH;
         const mobile = Input.isMobile;
 
         const bg = ctx.createLinearGradient(0, 0, cw, ch);
@@ -650,8 +650,8 @@ ctx.fillText('v8.3.7', cw - 8, ch - 6);
 
     drawShopScreen(ctx, game) {
         this._buttons = [];
-        const cw = ctx.canvas.width;
-        const ch = ctx.canvas.height;
+        const cw = Game.hudW;
+        const ch = Game.hudH;
         const mobile = Input.isMobile;
 
         const bg = ctx.createLinearGradient(0, 0, cw, ch);
@@ -897,9 +897,9 @@ ctx.fillText('v8.3.7', cw - 8, ch - 6);
     drawGameOver(ctx) {
         this._buttons = [];
         ctx.fillStyle = 'rgba(0,0,0,0.8)';
-        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        const cx = ctx.canvas.width / 2;
-        const cy = ctx.canvas.height / 2;
+        ctx.fillRect(0, 0, Game.hudW, Game.hudH);
+        const cx = Game.hudW / 2;
+        const cy = Game.hudH / 2;
         ctx.save();
         ctx.textAlign = 'center';
 
@@ -929,10 +929,10 @@ ctx.fillText('v8.3.7', cw - 8, ch - 6);
     drawWorldClearScreen(ctx, worldNum) {
         this._buttons = [];
         ctx.fillStyle = 'rgba(0,0,0,0.8)';
-        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.fillRect(0, 0, Game.hudW, Game.hudH);
 
-        const cx = ctx.canvas.width / 2;
-        const cy = ctx.canvas.height / 2;
+        const cx = Game.hudW / 2;
+        const cy = Game.hudH / 2;
 
         ctx.save();
         ctx.textAlign = 'center';
@@ -1000,10 +1000,10 @@ ctx.fillText('v8.3.7', cw - 8, ch - 6);
 
     drawFinalWinScreen(ctx) {
         ctx.fillStyle = 'rgba(0,0,0,0.8)';
-        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.fillRect(0, 0, Game.hudW, Game.hudH);
 
-        const cx = ctx.canvas.width / 2;
-        const cy = ctx.canvas.height / 2;
+        const cx = Game.hudW / 2;
+        const cy = Game.hudH / 2;
 
         ctx.save();
         ctx.textAlign = 'center';

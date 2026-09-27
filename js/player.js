@@ -159,7 +159,7 @@ class Player {
             }
         }
 
-        if (this.hasAuto && this.autoReady && !this.autoActive && Input.keyPressed('KeyE')) {
+        if (this.hasAuto && this.autoReady && !this.autoActive && Input.abilityPressed) {
             this.activateAuto();
         }
 
@@ -240,21 +240,24 @@ class Player {
             this.jumpPadStandTimer = 0;
         }
 
-        // Aim angle (right joystick or mouse)
-        this.facingAngle = Input.aimAngle;
+        // Blickrichtung: aktiv zielen (Stick/Maus/Zielhilfe) hat Vorrang, sonst Laufrichtung
+        if (Input.aiming || this.assistAim !== undefined) {
+            this.facingAngle = this.assistAim !== undefined ? this.assistAim : Input.aimAngle;
+        }
+        this.aimAngle = this.facingAngle;
 
         // Weapon update
         this.activeWeapon.update(dt);
 
         // Attack - triggered by click/tap or by holding the right aim joystick
-        if ((Input.attackPressed || Input.attackHeld) && this.activeWeapon.canAttack()) {
+        if ((Input.attackPressed || Input.attackHeld || this.autoAttack) && this.activeWeapon.canAttack()) {
             if (this.activeWeapon.type === 'melee') {
                 this.activeWeapon.attack(this.facingAngle);
                 Sound.swing();
             }
         }
 
-        if (Input.keyPressed('KeyQ')) this.switchWeapon();
+        if (Input.swapPressed) this.switchWeapon();
     }
 
     _moveWithCollision(dx, dy, world) {
