@@ -25,6 +25,8 @@ const Music = {
         zombie: { bpm: 96, root: 55, chords: [[0, 1], [3, 0], [8, 0], [7, 0]], arp: [0, 2, 1, 2, 3, 2, 1, 2], drums: 'soft', lead: 'square' },
         // Welt 23: schwebend und hell (zweite Stufe in Dur klingt verzaubert)
         dream: { bpm: 112, root: 67, chords: [[0, 0], [2, 0], [9, 1], [4, 1]], arp: [0, 1, 2, 3, 2, 3, 1, 2], drums: 'soft', lead: 'triangle' },
+        // Welt 24: heldenhaft und groß (Moll mit Dur-Aufhellung, treibend)
+        dragon: { bpm: 132, root: 50, chords: [[0, 1], [10, 0], [8, 0], [7, 0]], arp: [0, 1, 2, 3, 2, 1, 3, 2], drums: 'rock', lead: 'sawtooth' },
     },
 
     THEME_MOOD: {
@@ -32,7 +34,7 @@ const Music = {
         mushroom: 'chill', swamp: 'chill', ice: 'chill', volcano: 'epic', shadow: 'spooky', orchard: 'happy',
         pixel: 'chip', space: 'chip', bones: 'spooky', poison: 'spooky', stone: 'epic', dojo: 'happy',
         dino: 'happy', chrono: 'chip', shadowswamp: 'spooky', football: 'happy', scrap: 'epic',
-        zombie: 'zombie', butterfly: 'dream',
+        zombie: 'zombie', butterfly: 'dream', dragon: 'dragon',
     },
 
     _ensure() {

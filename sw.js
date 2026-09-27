@@ -14,7 +14,7 @@ const CORE = [
     './icons/icon-512.png',
     './css/game.css' + V,
     ...['utils', 'art', 'fx', 'data', 'sound', 'music', 'input', 'camera', 'world', 'weapons', 'loot',
-        'entities', 'entities2', 'zombie', 'butterfly', 'player', 'hud', 'ui', 'main'].map(n => './js/' + n + '.js' + V),
+        'entities', 'entities2', 'zombie', 'butterfly', 'dragon', 'player', 'hud', 'ui', 'main'].map(n => './js/' + n + '.js' + V),
     './frosty-burger/',
     './frosty-burger/styles.css?v=1.2.1',
     './frosty-burger/game.js?v=1.2.1',

@@ -5026,6 +5026,13 @@ function createButterflyLevel() {
     return map;
 }
 
+// Welt 24: Drachenberg (Gerüst, das Aussehen folgt im Thema `dragon`)
+function createDragonLevel() {
+    const map = generateLevel(58, 50, 17, 2424);
+    sprinkleSpecialTiles(map);
+    return map;
+}
+
 const TUTORIAL_LEVEL = createTrainingLevel();
 const WORLD1_LEVEL = generateLevel(50, 45, 12, 101);
 const WORLD2_LEVEL = generateLevel(55, 45, 14, 202);
@@ -5048,3 +5055,4 @@ const WORLD20_LEVEL = createFootballArenaLevel();
 const WORLD21_LEVEL = createScrapYardLevel();
 const WORLD22_LEVEL = createZombieAcademyLevel();
 const WORLD23_LEVEL = createButterflyLevel();
+const WORLD24_LEVEL = createDragonLevel();

@@ -10,7 +10,7 @@ const LEVELS = [TUTORIAL_LEVEL, WORLD1_LEVEL, WORLD2_LEVEL, WORLD3_LEVEL, WORLD4
     WORLD5_LEVEL, WORLD6_LEVEL, WORLD7_LEVEL, WORLD8_LEVEL, WORLD9_LEVEL, WORLD10_LEVEL,
     WORLD11_LEVEL, WORLD12_LEVEL, WORLD13_LEVEL, WORLD14_LEVEL, WORLD15_LEVEL,
     WORLD16_LEVEL, WORLD17_LEVEL, WORLD18_LEVEL, WORLD19_LEVEL, WORLD20_LEVEL, WORLD21_LEVEL,
-    WORLD22_LEVEL, WORLD23_LEVEL];
+    WORLD22_LEVEL, WORLD23_LEVEL, WORLD24_LEVEL];
 
 // Stärkere Bosse in allen Welten (Wunsch von Leander).
 // BOSS_TOUGHNESS: Bosse nehmen nur 1/1,5 des Schadens, halten also 1,5-mal so viel aus. Absichtlich nicht
@@ -462,6 +462,7 @@ const Game = {
             21: { label: '500 MUENZEN', coins: 500, jewels: 0 },
             22: { label: '1000 MUENZEN', coins: 1000, jewels: 0 },
             23: { label: '100 JUWELEN', coins: 0, jewels: 100 },
+            24: { label: '2000 MUENZEN', coins: 2000, jewels: 0 },
         };
     },
 
@@ -886,6 +887,11 @@ const Game = {
             case 21: add(ScrapRaccoon, 16); keyCarrier(ScrapRaccoon); chests(7); break;
             case 22: add(Zombie, 22); keyCarrier(Zombie); chests(7); break;
             case 23: add(StarButterfly, 18); keyCarrier(StarButterfly); chests(7); break;
+            case 24:
+                add(DragonKid, 20); keyCarrier(DragonKid); chests(8);
+                // Der Drachenvater bewacht seine Kinder: sein Schatten fliegt ab und zu über die Karte
+                this.props.push(new DragonFatherShadow());
+                break;
         }
     },
 
@@ -901,6 +907,7 @@ const Game = {
             11: BossGhostChick, 12: BossKnightBat, 13: BossSkeletonRider, 14: BossHydra, 15: BossStoneDemon,
             16: BossFruitGiant, 17: BossStingRex, 18: BossTimeSphere, 19: BossShadowCrocodile,
             20: BossFootball, 21: BossScrapRaccoon, 22: BossGiantZombie, 23: BossTripleButterfly,
+            24: BossDragonFather,
         };
         // Welt 11/12 bekommen eigene Boss-Varianten (Pixel-Roboter, Sternen-Ritter), falls vorhanden
         if (typeof BossPixelRobot !== 'undefined') bosses[11] = BossPixelRobot;
@@ -1763,6 +1770,12 @@ const Game = {
                 try { e.drawUnder(ctx, camera); } catch (err) { /* nur Deko */ }
             }
         }
+        // Boden-Deko wie der Schatten des Drachenvaters (Welt 24)
+        for (const p of this.props) {
+            if (p.drawUnder) {
+                try { p.drawUnder(ctx, camera); } catch (err) { /* nur Deko */ }
+            }
+        }
 
         // Figuren sammeln, von oben nach unten sortieren
         const list = this._drawList;
@@ -1770,7 +1783,7 @@ const Game = {
         for (const c of this.chests) list.push(c);
         for (const k of this.keyDrops) if (!k.collected) list.push(k);
         for (const c of this.coinDrops) if (!c.collected) list.push(c);
-        for (const p of this.props) list.push(p);
+        for (const p of this.props) if (!p.onlyUnder) list.push(p);
         for (const e of this.enemies) {
             if (e.dead && e.deathTimer <= 0) continue;
             if (!e.isBoss && !isOnScreen(e, camera, 40)) continue;

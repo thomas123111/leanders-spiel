@@ -137,7 +137,7 @@ const UI = {
             'KNOCHEN-UPGRADE': 'Knochen-Upgrade', 'SCHLANGE': 'Schlange', 'STEIN-GIFT': 'Stein-Gift',
             '1000 MUENZEN': '1000 Münzen', '50 JUWELEN': '50 Juwelen', '1 BOESER STERN': '1 Böser Stern',
             '1 SCHATTEN-MEISTER-STERN': 'Schatten-Meister-Stern', '3 BOESE STERNE': '3 Böse Sterne', '500 MUENZEN': '500 Münzen',
-            '100 JUWELEN': '100 Juwelen',
+            '100 JUWELEN': '100 Juwelen', '2000 MUENZEN': '2000 Münzen',
         };
         return map[r.label] || r.label;
     },

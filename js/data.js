@@ -26,6 +26,7 @@ const WORLDS = [
     { name: 'Schrottplatz', theme: 'scrap', accent: '#c7ced9', emoji: '🦝', boss: 'Riesen-Waschbär' },
     { name: 'Zombie Academy', theme: 'zombie', accent: '#8ee86a', emoji: '🧟', boss: 'Riesen-Zombie' },
     { name: 'Schmetterlingwelt', theme: 'butterfly', accent: '#ff8ad8', emoji: '🦋', boss: 'Drei-Kopf-Schmetterling' },
+    { name: 'Drachenberg', theme: 'dragon', accent: '#ff8a3d', emoji: '🐉', boss: 'Drachenvater' },
 ];
 
 const LAST_WORLD = WORLDS.length - 1;

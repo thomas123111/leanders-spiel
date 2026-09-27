@@ -1,8 +1,8 @@
 # Mark und die geklauten Erfindungen
 
 Ein Action-Abenteuer für den Handy-Browser: Mark, Baseballspieler und Geisterjäger, holt sich in
-23 Welten seine geklauten Erfindungen zurück. Jede Welt hat einen Schlüssel-Träger und einen Boss.
-Die letzten beiden Welten, „Zombie Academy“ und „Schmetterlingwelt“, hat sich Leander ausgedacht.
+24 Welten seine geklauten Erfindungen zurück. Jede Welt hat einen Schlüssel-Träger und einen Boss.
+Die letzten drei Welten, „Zombie Academy“, „Schmetterlingwelt“ und „Drachenberg“, hat sich Leander ausgedacht.
 
 **Spielen:** https://thomas123111.github.io/leanders-spiel/
 Auf dem Handy quer halten. Über „Zum Startbildschirm hinzufügen“ wird es eine App (Vollbild, offline).
@@ -32,7 +32,7 @@ werden im Browser erzeugt (keine Bild- oder Tondateien).
 | `js/fx.js` | Partikel, schwebende Zahlen, Schockwellen, Umgebungseffekte |
 | `js/world.js` | Karten, Kollision, Welt-Grafik |
 | `js/entities.js`, `js/entities2.js` | Gegner, Bosse, Begleiter |
-| `js/zombie.js`, `js/butterfly.js` | Welt 22 (Zombies, Riesen-Zombie) und Welt 23 (Schmetterlinge, Drei-Kopf-Schmetterling) |
+| `js/zombie.js`, `js/butterfly.js`, `js/dragon.js` | Welt 22 (Zombies, Riesen-Zombie), Welt 23 (Schmetterlinge, Drei-Kopf-Schmetterling), Welt 24 (Drachenkinder, Drachenvater) |
 | `js/player.js`, `js/weapons.js`, `js/loot.js` | Mark, Waffen, Truhen, Schlüssel, Münzen |
 | `js/hud.js`, `js/ui.js`, `css/game.css` | Anzeige im Spiel und Menüs |
 | `js/sound.js`, `js/music.js` | Geräusche und Musik (Web Audio) |
