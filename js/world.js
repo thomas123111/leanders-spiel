@@ -144,7 +144,7 @@ function bossDoorReachable(map) {
 // ══ Welt-Grafik: Hilfen und Paletten ══
 // Alles hier ist reine Darstellung. Kein DOM beim Laden (die Kartenprüfung läuft ohne Browser).
 
-const WORLD_BLOCK = 8;      // Kacheln je vorgerendertem Block (Kantenlänge)
+const WORLD_BLOCK = 6;      // Kacheln je vorgerendertem Block (Kantenlänge)
 const WALL_FRONT = 11;      // Höhe der Wand-Vorderseite (unteres Drittel der Kachel)
 const W_TAU = Math.PI * 2;
 const W_POOL = [];          // freie Block-Leinwände (werden über Welten hinweg wiederverwendet)
@@ -230,7 +230,7 @@ function wRound(c, x, y, w, h, r) {
 // dark = Stärke der Abdunklung (Lichtkreis um Mark), glow = Leuchtfarbe der Fenster.
 const WORLD_THEMES = {
     training: {
-        void: '#1c3a24', vignette: 0.28, shade: '#0c2a12', fs: 'grass', stripes: 2, floor: ['#5c9f4b', '#54944a'],
+        void: '#1c3a24', vignette: 0.3, shade: '#0c2a12', fs: 'grass', stripes: 2, floor: ['#5c9f4b', '#54944a'],
         ws: 'pads', wall: '#3d86df', wallF: '#2458aa', accent: '#ffe45c', lines: 'training', deepCol: '#10245a',
         bush: ['#23702f', '#3a9a3a', '#7ad65c'], bx: 'flowers', bxc: ['#ffffff', '#ffd0ea'],
         water: 'water', wc: ['#1d68c8', '#3a98ee', '#c4ecff'], bone: '#f6efdd', pad: '#ff9d2e',
@@ -287,7 +287,7 @@ const WORLD_THEMES = {
     },
     ice: {
         void: '#0c1f3a', vignette: 0.3, shade: '#1a3c6c', fs: 'snow', floor: ['#abcce6', '#a4c5e0'],
-        ws: 'ice', wall: '#cdeefe', wallF: '#6cb2e2', accent: '#7fe8ff', deep: 0.4, deepCol: '#2f86e0',
+        ws: 'ice', wall: '#cdeefe', wallF: '#6cb2e2', accent: '#7fe8ff', arena: '#2f7fe0', deep: 0.4, deepCol: '#2f86e0',
         bush: ['#1b5a48', '#2b7a5d', '#e8f6ff'], bx: 'snow',
         water: 'water', wc: ['#1a58a8', '#2a7ccc', '#d4f0ff'], floes: true, bone: '#eef6ff', pad: '#4fb6ff',
         deco: [['sparkle', 3], ['icecrack', 2], ['snowmound', 2], ['pebble', 1], ['fish', 0.25]], rate: 0.3,
@@ -310,7 +310,7 @@ const WORLD_THEMES = {
         win: 'rune', glow: '#b98cff', dark: 0.45, darkCol: '#0a0420',
     },
     orchard: {
-        void: '#1e391a', vignette: 0.28, shade: '#163214', fs: 'grass', stripes: 0, floor: ['#75a74b', '#6e9f46'],
+        void: '#1e391a', vignette: 0.3, shade: '#163214', fs: 'grass', stripes: 0, floor: ['#75a74b', '#6e9f46'],
         ws: 'foliage', fruits: true, wall: '#3f9c45', wallF: '#2a6a35', accent: '#ffcf3d',
         bush: ['#2a7530', '#46a53e', '#8fdc5a'], bx: 'berries', bxc: ['#ff4a5a', '#6a7cff'],
         water: 'water', wc: ['#2786d0', '#48aef0', '#d4f4ff'], lily: true, bone: '#f6f0de', pad: '#ff7ab8',
@@ -335,7 +335,7 @@ const WORLD_THEMES = {
     },
     bones: {
         void: '#2a120a', vignette: 0.35, shade: '#3c1508', fs: 'sand', floor: ['#c98a50', '#c3844c'],
-        ws: 'strata', wall: '#e07b4c', wallF: '#a8492e', accent: '#ffe7b0', deepCol: '#8a2410', deep: 0.4,
+        ws: 'strata', wall: '#e07b4c', wallF: '#a8492e', accent: '#ffe7b0', arena: '#ff4f3a', deepCol: '#8a2410', deep: 0.4,
         bush: ['#46733a', '#6a9a42', '#b0d070'], bx: 'none',
         water: 'water', wc: ['#1a86a0', '#2cb4c6', '#cbf7ff'], bone: '#fbf1dc', pad: '#4ab0c8',
         deco: [['bone', 3], ['cactus', 1.2], ['pebble', 2], ['crack', 1.5], ['skullsmall', 0.5]], rate: 0.26,
@@ -367,7 +367,7 @@ const WORLD_THEMES = {
         win: 'paperlantern', glow: '#ff9a5a',
     },
     dino: {
-        void: '#0c2410', vignette: 0.35, shade: '#08200b', fs: 'blotch', floor: ['#517f3c', '#4b7838'],
+        void: '#0c2410', vignette: 0.35, shade: '#08200b', fs: 'blotch', floor: ['#43704b', '#3f6a47'],
         ws: 'jungle', wall: '#40a03c', wallF: '#246b2c', accent: '#ffd23f',
         bush: ['#1b6628', '#379a3a', '#8fdc5a'], bx: 'flowers', bxc: ['#ff7a3a', '#ffd23f'],
         water: 'water', wc: ['#128a84', '#26b4a6', '#c4fff2'], bone: '#f6ecd8', pad: '#ff7a3a',
@@ -400,7 +400,7 @@ const WORLD_THEMES = {
     },
     scrap: {
         void: '#16131f', vignette: 0.38, shade: '#3a2208', fs: 'sand', floor: ['#c4975b', '#bd9156'],
-        ws: 'cubes', wall: '#e0453c', wallF: '#9a2a24', accent: '#ffc46b', deepCol: '#161848', deep: 0.28,
+        ws: 'cubes', wall: '#e0453c', wallF: '#9a2a24', accent: '#ffc46b', arena: '#3c6ae0', deepCol: '#161848', deep: 0.28,
         cars: ['#e0453c', '#3c7ae0', '#f0c63c', '#3cb86a', '#e6e8f0', '#ff8a3c', '#9a5ae0', '#3cc8d8'],
         bush: ['#2c6630', '#46963d', '#8fcf5a'], bx: 'none',
         water: 'oil', wc: ['#182838', '#27485a', '#9ae0ff'], bone: '#d8dee8', pad: '#3a3a4a',
@@ -540,7 +540,7 @@ class World {
     update(dt) {}
 
     // ── Zeichnen ──
-    // Statisches wird blockweise (8×8 Kacheln) in eigene Leinwände vorgerendert und nur noch kopiert.
+    // Statisches wird blockweise (WORLD_BLOCK² Kacheln) in eigene Leinwände vorgerendert und nur noch kopiert.
     // Pro Bild kommen nur Animationen sichtbarer Kacheln dazu (Wasser, Sprungfelder, Tür, Leuchten).
 
     _tileAt(x, y) {
@@ -588,8 +588,14 @@ class World {
             }
         }
         this._drawAnims(ctx, camera, vis);
-        // Einen Nachbarblock im Voraus rendern, damit beim Laufen keine Ruckler entstehen
-        if (!rendered) this._prefetch(bx0 - 1, by0 - 1, bx1 + 1, by1 + 1, nbx, nby, rs, frame);
+        // Einen Nachbarblock im Voraus rendern (zuerst in Laufrichtung), damit beim Laufen nichts ruckelt
+        const mvx = this._lastVx === undefined ? 0 : vx - this._lastVx, mvy = this._lastVy === undefined ? 0 : vy - this._lastVy;
+        this._lastVx = vx;
+        this._lastVy = vy;
+        if (!rendered) {
+            const ax = vx + camera.width / 2 + clamp(mvx * 45, -BW, BW), ay = vy + camera.height / 2 + clamp(mvy * 45, -BW, BW);
+            this._prefetch(bx0 - 1, by0 - 1, bx1 + 1, by1 + 1, nbx, nby, rs, frame, ax, ay);
+        }
         // Sichtbare Blöcke plus ein Ring zum Vorrendern bleiben, der Rest wird freigegeben (Speicher)
         const keep = Math.max(16, (bx1 - bx0 + 3) * (by1 - by0 + 3) + 2);
         if (this._blocks.size > keep) this._evict(keep, frame);
@@ -603,16 +609,22 @@ class World {
         this._blocks.delete(key);
     }
 
-    _prefetch(ax0, ay0, ax1, ay1, nbx, nby, rs, frame) {
+    // Fehlenden Block im Ring um die Sicht rendern, der dem Vorausschau-Punkt (lx, ly) am nächsten liegt
+    _prefetch(ax0, ay0, ax1, ay1, nbx, nby, rs, frame, lx, ly) {
+        const BW = WORLD_BLOCK * TILE_SIZE;
+        let best = -1, bestD = Infinity, bbx = 0, bby = 0;
         for (let by = Math.max(0, ay0); by <= Math.min(nby - 1, ay1); by++) {
             for (let bx = Math.max(0, ax0); bx <= Math.min(nbx - 1, ax1); bx++) {
                 const b = this._blocks.get(by * nbx + bx);
                 if (b && b.scale === rs) continue;
-                this._drop(by * nbx + bx);
-                this._renderBlock(bx, by, rs).used = frame - 1;
-                return;
+                const dx = (bx + 0.5) * BW - lx, dy = (by + 0.5) * BW - ly;
+                const d = dx * dx + dy * dy;
+                if (d < bestD) { bestD = d; best = by * nbx + bx; bbx = bx; bby = by; }
             }
         }
+        if (best < 0) return;
+        this._drop(best);
+        this._renderBlock(bbx, bby, rs).used = frame - 1;
     }
 
     // Am längsten ungenutzte Blöcke freigeben
@@ -775,10 +787,11 @@ const WorldPaint = {
     },
 
     floorColor(P, x, y, seed) {
-        let base;
-        if (P.stripes) base = P.floor[Math.floor(x / P.stripes) & 1];
-        else if (P.stripes === 0) base = P.floor[0];
-        else base = P.floor[(x + y) & 1];
+        // Natürliche Böden ohne Kachelraster (sonst sieht man Quadrate), gebaute Böden im Schachbrett
+        const fs = P.fs;
+        if (fs === 'blotch' || fs === 'sand' || fs === 'snow' || fs === 'rock') return P.floor[0];
+        if (fs === 'grass') return P.stripes ? P.floor[Math.floor(x / P.stripes) & 1] : P.floor[0];
+        const base = P.floor[(x + y) & 1];
         const j = wHash(x, y, seed + 1) - 0.5;
         return j > 0 ? wcLight(base, j * 0.08) : wcDark(base, -j * 0.08);
     },
@@ -1217,7 +1230,7 @@ const WorldPaint = {
 
     // Boss-Arena: Leuchtkreis, Rahmen und Krone in der Mitte (gut erkennbar für Kinder)
     _arena(w, c, P) {
-        const T = TILE_SIZE, a = P.accent;
+        const T = TILE_SIZE, a = P.arena || P.accent;
         const ix = (w.width - 13) * T, iy = (w.height - 11) * T, iw = 11 * T, ih = 9 * T;
         const cx = (w.width - 8) * T + T / 2, cy = (w.height - 7) * T + T / 2;
         c.fillStyle = wcA(a, 0.08);
@@ -2474,7 +2487,7 @@ const WorldPaint = {
                 break;
             }
             case 'foliage': case 'darktree':
-                this._clumps(c, X, Y, W, H, 10, 4.5, 8, seed + 531, [wcDark(col, 0.32), col, wcLight(col, 0.3)]);
+                this._clumps(c, X, Y, W, H, 11, 5, 8.5, seed + 531, [wcDark(col, 0.32), col, wcLight(col, 0.3)]);
                 if (P.ws === 'darktree') {
                     c.fillStyle = wcA(P.accent, 0.8);
                     c.beginPath();
@@ -2487,15 +2500,15 @@ const WorldPaint = {
                 cols.forEach((cc, k) => {
                     c.fillStyle = cc;
                     c.beginPath();
-                    wScatter(X, Y, W, H, 15, 13, seed + 541 + k, (px, py, r) => {
+                    wScatter(X, Y, W, H, 17, 14, seed + 541 + k, (px, py, r) => {
                         c.moveTo(px, py);
-                        c.ellipse(px, py, 11 - k * 2, 4.4 - k * 0.7, r * W_TAU, 0, W_TAU);
+                        c.ellipse(px, py, 12 - k * 2, 4.8 - k * 0.7, r * W_TAU, 0, W_TAU);
                     });
                     c.fill();
                 });
                 this._line(c, wcA(wcLight(col, 0.45), 0.55), 0.8);
                 c.beginPath();
-                wScatter(X, Y, W, H, 15, 13, seed + 543, (px, py, r) => {
+                wScatter(X, Y, W, H, 17, 14, seed + 543, (px, py, r) => {
                     const a = r * W_TAU;
                     c.moveTo(px - Math.cos(a) * 6, py - Math.sin(a) * 6);
                     c.lineTo(px + Math.cos(a) * 6, py + Math.sin(a) * 6);
@@ -2521,30 +2534,26 @@ const WorldPaint = {
                 break;
             }
             case 'reeds': {
-                const reed = true;
+                // Schilf von oben: dunkle Büschel, drei Lagen Halme, Rohrkolben
                 c.fillStyle = wcA(wcDark(col, 0.35), 0.6);
                 c.beginPath();
                 wScatter(X, Y, W, H, 14, 10, seed + 551, (px, py, r) => { this._dot(c, px, py, 5 + r * 4); });
                 c.fill();
                 for (let k = 0; k < 3; k++) {
-                    this._line(c, [wcDark(col, 0.2), col, wcLight(col, 0.3)][k], reed ? 1.6 : 1.8);
+                    this._line(c, [wcDark(col, 0.2), col, wcLight(col, 0.3)][k], 1.6);
                     c.beginPath();
-                    wScatter(X, Y, W, H, 6, 8, seed + 553 + k, (px, py, r) => {
-                        if (reed) {
-                            c.moveTo(px, py + 4);
-                            c.lineTo(px + (r - 0.5) * 5, py - 4);
-                        } else {
-                            c.moveTo(px - 4, py);
-                            c.quadraticCurveTo(px, py - 5 + r * 10, px + 4, py);
-                        }
+                    wScatter(X, Y, W, H, 7, 8, seed + 553 + k, (px, py, r) => {
+                        c.moveTo(px, py + 4);
+                        c.lineTo(px + (r - 0.5) * 5, py - 4);
                     });
                     c.stroke();
                 }
-                c.fillStyle = reed ? '#b8652e' : P.accent;
+                c.fillStyle = '#b8652e';
                 c.beginPath();
                 wScatter(X, Y, W, H, 11, 3, seed + 557, (px, py, r) => {
                     if (r > 0.3) return;
-                    if (reed) { c.moveTo(px, py); c.ellipse(px, py, 1.5, 3, 0.2, 0, W_TAU); } else this._dot(c, px, py, 1.4);
+                    c.moveTo(px, py);
+                    c.ellipse(px, py, 1.5, 3, 0.2, 0, W_TAU);
                 });
                 c.fill();
                 break;
@@ -2694,14 +2703,14 @@ const WorldPaint = {
                 [wcDark(col, 0.2), col].forEach((cc, k) => {
                     c.fillStyle = cc;
                     c.beginPath();
-                    wScatter(X, Y, W, H, 12, 9, seed + 611 + k, (px, py, r) => {
+                    wScatter(X, Y, W, H, 14, 9, seed + 611 + k, (px, py, r) => {
                         c.moveTo(px, py);
                         c.ellipse(px, py, 8 - k * 1.5, 2.1, r * 3 - 1.5, 0, W_TAU);
                     });
                     c.fill();
                 });
                 const tops = [];
-                wScatter(X, Y, W, H, 11, 5, seed + 617, (px, py, r) => { if (r < 0.75) tops.push(px, py, 2.6 + r * 1.6); });
+                wScatter(X, Y, W, H, 12.5, 5, seed + 617, (px, py, r) => { if (r < 0.75) tops.push(px, py, 2.6 + r * 1.6); });
                 for (const [cc, dr, ox] of [['#2f5f24', 0.9, 0.6], ['#a8dc6a', 0, 0], ['#5f9a3a', -1.4, 0]]) {
                     c.fillStyle = cc;
                     c.beginPath();
@@ -3514,7 +3523,7 @@ const WorldPaint = {
         const T = TILE_SIZE;
         const cx = (w.width - 8) * T + T / 2, cy = (w.height - 7) * T + T / 2;
         if (cx + 150 < camera.x || cx - 150 > camera.x + camera.width || cy + 150 < camera.y || cy - 150 > camera.y + camera.height) return;
-        const p = camera.worldToScreen(cx, cy), t = Art.time, col = w.palette.accent;
+        const p = camera.worldToScreen(cx, cy), t = Art.time, col = w.palette.arena || w.palette.accent;
         ctx.save();
         ctx.globalAlpha = 0.35 + 0.2 * Math.sin(t * 2.2);
         ctx.strokeStyle = col;
