@@ -35,11 +35,16 @@ async function testeWelten(welten, opts = {}) {
                     r.bossHp = boss ? boss.maxHp : null;
                     r.zaeh = boss ? boss.toughness : null;
                     Game.player.iFrames = 999;
-                    Game.debugStep(kampfBilder, 1000 / 60, true);
+                    // Kampf Bild für Bild (jedes 10. Bild wird auch gezeichnet, um Zeichenfehler zu finden)
                     const room = Game._bossRoomRect();
-                    r.imRaum = boss ? (boss.x >= room.x - 1 && boss.y >= room.y - 1 &&
-                        boss.x + boss.w <= room.x + room.w + 1 && boss.y + boss.h <= room.y + room.h + 1) : null;
-                    r.geschosseMax = Game.projectiles.length;
+                    r.imRaum = true;
+                    r.geschosseMax = 0;
+                    for (let i = 0; i < kampfBilder; i++) {
+                        Game.debugStep(1, 1000 / 60, i % 10 === 0);
+                        r.geschosseMax = Math.max(r.geschosseMax, Game.projectiles.length);
+                        if (boss && !boss.dead && !(boss.x >= room.x - 1 && boss.y >= room.y - 1 &&
+                            boss.x + boss.w <= room.x + room.w + 1 && boss.y + boss.h <= room.y + room.h + 1)) r.imRaum = false;
+                    }
                     let guard = 0;
                     while (boss && !boss.dead && guard++ < 1000) {
                         boss.iFrames = 0;
