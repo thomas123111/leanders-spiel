@@ -2575,12 +2575,14 @@ class Juri {
         this.fireFlash = 0; this.stuckTimer = 0;
         this.seed = Math.random() * 10;
         this.stunTimer = 0;   // > 0: betäubt (z. B. vom Hammer des Riesen-Zombies)
+        this.koTimer = 0;     // > 0: k.o. am Boden (Drachenstrahl), steht danach mit halben LP auf
+        this.koDur = 0;
     }
     centerX() { return this.x + this.w / 2; }
     centerY() { return this.y + this.h / 2; }
 
     takeDamage(amount) {
-        if (this.iFrames > 0 || this.dead) return;
+        if (this.iFrames > 0 || this.dead || this.koTimer > 0) return;
         this.hp -= amount; this.iFrames = 1; this.hitFlash = 0.12;
         if (this.hp <= 0) {
             this.hp = 0; this.dead = true;
@@ -2589,9 +2591,79 @@ class Juri {
     }
 
     // Betäuben: steht ein paar Sekunden benommen da (Engine: Gegnergeschosse mit hitsCompanions)
-    stun(seconds) { this.stunTimer = Math.max(this.stunTimer, seconds); }
+    stun(seconds) {
+        if (this.koTimer > 0) return;
+        this.stunTimer = Math.max(this.stunTimer, seconds);
+    }
+
+    // K.o. statt verschwinden (Drachenstrahl, der ihn besiegen würde): liegt am Boden, kann nicht
+    // getroffen werden, bewegt sich nicht und steht nach `seconds` mit halben Lebenspunkten wieder auf.
+    knockOut(seconds) { Juri.knockOutCompanion(this, seconds); }
 
     // ── gemeinsame Helfer für alle Begleiter ──
+
+    static knockOutCompanion(c, seconds) {
+        if (c.dead || c.koTimer > 0) return;
+        c.koTimer = seconds;
+        c.koDur = seconds;
+        c.hp = 0;
+        c.stunTimer = 0;
+        c.hitFlash = 0.12;
+        c.moving = false;
+        c.target = null;
+        Juri.poof(c.centerX(), c.centerY(), true);
+    }
+
+    // K.o.-Zeit abzählen; true = liegt noch. Beim Aufstehen: halbe LP und kurz unverwundbar.
+    static koUpdate(c, dt) {
+        if (!(c.koTimer > 0)) return false;
+        c.koTimer -= dt;
+        c.moving = false;
+        c.stuckTimer = 0;
+        c.target = null;
+        if (c.koTimer <= 0) {
+            c.koTimer = 0;
+            c.hp = Math.ceil(c.maxHp / 2);
+            c.iFrames = 1.5;
+            if (typeof FX !== 'undefined') {
+                FX.burst(c.centerX(), c.centerY(), ['#ffd23f', '#ffffff', '#7fe0ff'], 10, 120, 0.5, { kind: 'star' });
+            }
+        }
+        return true;
+    }
+
+    // Liegt am Boden: Figur um die Füße gekippt (Aufrufer klammert mit save/restore). Kurz vor dem Aufstehen zappelt sie.
+    static koPose(ctx, c, x, y, f) {
+        const wig = c.koTimer < 0.7 ? Math.sin(Art.time * 30) * 0.08 : 0;
+        ctx.translate(x, y);
+        ctx.rotate(-f * (1.45 + wig));
+        ctx.translate(-x, -y);
+    }
+
+    // „Zzz" steigt auf (schläft sich gesund).
+    static zzz(ctx, x, y, seed) {
+        const prev = ctx.globalAlpha;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        for (let i = 0; i < 3; i++) {
+            const q = (Art.time * 0.55 + seed * 0.13 + i / 3) % 1;
+            const s = 1.6 + q * 2.2;
+            const zx = x + i * 2.2 + Math.sin(q * 6 + i) * 2, zy = y - q * 15;
+            ctx.globalAlpha = prev * (q < 0.2 ? q / 0.2 : 1 - (q - 0.2) / 0.8);
+            ctx.beginPath();
+            ctx.moveTo(zx - s, zy - s);
+            ctx.lineTo(zx + s, zy - s);
+            ctx.lineTo(zx - s, zy + s);
+            ctx.lineTo(zx + s, zy + s);
+            ctx.strokeStyle = '#2a2458';
+            ctx.lineWidth = 2.6;
+            ctx.stroke();
+            ctx.strokeStyle = '#eef3ff';
+            ctx.lineWidth = 1.3;
+            ctx.stroke();
+        }
+        ctx.globalAlpha = prev;
+    }
 
     // Freie Sicht zwischen zwei Punkten (keine Wand dazwischen)?
     static lineClear(world, ax, ay, bx, by) {
@@ -2697,6 +2769,8 @@ class Juri {
             this.swingTimer -= dt;
             if (this.swingTimer <= 0) this.swinging = false;
         }
+        // K.o.: liegt am Boden (nicht treffbar), haut nicht, springt nicht zu Mark
+        if (Juri.koUpdate(this, dt)) return;
         // Betäubt: steht still, haut nicht, springt nicht zu Mark
         if (this.stunTimer > 0) {
             this.stunTimer -= dt;
@@ -2815,13 +2889,20 @@ class Juri {
             lx = dx / d;
             ly = dy / d;
         }
-        // Betäubt: schwankt um die Füße, Spiralaugen, Sterne über dem Kopf
-        const stunned = this.stunTimer > 0;
-        if (stunned) {
+        // Betäubt: schwankt um die Füße, Spiralaugen, Sterne über dem Kopf.
+        // K.o.: liegt am Boden, erst benommen (Spiralaugen, Sterne), dann schlafend („Zzz").
+        const ko = this.koTimer > 0;
+        const stunned = !ko && this.stunTimer > 0;
+        const dizzy = stunned || (ko && this.koTimer > this.koDur - 2.5);
+        if (ko || stunned) {
             ctx.save();
-            ctx.translate(cx, cy + 12);
-            ctx.rotate(Math.sin(t * 5 + this.seed) * 0.09);
-            ctx.translate(-cx, -(cy + 12));
+            if (ko) {
+                Juri.koPose(ctx, this, cx, cy + 8, f);
+            } else {
+                ctx.translate(cx, cy + 12);
+                ctx.rotate(Math.sin(t * 5 + this.seed) * 0.09);
+                ctx.translate(-cx, -(cy + 12));
+            }
         }
         if (this.fireFlash > 0) Art.glow(ctx, cx, cy, 36, '#ff7a1f', Math.min(1, this.fireFlash * 2.2));
         // Hammer: in Ruhe über der Schulter, beim Schlag saust er über den Kopf aufs Ziel
@@ -2901,13 +2982,15 @@ class Juri {
         }, { x: hx - 12, y: hy - 12, w: 24, h: 17 }, '#ff8a1f', { outline: '#8a3a00', lineWidth: 1.2 });
         Art.body(ctx, hx, hy, 7.6, 7.2, '#ffe6cc', { outline: '#8a4a2a' });
         Art.blush(ctx, hx + f * 1.4, hy + 2.8, 1.5, 4.6, '#ff8aa8');
-        if (stunned) {
+        if (dizzy) {
             Juri.spiralEye(ctx, hx + f * 1.5 - 2.9, hy - 1.1, 2.1, t * 7);
             Juri.spiralEye(ctx, hx + f * 1.5 + 2.9, hy - 1.1, 2.1, -t * 7);
+        } else if (ko) {
+            Art.eyes(ctx, hx + f * 1.5, hy - 1.1, 2.1, { gap: 2.9, open: 0.05, blink: false });
         } else {
             Art.eyes(ctx, hx + f * 1.5, hy - 1.1, 2.1, { gap: 2.9, look: { x: lx, y: ly }, seed: this.seed });
         }
-        Art.mouth(ctx, hx + f * 1.7, hy + 4.3, 4.8, stunned ? 'o' : (sw >= 0 ? 'open' : 'grin'));
+        Art.mouth(ctx, hx + f * 1.7, hy + 4.3, 4.8, stunned || ko ? 'o' : (sw >= 0 ? 'open' : 'grin'));
         Art.body(ctx, hx + f * 3.4, hy + 1.7, 2.5, 2.3, '#ff2d3f', { glossy: true, lineWidth: 1.1, outline: '#7a0a1a' });
         if (!hammerBack) this._drawHammer(ctx, handX, handY, ha, charged, sw);
         // vordere Hand hält den Hammer
@@ -2918,7 +3001,11 @@ class Juri {
         ctx.ellipse(handX, handY, 2.4, 2.3, 0, 0, TAU);
         ctx.fill();
         ctx.stroke();
-        if (stunned) {
+        if (ko) {
+            ctx.restore();
+            if (dizzy) Juri.dizzyStars(ctx, cx - f * 11, cy - 1, 8, this.seed);
+            else Juri.zzz(ctx, cx - f * 9, cy - 2, this.seed);
+        } else if (stunned) {
             ctx.restore();
             Juri.dizzyStars(ctx, cx, pos.y - 6, 10, this.seed);
         }
@@ -2990,12 +3077,14 @@ class ShadowCrocodile {
         this.mouthTimer = 0; this.stuckTimer = 0;
         this.seed = Math.random() * 10;
         this.stunTimer = 0;   // > 0: betäubt (z. B. vom Hammer des Riesen-Zombies)
+        this.koTimer = 0;     // > 0: k.o. am Boden (Drachenstrahl), steht danach mit halben LP auf
+        this.koDur = 0;
     }
     centerX() { return this.x + this.w / 2; }
     centerY() { return this.y + this.h / 2; }
 
     takeDamage(amount) {
-        if (this.iFrames > 0 || this.dead) return;
+        if (this.iFrames > 0 || this.dead || this.koTimer > 0) return;
         this.hp -= amount; this.iFrames = 1; this.hitFlash = 0.12;
         if (this.hp <= 0) {
             this.hp = 0; this.dead = true;
@@ -3004,13 +3093,21 @@ class ShadowCrocodile {
     }
 
     // Betäuben: steht ein paar Sekunden benommen da (Engine: Gegnergeschosse mit hitsCompanions)
-    stun(seconds) { this.stunTimer = Math.max(this.stunTimer, seconds); }
+    stun(seconds) {
+        if (this.koTimer > 0) return;
+        this.stunTimer = Math.max(this.stunTimer, seconds);
+    }
+
+    // K.o. statt verschwinden (Drachenstrahl): liegt am Boden, steht nach `seconds` mit halben LP auf.
+    knockOut(seconds) { Juri.knockOutCompanion(this, seconds); }
 
     update(dt, world, player, enemies) {
         if (this.dead) return;
         if (this.iFrames > 0) this.iFrames -= dt;
         if (this.hitFlash > 0) this.hitFlash -= dt;
         if (this.mouthTimer > 0) this.mouthTimer -= dt;
+        // K.o.: liegt am Boden (nicht treffbar), spuckt nicht, springt nicht zu Mark
+        if (Juri.koUpdate(this, dt)) return;
         // Betäubt: steht still, spuckt nicht, springt nicht zu Mark
         if (this.stunTimer > 0) {
             this.stunTimer -= dt;
@@ -3093,13 +3190,20 @@ class ShadowCrocodile {
         const open = this.mouthTimer > 0 ? Math.min(1, this.mouthTimer / 0.12) : 0;
         const charge = this.target && this.shootTimer < 0.3 ? clamp(1 - this.shootTimer / 0.3, 0, 1) : 0;
         const G = '#2fb36d', GD = '#1f8a52', INK = '#0f4a2c', SPIKE = '#8a5cff';
-        // Betäubt: schwankt um die Füße, Spiralaugen, Sterne über dem Kopf
-        const stunned = this.stunTimer > 0;
-        if (stunned) {
+        // Betäubt: schwankt um die Füße, Spiralaugen, Sterne über dem Kopf.
+        // K.o.: liegt am Boden, erst benommen (Spiralaugen, Sterne), dann schlafend („Zzz").
+        const ko = this.koTimer > 0;
+        const stunned = !ko && this.stunTimer > 0;
+        const dizzy = stunned || (ko && this.koTimer > this.koDur - 2.5);
+        if (ko || stunned) {
             ctx.save();
-            ctx.translate(cx, cy + 13);
-            ctx.rotate(Math.sin(t * 5 + this.seed) * 0.08);
-            ctx.translate(-cx, -(cy + 13));
+            if (ko) {
+                Juri.koPose(ctx, this, cx, cy + 9, f);
+            } else {
+                ctx.translate(cx, cy + 13);
+                ctx.rotate(Math.sin(t * 5 + this.seed) * 0.08);
+                ctx.translate(-cx, -(cy + 13));
+            }
         }
         // Schatten-Aura und aufsteigende Schattenwölkchen
         Art.glow(ctx, cx, cy + 2, 26, '#8a5cff', 0.24 + 0.06 * Math.sin(t * 3 + this.seed));
@@ -3239,14 +3343,23 @@ class ShadowCrocodile {
         ctx.strokeStyle = INK;
         ctx.lineWidth = Art.LINE;
         ctx.stroke();
-        if (stunned) {
+        if (dizzy) {
             Juri.spiralEye(ctx, e0, ey - 0.2, 2.1, t * 7);
             Juri.spiralEye(ctx, e1, ey - 0.2, 2.1, -t * 7);
-            ctx.restore();
-            Juri.dizzyStars(ctx, cx, pos.y - 7, 10, this.seed);
+        } else if (ko) {
+            Art.eye(ctx, e0, ey - 0.2, 2.1, look, { open: 0.05, lid: INK });
+            Art.eye(ctx, e1, ey - 0.2, 2.1, look, { open: 0.05, lid: INK });
         } else {
             Art.eye(ctx, e0, ey - 0.2, 2.1, look, { iris: '#ffd23f', irisSize: 0.72, open: blink, lid: INK });
             Art.eye(ctx, e1, ey - 0.2, 2.1, look, { iris: '#ffd23f', irisSize: 0.72, open: blink, lid: INK });
+        }
+        if (ko) {
+            ctx.restore();
+            if (dizzy) Juri.dizzyStars(ctx, cx - f * 12, cy - 1, 8, this.seed);
+            else Juri.zzz(ctx, cx - f * 10, cy - 2, this.seed);
+        } else if (stunned) {
+            ctx.restore();
+            Juri.dizzyStars(ctx, cx, pos.y - 7, 10, this.seed);
         }
         Juri.hpBar(ctx, cx, pos.y - 14, this.hp, this.maxHp);
     }
