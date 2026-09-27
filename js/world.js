@@ -453,7 +453,39 @@ const WORLD_THEMES = {
         deco: [['flower', 5], ['tuft', 3], ['clover', 2], ['daisy', 1.2], ['butterfly', 0.6], ['mushroom', 0.5], ['pebble', 0.6], ['ladybug', 0.35]], rate: 0.38,
         flowers: ['#ffffff', '#ffe14a', '#ff9ad0', '#c9a8ff', '#8ad8ff', '#ff8a6a'], sk: 'bloom', win: 'rainbow', glow: '#fff0c8',
     },
+    // Welt 24: Drachenhort im Berg. zones = Element-Zonen (dragonZone: 0 Gold, 1 Feuer, 2 Eis, 3 Kristall),
+    // zdeco = zusätzliche Deko je Zone, eggs = Dracheneier [Schale, Tupfen] in den Farben der Drachenkinder
+    dragon: {
+        void: '#140912', vignette: 0.4, shade: '#1a0914', fs: 'cave', floor: ['#5c3a4a', '#573646'], zones: true,
+        ws: 'basalt', wall: '#57508a', wallF: '#322c58', accent: '#ff8a3d', arena: '#ffb03a', arenaStyle: 'nest', deepCol: '#120c2a', deep: 0.42,
+        bush: ['#9a5c12', '#e3a52c', '#ffe27a'], bx: 'gold',
+        water: 'lava', wc: ['#c42a1a', '#ff6a1f', '#ffd24a'], poolGlow: [22, 0.2], bone: '#f4ead8', pad: '#5a5486',
+        eggs: [['#ff9e8e', '#d8403a'], ['#aee2ff', '#3a86d8'], ['#dab6ff', '#8a4ad8']],
+        deco: [['gold', 3], ['gem', 1.3], ['scale', 1.2], ['pebble', 1.4], ['helmet', 0.22], ['shield', 0.22]], rate: 0.26,
+        zdeco: [[['gold', 2]], [['glowcrack', 2.2], ['ember', 1.2], ['obsidian', 1]], [['frost', 2.6], ['icecrack', 1.2], ['snowmound', 0.5]], [['shard', 2.8]]],
+        sk: 'nest', win: 'cave', glow: '#ffb86a', dark: 0.3, darkCol: '#12081c',
+    },
 };
+
+// Welt 24: Die drei Elemente des Drachenvaters (und Gold dazwischen) liegen als Zonen über der Karte:
+// Voronoi-Felder aus festen, zufällig versetzten Keimen (etwa 9 Kacheln groß). Kachelkoordinaten, auch gebrochen.
+// Ergebnis: 0 = Gold, 1 = Feuer, 2 = Eis, 3 = Kristall. Wird von Grafik und Kartenbau gemeinsam benutzt.
+function dragonZone(tx, ty) {
+    const cell = 9, gx = Math.floor(tx / cell), gy = Math.floor(ty / cell);
+    let best = Infinity, zone = 0;
+    for (let j = -1; j <= 1; j++) {
+        for (let i = -1; i <= 1; i++) {
+            const cx = gx + i, cy = gy + j;
+            const sx = (cx + 0.15 + wHash(cx, cy, 2401) * 0.7) * cell, sy = (cy + 0.15 + wHash(cy, cx, 2403) * 0.7) * cell;
+            const d = (sx - tx) * (sx - tx) + (sy - ty) * (sy - ty);
+            if (d < best) {
+                best = d;
+                zone = Math.floor(wHash(cx, cy, 2405) * 4);
+            }
+        }
+    }
+    return zone;
+}
 
 class World {
     constructor() {
@@ -837,7 +869,7 @@ const WorldPaint = {
     floorColor(P, x, y, seed) {
         // Natürliche Böden ohne Kachelraster (sonst sieht man Quadrate), gebaute Böden im Schachbrett
         const fs = P.fs;
-        if (fs === 'blotch' || fs === 'sand' || fs === 'snow' || fs === 'rock') return P.floor[0];
+        if (fs === 'blotch' || fs === 'sand' || fs === 'snow' || fs === 'rock' || fs === 'cave') return P.floor[0];
         if (fs === 'grass') return P.stripes ? P.floor[Math.floor(x / P.stripes) & 1] : P.floor[0];
         const base = P.floor[(x + y) & 1];
         const j = wHash(x, y, seed + 1) - 0.5;
@@ -880,6 +912,7 @@ const WorldPaint = {
                 break;
             }
             case 'lino': this._lino(c, P, X, Y, W, H, seed); break;
+            case 'cave': this._caveFloor(w, c, P, X, Y, W, H, seed); break;
             case 'flag': this._flagstones(c, P, X, Y, W, H, seed); break;
             case 'plate': this._plates(c, P, X, Y, W, H, seed); break;
             case 'sand': {
@@ -1028,6 +1061,100 @@ const WorldPaint = {
         });
         c.stroke();
         this._specks(c, X, Y, W, H, 10, seed + 65, wcA(wcDark(f, 0.4), 0.3), wcA(wcLight(f, 0.35), 0.25));
+    },
+
+    // Element-Zone einer Kachel (Welt 24), je Karte einmal für alle Kacheln berechnet
+    _zone(w, x, y) {
+        if (x < 0 || y < 0 || x >= w.width || y >= w.height) return dragonZone(x + 0.5, y + 0.5);
+        let g = w._zoneGrid;
+        if (!g || g.length !== w.width * w.height) {
+            g = w._zoneGrid = new Uint8Array(w.width * w.height);
+            for (let ty = 0; ty < w.height; ty++) for (let tx = 0; tx < w.width; tx++) g[ty * w.width + tx] = dragonZone(tx + 0.5, ty + 0.5);
+        }
+        return g[y * w.width + x];
+    },
+
+    // Deko-Liste einer Kachel: Welten mit Element-Zonen mischen gemeinsame und zonentypische Deko
+    _decoList(w, P, x, y) {
+        if (!P.zones) return P.deco;
+        const cache = this._zdc || (this._zdc = new Map());
+        let lists = cache.get(P);
+        if (!lists) cache.set(P, lists = P.zdeco.map(z => P.deco.concat(z)));
+        return lists[this._zone(w, x, y)];
+    },
+
+    // Drachenhöhle: warmer, dunkler Fels. Große weiche Flecken tönen die Element-Zonen, ein feines Rissnetz
+    // wird stellenweise zu Adern in Zonenfarbe (Gold, glühende Lava, Reif, Kristall); dazu Krümel und Goldflitter.
+    _caveFloor(w, c, P, X, Y, W, H, seed) {
+        const T = TILE_SIZE, f = P.floor[0];
+        const zoneAt = (px, py) => this._zone(w, Math.floor(px / T), Math.floor(py / T));
+        const tints = [['#ffc24a', 0.06], ['#ff5a1f', 0.09], ['#8fd8ff', 0.09], ['#c070ff', 0.09]];
+        const blobs = [[], [], [], []];
+        wScatter(X, Y, W, H, 30, 34, seed + 71, (px, py, r) => blobs[zoneAt(px, py)].push(px, py, 18 + r * 16, r * 3));
+        blobs.forEach((l, z) => {
+            if (!l.length) return;
+            c.fillStyle = wcA(tints[z][0], tints[z][1]);
+            c.beginPath();
+            for (let i = 0; i < l.length; i += 4) {
+                c.moveTo(l[i] + l[i + 2] * Math.cos(l[i + 3]), l[i + 1] + l[i + 2] * Math.sin(l[i + 3]));
+                c.ellipse(l[i], l[i + 1], l[i + 2], l[i + 2] * 0.7, l[i + 3], 0, W_TAU);
+            }
+            c.fill();
+        });
+        // Felsflecken
+        for (const [col, sd] of [[wcA(wcDark(f, 0.3), 0.2), 41], [wcA(wcLight(f, 0.16), 0.15), 43]]) {
+            c.fillStyle = col;
+            c.beginPath();
+            wScatter(X, Y, W, H, 21, 12, seed + sd, (px, py, r) => {
+                const rx = 5 + r * 8;
+                c.moveTo(px + rx * Math.cos(r * 3), py + rx * Math.sin(r * 3));
+                c.ellipse(px, py, rx, rx * 0.62, r * 3, 0, W_TAU);
+            });
+            c.fill();
+        }
+        // Rissnetz; ein Teil der Risse wird zur farbigen Ader der Zone
+        const cell = 24, pt = (gx, gy) => [gx * cell + wHash(gx, gy, seed + 73) * cell * 0.8, gy * cell + wHash(gy, gx, seed + 75) * cell * 0.8];
+        const gx0 = Math.floor(X / cell) - 1, gx1 = Math.ceil((X + W) / cell) + 1;
+        const gy0 = Math.floor(Y / cell) - 1, gy1 = Math.ceil((Y + H) / cell) + 1;
+        const veins = [[], [], [], []];
+        c.lineCap = 'round';
+        c.lineJoin = 'round';
+        for (const pass of [0, 1]) {
+            c.strokeStyle = pass ? wcA(wcDark(f, 0.55), 0.55) : wcA(wcLight(f, 0.2), 0.25);
+            c.lineWidth = pass ? 1.2 : 1;
+            c.beginPath();
+            for (let gy = gy0; gy <= gy1; gy++) {
+                for (let gx = gx0; gx <= gx1; gx++) {
+                    const [ax, ay] = pt(gx, gy), o = pass ? 0 : 1;
+                    for (let k = 0; k < 2; k++) {
+                        if (wHash(gx, gy, seed + 77 + k * 2) > 0.44) continue;
+                        const [bx2, by2] = k ? pt(gx, gy + 1) : pt(gx + 1, gy);
+                        c.moveTo(ax + o, ay + o);
+                        c.lineTo(bx2 + o, by2 + o);
+                        if (pass && wHash(gy, gx, seed + 81 + k) < 0.2) veins[zoneAt((ax + bx2) / 2, (ay + by2) / 2)].push(ax, ay, bx2, by2);
+                    }
+                }
+            }
+            c.stroke();
+        }
+        const vc = [['#f0b83a', 0.7, 1.2], ['#ff8a2b', 0.8, 1.5], ['#d8f4ff', 0.55, 1.1], ['#e08cff', 0.7, 1.3]];
+        veins.forEach((l, z) => {
+            if (!l.length) return;
+            this._line(c, wcA(vc[z][0], vc[z][1]), vc[z][2]);
+            c.beginPath();
+            for (let i = 0; i < l.length; i += 4) {
+                c.moveTo(l[i], l[i + 1]);
+                c.lineTo(l[i + 2], l[i + 3]);
+            }
+            c.stroke();
+        });
+        this._specks(c, X, Y, W, H, 9, seed + 83, wcA(wcDark(f, 0.45), 0.35), wcA(wcLight(f, 0.3), 0.28));
+        c.fillStyle = '#ffd24a';
+        c.beginPath();
+        wScatter(X, Y, W, H, 10, 1, seed + 85, (px, py, r) => {
+            if (r < 0.14 && zoneAt(px, py) === 0) this._dot(c, px, py, 0.6 + r * 3);
+        });
+        c.fill();
     },
 
     _flagstones(c, P, X, Y, W, H, seed) {
@@ -1366,6 +1493,7 @@ const WorldPaint = {
     _arena(w, c, P) {
         if (P.arenaStyle === 'gym') { this._gymArena(w, c, P); return; }
         if (P.arenaStyle === 'meadow') { this._meadowArena(w, c, P); return; }
+        if (P.arenaStyle === 'nest') { this._nestArena(w, c, P); return; }
         const T = TILE_SIZE, a = P.arena || P.accent;
         const ix = (w.width - 13) * T, iy = (w.height - 11) * T, iw = 11 * T, ih = 9 * T;
         const cx = (w.width - 8) * T + T / 2, cy = (w.height - 7) * T + T / 2;
@@ -1602,6 +1730,142 @@ const WorldPaint = {
         c.restore();
     },
 
+    // Drachenberg: das große Nest des Drachenvaters – Ring aus geflochtenen Ästen mit Eiern am Rand, Stroh,
+    // überall Gold und in der Mitte das Wappen der drei Elemente (Feuer, Eis, Diamant)
+    _nestArena(w, c, P) {
+        const T = TILE_SIZE, a = P.arena || P.accent;
+        const ix = (w.width - 13) * T, iy = (w.height - 11) * T, iw = 11 * T, ih = 9 * T;
+        const cx = (w.width - 8) * T + T / 2, cy = (w.height - 7) * T + T / 2;
+        c.save();
+        c.beginPath();
+        c.rect(ix, iy, iw, ih);
+        c.clip();
+        for (const [r, al] of [[152, 0.06], [104, 0.08]]) {
+            c.fillStyle = wcA('#ffb03a', al);
+            c.beginPath();
+            c.arc(cx, cy, r, 0, W_TAU);
+            c.fill();
+        }
+        // Stroh im Nest
+        c.fillStyle = wcA('#c8903a', 0.2);
+        c.beginPath();
+        c.arc(cx, cy, 106, 0, W_TAU);
+        c.fill();
+        for (const [col, sd] of [[wcA('#8a5a2a', 0.35), 11], [wcA('#f0c870', 0.4), 13]]) {
+            this._line(c, col, 1);
+            c.beginPath();
+            wScatter(ix, iy, iw, ih, 8, 0, sd, (px, py, r) => {
+                if ((px - cx) * (px - cx) + (py - cy) * (py - cy) > 98 * 98) return;
+                const an = r * 9, l = 2.5 + r * 3;
+                c.moveTo(px - Math.cos(an) * l, py - Math.sin(an) * l);
+                c.lineTo(px + Math.cos(an) * l, py + Math.sin(an) * l);
+            });
+            c.stroke();
+        }
+        // Gold überall: im Nest um das Wappen herum dicht, außerhalb des Rings lockerer
+        const coins = [];
+        wScatter(ix, iy, iw, ih, 15, 0, 17, (px, py, r) => {
+            const d = Math.hypot(px - cx, py - cy);
+            if (!((d > 46 && d < 98 && r < 0.55) || (d > 128 && r < 0.3))) return;
+            coins.push(px, py, (r - 0.3) * 2);
+            if (r < 0.25) coins.push(px + 3.4, py + 1.2, r * 2);
+        });
+        this._coinPass(c, coins);
+        // Ring aus geflochtenen Ästen (der Leuchtring läuft knapp außen herum)
+        this._line(c, wcA('#2a1608', 0.4), 26);
+        c.beginPath();
+        c.arc(cx + 2, cy + 3, 112, 0, W_TAU);
+        c.stroke();
+        this._line(c, '#4a2a12', 18);
+        c.beginPath();
+        c.arc(cx, cy, 112, 0, W_TAU);
+        c.stroke();
+        for (const [col, lw, sd] of [['#2e1a0a', 3.4, 21], ['#7a4a22', 2.6, 23], ['#b07a3e', 1.4, 25]]) {
+            this._line(c, col, lw);
+            c.beginPath();
+            for (let k = 0; k < 110; k++) {
+                const an = k * W_TAU / 110 + (wHash(k, sd, 27) - 0.5) * 0.1;
+                const r1 = 112 + (wHash(k, sd, 29) - 0.5) * 18, r2 = 112 + (wHash(sd, k, 31) - 0.5) * 18, rc = 112 + (wHash(k, k, sd) - 0.5) * 24;
+                c.moveTo(cx + Math.cos(an - 0.17) * r1, cy + Math.sin(an - 0.17) * r1);
+                c.quadraticCurveTo(cx + Math.cos(an) * rc, cy + Math.sin(an) * rc, cx + Math.cos(an + 0.17) * r2, cy + Math.sin(an + 0.17) * r2);
+            }
+            c.stroke();
+        }
+        this._line(c, '#8a5a2a', 1.2);
+        c.beginPath();
+        for (let k = 0; k < 26; k++) {
+            const an = k * W_TAU / 26 + wHash(k, 3, 33), out = k & 1 ? 1 : -1, r0 = 112 + out * 9;
+            c.moveTo(cx + Math.cos(an) * r0, cy + Math.sin(an) * r0);
+            c.lineTo(cx + Math.cos(an + 0.05 * out) * (r0 + out * 7), cy + Math.sin(an + 0.05 * out) * (r0 + out * 7));
+        }
+        c.stroke();
+        // Eier am Nestrand
+        for (let k = 0; k < 7; k++) {
+            const an = k * W_TAU / 7 - Math.PI / 2 + 0.35;
+            this._egg(c, P, cx + Math.cos(an) * 110, cy + Math.sin(an) * 104, 1.5, k, (wHash(k, 7, 35) - 0.5) * 0.5);
+        }
+        // Wappen der drei Elemente
+        c.fillStyle = wcA('#2a1020', 0.35);
+        c.beginPath();
+        c.arc(cx, cy, 32, 0, W_TAU);
+        c.fill();
+        this._line(c, wcA(a, 0.65), 3);
+        c.beginPath();
+        c.arc(cx, cy, 32, 0, W_TAU);
+        c.stroke();
+        const sym = (k, sx, sy) => {
+            if (k === 0) {
+                // Feuer
+                for (const [col, s] of [['#ff5a2a', 1], ['#ffc23a', 0.55]]) {
+                    c.fillStyle = wcA(col, 0.85);
+                    c.beginPath();
+                    c.moveTo(sx, sy - 7.5 * s);
+                    c.quadraticCurveTo(sx + 5.5 * s, sy + 0.5 * s, sx, sy + 5 * s);
+                    c.quadraticCurveTo(sx - 5.5 * s, sy + 0.5 * s, sx, sy - 7.5 * s);
+                    c.fill();
+                }
+            } else if (k === 1) {
+                // Eis
+                this._line(c, wcA('#aeeaff', 0.9), 1.8);
+                c.beginPath();
+                for (let i = 0; i < 3; i++) {
+                    const an = i * Math.PI / 3;
+                    c.moveTo(sx - Math.cos(an) * 6, sy - Math.sin(an) * 6);
+                    c.lineTo(sx + Math.cos(an) * 6, sy + Math.sin(an) * 6);
+                }
+                c.stroke();
+            } else {
+                // Diamant
+                c.fillStyle = wcA('#c77dff', 0.9);
+                c.beginPath();
+                c.moveTo(sx, sy - 6.5); c.lineTo(sx + 5, sy - 1.5); c.lineTo(sx, sy + 6); c.lineTo(sx - 5, sy - 1.5); c.closePath();
+                c.fill();
+                c.fillStyle = wcA('#f0d8ff', 0.9);
+                c.beginPath();
+                c.moveTo(sx, sy - 6.5); c.lineTo(sx - 5, sy - 1.5); c.lineTo(sx, sy - 0.5); c.closePath();
+                c.fill();
+            }
+        };
+        for (let k = 0; k < 3; k++) {
+            const an = -Math.PI / 2 + k * W_TAU / 3;
+            sym(k, cx + Math.cos(an) * 16, cy + Math.sin(an) * 16);
+        }
+        c.restore();
+    },
+
+    // Flach liegende Goldmünzen (x, y, Drehung je 3 Einträge) in vier Füllaufrufen
+    _coinPass(c, cs) {
+        for (const [col, ox, oy, rx, ry] of [['rgba(30,8,20,0.3)', 0.6, 1.1, 2.7, 1.8], ['#9a5c12', 0.3, 0.5, 2.6, 1.7], ['#f2b72e', 0, 0, 2.3, 1.5], ['#ffe58a', -0.6, -0.4, 1.1, 0.6]]) {
+            c.fillStyle = col;
+            c.beginPath();
+            for (let i = 0; i < cs.length; i += 3) {
+                c.moveTo(cs[i] + ox + rx * Math.cos(cs[i + 2]), cs[i + 1] + oy + rx * Math.sin(cs[i + 2]));
+                c.ellipse(cs[i] + ox, cs[i + 1] + oy, rx, ry, cs[i + 2], 0, W_TAU);
+            }
+            c.fill();
+        }
+    },
+
     _carpet(c, P, x, y, h) {
         const cx = x + 16;
         c.fillStyle = 'rgba(20,6,30,0.25)';
@@ -1740,10 +2004,11 @@ const WorldPaint = {
             return;
         }
         if (h0 > P.rate || this._inArena(w, x, y) || this._onCarpet(w, x, y)) return;
+        const list = this._decoList(w, P, x, y);
         let tot = 0;
-        for (const d of P.deco) tot += d[1];
-        let pick = wHash(x, y, seed + 103) * tot, kind = P.deco[0][0];
-        for (const d of P.deco) {
+        for (const d of list) tot += d[1];
+        let pick = wHash(x, y, seed + 103) * tot, kind = list[0][0];
+        for (const d of list) {
             if (pick < d[1]) { kind = d[0]; break; }
             pick -= d[1];
         }
@@ -2517,6 +2782,178 @@ const WorldPaint = {
                 c.restore();
                 break;
             }
+            // ── Drachenberg ──
+            case 'gold': {
+                // flach liegende Goldmünzen, manchmal ein kleiner Stapel (matt, ohne Leuchten: keine Sammelmünzen)
+                if (rnd() < 0.3) {
+                    const h = 3 + Math.floor(rnd() * 3);
+                    c.fillStyle = 'rgba(30,8,20,0.32)';
+                    c.beginPath();
+                    c.ellipse(cx + 0.8, cy + 1.6, 3.6, 2, 0, 0, W_TAU);
+                    c.fill();
+                    for (let k = 0; k < h; k++) {
+                        const yy = cy - k * 1.3;
+                        c.fillStyle = '#9a5c12';
+                        c.beginPath(); c.ellipse(cx, yy + 0.7, 3, 1.7, 0, 0, W_TAU); c.fill();
+                        c.fillStyle = k === h - 1 ? '#f2b72e' : '#d8961e';
+                        c.beginPath(); c.ellipse(cx, yy, 3, 1.6, 0, 0, W_TAU); c.fill();
+                    }
+                    c.fillStyle = '#ffe58a';
+                    c.beginPath(); c.ellipse(cx - 0.8, cy - (h - 1) * 1.3 - 0.4, 1.3, 0.6, 0, 0, W_TAU); c.fill();
+                    break;
+                }
+                const n = 2 + Math.floor(rnd() * 3), cs = [];
+                for (let k = 0; k < n; k++) cs.push(cx + (rnd() - 0.5) * 13, cy + (rnd() - 0.5) * 8, (rnd() - 0.5) * 0.8);
+                this._coinPass(c, cs);
+                break;
+            }
+            case 'gem': {
+                const col = ['#ff4d6d', '#4cc9f0', '#3ddc97', '#b36bff', '#ffd23f'][Math.floor(rnd() * 5)], s = 2.8 + rnd() * 1.2;
+                const gem = (o, k) => {
+                    c.beginPath();
+                    c.moveTo(cx + o, cy - s * k + o);
+                    c.lineTo(cx + s * 0.95 * k + o, cy - s * 0.3 * k + o);
+                    c.lineTo(cx + s * 0.6 * k + o, cy + s * 0.85 * k + o);
+                    c.lineTo(cx - s * 0.6 * k + o, cy + s * 0.85 * k + o);
+                    c.lineTo(cx - s * 0.95 * k + o, cy - s * 0.3 * k + o);
+                    c.closePath();
+                };
+                c.fillStyle = 'rgba(30,8,20,0.3)';
+                gem(1, 1.05); c.fill();
+                c.fillStyle = wcDark(col, 0.4);
+                gem(0, 1.12); c.fill();
+                c.fillStyle = col;
+                gem(0, 0.92); c.fill();
+                c.fillStyle = wcLight(col, 0.55);
+                c.beginPath();
+                c.moveTo(cx, cy - s * 0.85); c.lineTo(cx - s * 0.75, cy - s * 0.28); c.lineTo(cx, cy + s * 0.1); c.closePath();
+                c.fill();
+                c.fillStyle = 'rgba(255,255,255,0.85)';
+                c.beginPath(); this._dot(c, cx - s * 0.3, cy - s * 0.45, 0.6); c.fill();
+                break;
+            }
+            case 'scale': {
+                // abgefallene Drachenschuppe, glänzend wie ein kleiner Schild
+                const col = ['#e8453a', '#3fb8b0', '#9a5ae0', '#ff9a2e'][Math.floor(rnd() * 4)];
+                const path = k => {
+                    c.beginPath();
+                    c.moveTo(0, -4.6 * k);
+                    c.quadraticCurveTo(4.6 * k, -4.2 * k, 4 * k, 0.6 * k);
+                    c.quadraticCurveTo(3 * k, 4.2 * k, 0, 5.6 * k);
+                    c.quadraticCurveTo(-3 * k, 4.2 * k, -4 * k, 0.6 * k);
+                    c.quadraticCurveTo(-4.6 * k, -4.2 * k, 0, -4.6 * k);
+                };
+                c.save();
+                c.translate(cx, cy);
+                c.rotate((rnd() - 0.5) * 1.6);
+                c.fillStyle = 'rgba(30,8,20,0.3)';
+                c.translate(0.8, 1);
+                path(1); c.fill();
+                c.translate(-0.8, -1);
+                c.fillStyle = wcDark(col, 0.4);
+                path(1); c.fill();
+                c.fillStyle = col;
+                c.translate(0, -0.4);
+                path(0.82); c.fill();
+                this._line(c, wcA(wcDark(col, 0.45), 0.7), 0.8);
+                c.beginPath(); c.moveTo(0, -3); c.lineTo(0, 3.6); c.stroke();
+                c.fillStyle = 'rgba(255,255,255,0.5)';
+                c.beginPath(); c.ellipse(-1.6, -1.6, 1.2, 2, 0.3, 0, W_TAU); c.fill();
+                c.restore();
+                break;
+            }
+            case 'helmet': {
+                // alter Ritterhelm mit rotem Federbusch (lustiges Beutestück)
+                c.save();
+                c.translate(cx, cy);
+                c.rotate((rnd() - 0.5) * 0.9);
+                c.fillStyle = 'rgba(30,8,20,0.32)';
+                c.beginPath(); c.ellipse(1, 5, 7, 2.4, 0, 0, W_TAU); c.fill();
+                c.fillStyle = '#b8283a';
+                c.beginPath(); c.ellipse(-0.5, -6.4, 2.6, 3.4, -0.5, 0, W_TAU); c.fill();
+                c.fillStyle = '#ff5a6a';
+                c.beginPath(); c.ellipse(-1, -6.8, 1.6, 2.4, -0.5, 0, W_TAU); c.fill();
+                c.fillStyle = '#4a5068';
+                c.beginPath(); c.arc(0, -0.6, 6, Math.PI, 0); c.lineTo(6, 4.4); c.lineTo(-6, 4.4); c.closePath(); c.fill();
+                c.fillStyle = '#a8b2cc';
+                c.beginPath(); c.arc(0, -0.6, 5, Math.PI, 0); c.lineTo(5, 3.6); c.lineTo(-5, 3.6); c.closePath(); c.fill();
+                c.fillStyle = '#2a2e40';
+                c.fillRect(-3.8, 0.2, 7.6, 1);
+                c.fillRect(-3.8, 2, 7.6, 0.8);
+                c.fillStyle = '#6a7490';
+                c.fillRect(-0.4, -5.2, 0.8, 5);
+                c.fillStyle = 'rgba(255,255,255,0.6)';
+                c.beginPath(); c.ellipse(-2.4, -3, 1.2, 1.9, 0.5, 0, W_TAU); c.fill();
+                c.restore();
+                break;
+            }
+            case 'shield': {
+                // kleiner Ritterschild mit goldenem Rand und Wappenstreifen
+                const base = rnd() < 0.5 ? '#c8323c' : '#3a6ad8';
+                const path = () => {
+                    c.beginPath();
+                    c.moveTo(-5, -5);
+                    c.lineTo(5, -5);
+                    c.lineTo(5, 0);
+                    c.quadraticCurveTo(4.6, 4.4, 0, 6.6);
+                    c.quadraticCurveTo(-4.6, 4.4, -5, 0);
+                    c.closePath();
+                };
+                c.save();
+                c.translate(cx, cy);
+                c.rotate((rnd() - 0.5) * 1.4);
+                c.fillStyle = 'rgba(30,8,20,0.32)';
+                c.translate(1, 1.2);
+                path(); c.fill();
+                c.translate(-1, -1.2);
+                c.fillStyle = base;
+                path(); c.fill();
+                c.save();
+                c.clip();
+                c.fillStyle = '#ffd23f';
+                c.beginPath();
+                c.moveTo(-6, -2); c.lineTo(-2, -6); c.lineTo(6, 2); c.lineTo(2, 6); c.closePath();
+                c.fill();
+                c.fillStyle = 'rgba(255,255,255,0.28)';
+                c.fillRect(-5, -5, 10, 2.4);
+                c.restore();
+                this._line(c, '#d8a93a', 1.2);
+                path(); c.stroke();
+                c.restore();
+                break;
+            }
+            case 'frost': {
+                // Reif auf dem Fels mit einer kleinen Eisblume
+                c.fillStyle = 'rgba(176,222,255,0.2)';
+                c.beginPath();
+                for (let k = 0; k < 3; k++) {
+                    const ex = cx + (rnd() - 0.5) * 9, ey = cy + (rnd() - 0.5) * 6, rx = 5 + rnd() * 4, a = rnd() * 3;
+                    c.moveTo(ex + rx * Math.cos(a), ey + rx * Math.sin(a));
+                    c.ellipse(ex, ey, rx, rx * 0.6, a, 0, W_TAU);
+                }
+                c.fill();
+                const rot = rnd();
+                this._line(c, 'rgba(236,250,255,0.55)', 0.8);
+                c.beginPath();
+                for (let k = 0; k < 6; k++) {
+                    const a = rot + k * Math.PI / 3, dx = Math.cos(a), dy = Math.sin(a);
+                    c.moveTo(cx, cy);
+                    c.lineTo(cx + dx * 4.6, cy + dy * 4.6);
+                    for (const s of [-1, 1]) {
+                        const b2 = a + s * 1.05;
+                        c.moveTo(cx + dx * 2.6, cy + dy * 2.6);
+                        c.lineTo(cx + dx * 2.6 + Math.cos(b2) * 1.5, cy + dy * 2.6 + Math.sin(b2) * 1.5);
+                    }
+                }
+                c.stroke();
+                break;
+            }
+            case 'shard': {
+                // kleine Kristallspitzen in den Farben des Diamant-Kopfes
+                const col = ['#c77dff', '#ff8ad8', '#6ff0ff'][Math.floor(rnd() * 3)];
+                this.decoItem(c, { ...P, accent: col }, b, 'crystal', cx, cy, rnd);
+                break;
+            }
         }
     },
 
@@ -2696,6 +3133,56 @@ const WorldPaint = {
                 this._dot(c, ex3 + 3, ey3 + 0.2, 0.8);
                 c.fill();
             }
+        } else if (ex === 'gold') {
+            // Goldhaufen: Münzen auf dem Haufen, ein paar Edelsteine, manchmal eine Krone oder ein Kelch
+            const cs = [];
+            for (let k = 0; k < 10; k++) cs.push(px + 6 + rnd() * 20, py + 5 + rnd() * 17, (rnd() - 0.5) * 0.9);
+            for (const [col, ox, oy, rx, ry] of [['#8a520e', 0.3, 0.6, 2.7, 1.8], ['#ffd24a', 0, 0, 2.4, 1.5], ['#fff2b8', -0.7, -0.4, 1.1, 0.55]]) {
+                c.fillStyle = col;
+                c.beginPath();
+                for (let i = 0; i < cs.length; i += 3) {
+                    c.moveTo(cs[i] + ox + rx * Math.cos(cs[i + 2]), cs[i + 1] + oy + rx * Math.sin(cs[i + 2]));
+                    c.ellipse(cs[i] + ox, cs[i + 1] + oy, rx, ry, cs[i + 2], 0, W_TAU);
+                }
+                c.fill();
+            }
+            for (let k = 0; k < 2; k++) {
+                const gx = px + 8 + rnd() * 16, gy = py + 8 + rnd() * 12, gc = ['#ff4d6d', '#4cc9f0', '#3ddc97', '#b36bff'][Math.floor(rnd() * 4)];
+                c.fillStyle = wcDark(gc, 0.35);
+                c.beginPath(); c.moveTo(gx, gy - 3); c.lineTo(gx + 2.6, gy); c.lineTo(gx, gy + 3); c.lineTo(gx - 2.6, gy); c.closePath(); c.fill();
+                c.fillStyle = gc;
+                c.beginPath(); c.moveTo(gx, gy - 2.2); c.lineTo(gx + 1.9, gy); c.lineTo(gx, gy + 2.2); c.lineTo(gx - 1.9, gy); c.closePath(); c.fill();
+                c.fillStyle = 'rgba(255,255,255,0.8)';
+                c.beginPath(); this._dot(c, gx - 0.6, gy - 0.8, 0.55); c.fill();
+            }
+            const extra = rnd();
+            if (extra < 0.2) {
+                // Krone
+                const kx = px + 16, ky = py + 9;
+                c.fillStyle = '#9a5c12';
+                c.beginPath();
+                c.moveTo(kx - 6, ky + 3.6); c.lineTo(kx - 6.4, ky - 3); c.lineTo(kx - 3, ky); c.lineTo(kx, ky - 4.4);
+                c.lineTo(kx + 3, ky); c.lineTo(kx + 6.4, ky - 3); c.lineTo(kx + 6, ky + 3.6); c.closePath();
+                c.fill();
+                c.fillStyle = '#ffd24a';
+                c.beginPath();
+                c.moveTo(kx - 5.2, ky + 2.8); c.lineTo(kx - 5.5, ky - 1.8); c.lineTo(kx - 2.8, ky + 0.8); c.lineTo(kx, ky - 3.2);
+                c.lineTo(kx + 2.8, ky + 0.8); c.lineTo(kx + 5.5, ky - 1.8); c.lineTo(kx + 5.2, ky + 2.8); c.closePath();
+                c.fill();
+                c.fillStyle = '#e8323c';
+                c.beginPath(); this._dot(c, kx, ky + 1.3, 1.1); c.fill();
+            } else if (extra < 0.32) {
+                // Kelch
+                const kx = px + 18, ky = py + 8;
+                c.fillStyle = '#9a5c12';
+                c.fillRect(kx - 0.8, ky, 1.6, 5);
+                c.fillRect(kx - 3, ky + 4.6, 6, 1.4);
+                c.beginPath(); c.ellipse(kx, ky - 1, 4, 3.4, 0, 0, Math.PI); c.fill();
+                c.fillStyle = '#ffd24a';
+                c.beginPath(); c.ellipse(kx, ky - 1.2, 3.3, 2.7, 0, 0, Math.PI); c.fill();
+                c.fillStyle = '#b8761a';
+                c.beginPath(); c.ellipse(kx, ky - 1.2, 3.3, 1, 0, 0, W_TAU); c.fill();
+            }
         }
     },
 
@@ -2703,6 +3190,7 @@ const WorldPaint = {
     skull(w, c, P, x, y, seed) {
         if (P.sk === 'desk') { this._schoolDesk(w, c, P, x, y, seed); return; }
         if (P.sk === 'bloom') { this._flowerBed(w, c, P, x, y, seed); return; }
+        if (P.sk === 'nest') { this._eggNest(c, P, x * TILE_SIZE + 16, y * TILE_SIZE + 17, wRng(Math.floor(wHash(x, y, seed + 431) * 4294967295)), 1); return; }
         const T = TILE_SIZE, px = x * T, py = y * T;
         const r = wHash(x, y, seed + 401);
         c.fillStyle = wcA(P.shade, 0.3);
@@ -2801,6 +3289,69 @@ const WorldPaint = {
         c.fillRect(px + 11, py + 20.5, 11, 1.4);
         c.fillStyle = 'rgba(255,255,255,0.4)';
         c.fillRect(px + 11, py + 10, 8, 1.2);
+    },
+
+    // Gepunktetes Drachenei (Farben aus P.eggs), oben schmaler als unten; s = Größe
+    _egg(c, P, x, y, s, ci, rot) {
+        const [shell, spot] = P.eggs[ci % P.eggs.length];
+        const egg = (ox, oy, k) => {
+            c.beginPath();
+            c.ellipse(ox, oy, 4 * k, 6 * k, 0, Math.PI, W_TAU);
+            c.ellipse(ox, oy, 4 * k, 4.6 * k, 0, 0, Math.PI);
+            c.closePath();
+        };
+        c.save();
+        c.translate(x, y);
+        c.rotate(rot || 0);
+        c.fillStyle = wcDark(shell, 0.45);
+        egg(0.3, 0.4, s * 1.1);
+        c.fill();
+        c.fillStyle = shell;
+        egg(0, 0, s);
+        c.fill();
+        c.fillStyle = spot;
+        c.beginPath();
+        for (const [dx, dy, r] of [[-1.4, -1.8, 0.9], [1.6, -0.4, 1.1], [-0.8, 2, 0.8], [1.3, 2.6, 0.6], [0.3, -4, 0.6]]) this._dot(c, dx * s, dy * s, r * s);
+        c.fill();
+        c.fillStyle = 'rgba(255,255,255,0.6)';
+        c.beginPath();
+        c.ellipse(-1.5 * s, -2.6 * s, 0.9 * s, 1.7 * s, 0.3, 0, W_TAU);
+        c.fill();
+        c.restore();
+    },
+
+    // Nest aus Zweigen mit 1–3 gepunkteten Dracheneiern (Schädel-Kachel in Welt 24); s = Größe
+    _eggNest(c, P, cx, cy, rnd, s) {
+        const twigs = (ox, oy, rx, ry, a0, a1, n, cols) => {
+            for (const [col, lw, o] of cols) {
+                this._line(c, col, lw * s);
+                c.beginPath();
+                for (let k = 0; k < n; k++) {
+                    const a = a0 + (a1 - a0) * (k + wHash(k, n, 433) * 0.6) / n, a2 = a + 0.5, j = (wHash(n, k, 435) - 0.5) * 2;
+                    c.moveTo(ox + Math.cos(a) * (rx + j) * s + o, oy + Math.sin(a) * (ry + j * 0.6) * s + o);
+                    c.quadraticCurveTo(ox + Math.cos(a + 0.25) * (rx + 2) * s + o, oy + Math.sin(a + 0.25) * (ry + 1.5) * s + o,
+                        ox + Math.cos(a2) * (rx - j) * s + o, oy + Math.sin(a2) * (ry - j * 0.6) * s + o);
+                }
+                c.stroke();
+            }
+        };
+        c.fillStyle = wcA(P.shade, 0.45);
+        c.beginPath();
+        c.ellipse(cx + 1, cy + 5 * s, 14.5 * s, 5.5 * s, 0, 0, W_TAU);
+        c.fill();
+        c.fillStyle = '#5a3418';
+        c.beginPath();
+        c.ellipse(cx, cy + 2 * s, 13 * s, 8 * s, 0, 0, W_TAU);
+        c.fill();
+        twigs(cx, cy + 2 * s, 11, 6.6, Math.PI, W_TAU, 9, [['#3a200e', 2.2, 0.5], ['#a8703a', 1.2, 0]]);
+        c.fillStyle = '#34200e';
+        c.beginPath();
+        c.ellipse(cx, cy + 1.2 * s, 8.6 * s, 4.8 * s, 0, 0, W_TAU);
+        c.fill();
+        const n = 1 + Math.floor(rnd() * 3);
+        const pos = n === 1 ? [[0, -2.2]] : (n === 2 ? [[-3.6, -2], [3.4, -1.4]] : [[0, -3.6], [-4.4, -1.2], [4.2, -0.8]]);
+        for (let k = 0; k < n; k++) this._egg(c, P, cx + pos[k][0] * s, cy + pos[k][1] * s, s * 0.85, Math.floor(rnd() * 3), (rnd() - 0.5) * 0.5);
+        twigs(cx, cy + 1.6 * s, 10, 5.6, 0.1, Math.PI - 0.3, 8, [['#4a2a12', 2.6, 0.6], ['#8a5a2a', 1.8, 0], ['#c8904a', 0.9, -0.4]]);
     },
 
     // Schmetterlingwelt: begehbares Blumenbeet (manchmal mit rastendem Schmetterling)
@@ -2933,6 +3484,44 @@ const WorldPaint = {
             c.fillStyle = 'rgba(255,255,255,0.5)';
             c.beginPath();
             c.ellipse(cx - 3, cy - 3.6, 2.8, 1.3, -0.6, 0, W_TAU);
+            c.fill();
+        } else if (th === 'dragon') {
+            // Dampfschlot: Basaltring, darunter glüht Magma, weiße Dampfwölkchen
+            c.fillStyle = '#231d3c';
+            c.beginPath();
+            c.arc(cx, cy, 13.8, 0, W_TAU);
+            c.fill();
+            c.fillStyle = col;
+            c.beginPath();
+            for (let k = 0; k < 9; k++) {
+                const a = k * W_TAU / 9, r = 11.6 + (k & 1) * 0.8;
+                this._dot(c, cx + Math.cos(a) * 8.6, cy - 0.6 + Math.sin(a) * 8.6, 4.4 + (r - 11.6));
+            }
+            c.fill();
+            c.fillStyle = wcLight(col, 0.3);
+            c.beginPath();
+            for (let k = 0; k < 9; k++) {
+                const a = k * W_TAU / 9;
+                this._dot(c, cx + Math.cos(a) * 8.6 - 1, cy - 1.8 + Math.sin(a) * 8.6, 1.6);
+            }
+            c.fill();
+            c.fillStyle = '#1a0a10';
+            c.beginPath();
+            c.arc(cx, cy - 0.4, 6.6, 0, W_TAU);
+            c.fill();
+            c.fillStyle = '#e8501a';
+            c.beginPath();
+            c.arc(cx, cy, 5, 0, W_TAU);
+            c.fill();
+            c.fillStyle = '#ffc23a';
+            c.beginPath();
+            c.arc(cx + 0.4, cy + 0.6, 2.8, 0, W_TAU);
+            c.fill();
+            c.fillStyle = 'rgba(255,255,255,0.42)';
+            c.beginPath();
+            this._dot(c, cx - 3, cy - 6.5, 2.6);
+            this._dot(c, cx + 0.5, cy - 8, 2.2);
+            this._dot(c, cx + 3.5, cy - 6, 1.8);
             c.fill();
         } else {
             const rim = th === 'dojo' ? '#b22a2a' : col;
@@ -3537,6 +4126,50 @@ const WorldPaint = {
                 this._petalPass(c, bl, cols);
                 break;
             }
+            case 'basalt': {
+                // Basaltsäulen von oben: sechseckige Säulenköpfe mit dunklen Fugen, je Element-Zone leicht getönt
+                const R = 9, sx = R * 1.5, sy = R * Math.sqrt(3), tint = [null, '#c0503a', '#b0e0f4', '#a060e0'];
+                c.fillStyle = wcDark(col, 0.45);
+                c.fillRect(X, Y, W, H);
+                const groups = new Map(), hexes = [];
+                for (let gx = Math.floor((X - R) / sx); gx <= Math.ceil((X + W + R) / sx); gx++) {
+                    const oy = (gx & 1) ? sy / 2 : 0;
+                    for (let gy = Math.floor((Y - oy - R) / sy); gy <= Math.ceil((Y + H - oy + R) / sy); gy++) {
+                        const hx = gx * sx, hy = gy * sy + oy, v = wHash(gx, gy, seed + 881) - 0.5;
+                        const z = this._zone(w, Math.floor(hx / T), Math.floor(hy / T));
+                        let cc = v > 0 ? wcLight(col, v * 0.2) : wcDark(col, -v * 0.2);
+                        if (z) cc = wcMix(cc, tint[z], 0.2);
+                        let l = groups.get(cc);
+                        if (!l) groups.set(cc, l = []);
+                        l.push(hx, hy);
+                        hexes.push(hx, hy);
+                    }
+                }
+                const hex = (hx, hy, r) => {
+                    c.moveTo(hx + r, hy);
+                    for (let k = 1; k < 6; k++) c.lineTo(hx + Math.cos(k * Math.PI / 3) * r, hy + Math.sin(k * Math.PI / 3) * r);
+                    c.closePath();
+                };
+                for (const [cc, l] of groups) {
+                    c.fillStyle = cc;
+                    c.beginPath();
+                    for (let i = 0; i < l.length; i += 2) hex(l[i], l[i + 1], R - 1);
+                    c.fill();
+                }
+                // Lichtkante oben links, Schattenkante unten rechts
+                for (const [cc, s] of [[wcA(wcLight(col, 0.45), 0.5), -1], [wcA(wcDark(col, 0.5), 0.45), 1]]) {
+                    this._line(c, cc, 1);
+                    c.beginPath();
+                    for (let i = 0; i < hexes.length; i += 2) {
+                        const hx = hexes[i], hy = hexes[i + 1], r = R - 1.7;
+                        c.moveTo(hx + s * r, hy);
+                        c.lineTo(hx + s * r / 2, hy + s * r * 0.866);
+                        c.lineTo(hx - s * r / 2, hy + s * r * 0.866);
+                    }
+                    c.stroke();
+                }
+                break;
+            }
         }
     },
 
@@ -3866,6 +4499,75 @@ const WorldPaint = {
                 for (const q of fr) c.fillRect(q.px, q.py + T - F, T, 3);
                 break;
             }
+            case 'basalt': {
+                // Säulen von der Seite; je Zone glühende Risse (Feuer), Reif und Eiszapfen (Eis),
+                // Kristallspitzen (Kristall) oder eine Goldader (Gold)
+                const zq = [[], [], [], []];
+                for (const q of fr) {
+                    const top = q.py + T - F;
+                    for (let k = 0; k < 4; k++) {
+                        const v = wHash(q.x * 4 + k, q.y, seed + 891);
+                        c.fillStyle = v < 0.33 ? wcLight(col, 0.14) : (v < 0.66 ? wcLight(col, 0.04) : wcDark(col, 0.12));
+                        c.fillRect(q.px + k * 8 + 0.6, top, 6.8, F);
+                    }
+                    zq[this._zone(w, q.x, q.y)].push(q);
+                }
+                c.fillStyle = wcA(wcLight(col, 0.4), 0.3);
+                c.beginPath();
+                for (const q of fr) for (let k = 0; k < 4; k++) c.rect(q.px + k * 8 + 0.6, q.py + T - F, 1, F);
+                c.fill();
+                // Gold: Ader quer über die Säulen
+                this._line(c, wcA('#f0b83a', 0.85), 1.1);
+                c.beginPath();
+                for (const q of zq[0]) {
+                    if (wHash(q.x, q.y, seed + 693) > 0.5) continue;
+                    const y0 = q.py + T - F + 3 + wHash(q.y, q.x, seed + 695) * 4;
+                    c.moveTo(q.px + 0.5, y0); c.lineTo(q.px + 9, y0 + 1.5); c.lineTo(q.px + 17, y0 - 1); c.lineTo(q.px + 25, y0 + 1); c.lineTo(q.px + 31.5, y0);
+                }
+                c.stroke();
+                // Feuer: glühende Risse
+                this._line(c, '#ff8a2b', 1.4);
+                c.beginPath();
+                for (const q of zq[1]) {
+                    if (wHash(q.x, q.y, seed + 671) > 0.55) continue;
+                    const sx = q.px + 6 + wHash(q.y, q.x, seed + 673) * 18, top = q.py + T - F;
+                    c.moveTo(sx, top + 1); c.lineTo(sx + 2, top + 5); c.lineTo(sx - 1, top + 8); c.lineTo(sx + 1, top + F);
+                    this._glow(b, sx, top + 6, 10, '#ff7a2b', 0.4, true);
+                }
+                c.stroke();
+                // Eis: Reif an der Oberkante und Eiszapfen
+                c.fillStyle = 'rgba(226,246,255,0.55)';
+                for (const q of zq[2]) c.fillRect(q.px, q.py + T - F, T, 2.2);
+                for (const [cc, sh] of [['#e8f8ff', 0], ['rgba(110,180,235,0.5)', 1]]) {
+                    c.fillStyle = cc;
+                    c.beginPath();
+                    for (const q of zq[2]) {
+                        const top = q.py + T - F + 1.5;
+                        for (let k = 0; k < 4; k++) {
+                            if (wHash(q.x, q.y + k, seed + 661) > 0.72) continue;
+                            const ix = q.px + 3.5 + k * 7.5 + wHash(q.y, q.x + k, seed + 663) * 2.5, len = 3.5 + wHash(q.x + k, q.y, seed + 665) * 5;
+                            if (sh) { c.moveTo(ix, top); c.lineTo(ix + 1.8, top); c.lineTo(ix, top + len); }
+                            else { c.moveTo(ix - 1.8, top); c.lineTo(ix + 1.8, top); c.lineTo(ix, top + len); }
+                            c.closePath();
+                        }
+                    }
+                    c.fill();
+                }
+                // Kristall: Spitzen wachsen aus der Wand
+                for (const q of zq[3]) {
+                    if (wHash(q.x, q.y, seed + 675) > 0.6) continue;
+                    const sx = q.px + 7 + wHash(q.y, q.x, seed + 677) * 18, bot = q.py + T - 1.5;
+                    const cc = ['#c77dff', '#ff8ad8', '#6ff0ff'][Math.floor(wHash(q.x, q.y, seed + 679) * 3)];
+                    for (const [ox, hgt, wd] of [[-2.6, 7, 2.2], [1.2, 9, 2.6], [4.2, 5, 1.8]]) {
+                        c.fillStyle = wcDark(cc, 0.2);
+                        c.beginPath(); c.moveTo(sx + ox - wd, bot); c.lineTo(sx + ox, bot - hgt); c.lineTo(sx + ox + wd, bot); c.closePath(); c.fill();
+                        c.fillStyle = wcLight(cc, 0.45);
+                        c.beginPath(); c.moveTo(sx + ox - wd * 0.6, bot - 0.5); c.lineTo(sx + ox, bot - hgt); c.lineTo(sx + ox, bot - 0.5); c.closePath(); c.fill();
+                    }
+                    this._glow(b, sx + 1, bot - 5, 11, cc, 0.4, true);
+                }
+                break;
+            }
         }
     },
 
@@ -3950,6 +4652,67 @@ const WorldPaint = {
             this._schoolExtra(c, P, b, q, r, seed);
         } else if (P.ws === 'blooms') {
             this._bloomExtra(c, P, b, q, r, cx, cy, seed);
+        } else if (P.ws === 'basalt') {
+            this._basaltExtra(w, c, P, b, q, r, cx, q.py + clamp(cy - q.py, 10, q.h - 10), seed);
+        }
+    },
+
+    // Drachenberg: Aufsätze auf den Säulen je Element-Zone (bleiben innerhalb der eigenen Kachel)
+    _basaltExtra(w, c, P, b, q, r, cx, cy, seed) {
+        const z = this._zone(w, q.x, q.y);
+        if (z === 3 && r < 0.26) {
+            // Kristallgruppe in Violett, Rosa und Türkis, leuchtet im Dunkeln
+            const cols = ['#c77dff', '#ff8ad8', '#6ff0ff'], main = cols[Math.floor(r * 17) % 3];
+            c.fillStyle = 'rgba(10,6,24,0.35)';
+            c.beginPath(); c.ellipse(cx + 1, cy + 4, 8, 3, 0, 0, W_TAU); c.fill();
+            for (const [ox, hgt, wd, k] of [[-5, 9, 2.6, 1], [5, 8, 2.4, 2], [-1.5, 13, 3.2, 0], [2.5, 10, 2.8, 0]]) {
+                const cc = k ? cols[(Math.floor(r * 17) + k) % 3] : main;
+                c.fillStyle = wcDark(cc, 0.25);
+                c.beginPath(); c.moveTo(cx + ox - wd, cy + 4); c.lineTo(cx + ox, cy + 4 - hgt); c.lineTo(cx + ox + wd, cy + 4); c.closePath(); c.fill();
+                c.fillStyle = cc;
+                c.beginPath(); c.moveTo(cx + ox - wd * 0.2, cy + 4); c.lineTo(cx + ox, cy + 4 - hgt); c.lineTo(cx + ox + wd, cy + 4); c.closePath(); c.fill();
+                c.fillStyle = wcLight(cc, 0.55);
+                c.beginPath(); c.moveTo(cx + ox - wd * 0.7, cy + 3.5); c.lineTo(cx + ox, cy + 4 - hgt); c.lineTo(cx + ox - wd * 0.1, cy + 3.5); c.closePath(); c.fill();
+            }
+            // nur jede dritte Gruppe leuchtet auch durch die Dunkelheit (spart Leuchtpunkte pro Bild)
+            this._glow(b, cx, cy - 2, r < 0.09 ? 15 : 12, main, 0.42, true);
+        } else if (z === 2 && r < 0.22) {
+            // Reif auf den Säulenköpfen: flacher, bläulich-weißer Belag mit einer Eisblume
+            const s = 0.7 + wHash(q.y, q.x, seed + 721) * 0.35;
+            c.fillStyle = 'rgba(214,242,255,0.42)';
+            c.beginPath();
+            for (let k = 0; k < 3; k++) {
+                const ex = cx + (k - 1) * 4 * s, ey = cy + (k & 1 ? 2 : -1) * s, rx = (5 - (k & 1) * 1.2) * s;
+                c.moveTo(ex + rx, ey);
+                c.ellipse(ex, ey, rx, rx * 0.55, 0, 0, W_TAU);
+            }
+            c.fill();
+            this._line(c, 'rgba(246,252,255,0.8)', 0.8);
+            c.beginPath();
+            for (let k = 0; k < 3; k++) {
+                const a = k * Math.PI / 3 + r * 5;
+                c.moveTo(cx - Math.cos(a) * 3.6 * s, cy - Math.sin(a) * 3.6 * s);
+                c.lineTo(cx + Math.cos(a) * 3.6 * s, cy + Math.sin(a) * 3.6 * s);
+            }
+            c.stroke();
+        } else if (z === 1 && r < 0.13) {
+            // glühende Spalte zwischen den Säulen (Richtung je Kachel verschieden)
+            const a = wHash(q.y, q.x, seed + 719) * Math.PI, ux = Math.cos(a), uy = Math.sin(a) * 0.8;
+            this._line(c, '#3a1210', 3.4);
+            c.beginPath();
+            c.moveTo(cx - ux * 8, cy - uy * 8);
+            c.lineTo(cx - ux * 2.5 - uy * 2, cy - uy * 2.5 + ux * 2);
+            c.lineTo(cx + ux * 2.5 + uy * 2, cy + uy * 2.5 - ux * 2);
+            c.lineTo(cx + ux * 8, cy + uy * 8);
+            c.stroke();
+            this._line(c, '#ff8a2b', 1.6);
+            c.stroke();
+            this._line(c, '#ffe066', 0.6);
+            c.stroke();
+            this._glow(b, cx, cy, 12, '#ff7a2b', 0.4, true);
+        } else if (z === 0 && r < 0.22) {
+            // Goldmünzen, zwischen den Säulen eingeklemmt
+            this.decoItem(c, P, b, 'gold', cx, cy, wRng(q.x * 97 + q.y * 31));
         }
     },
 
@@ -4396,6 +5159,80 @@ const WorldPaint = {
                     c.fill();
                 }
                 this._glow(b, cx, cy, 16, glow, 0.22, false);
+                break;
+            }
+            case 'cave': {
+                if (this._zone(w, q.x, q.y) === 3 || wHash(q.x, q.y, seed + 831) < 0.25) {
+                    // Leuchtendes Kristallfenster: großer Kristall in einer dunklen Nische
+                    const cc = ['#c77dff', '#ff8ad8', '#6ff0ff'][Math.floor(wHash(q.y, q.x, seed + 833) * 3)];
+                    const hh = Math.min(8, q.h / 2 - 1.5), base = cy + hh * 0.8;
+                    c.fillStyle = ink;
+                    c.beginPath(); c.ellipse(cx, cy + 1, 9.5, hh + 1, 0, 0, W_TAU); c.fill();
+                    c.fillStyle = '#140a24';
+                    c.beginPath(); c.ellipse(cx, cy + 1, 8, hh, 0, 0, W_TAU); c.fill();
+                    for (const [ox, hgt, wd] of [[-3.5, hh * 1.3, 2.6], [3.4, hh * 1.1, 2.4], [0, hh * 1.75, 3.4]]) {
+                        c.fillStyle = wcDark(cc, 0.2);
+                        c.beginPath();
+                        c.moveTo(cx + ox - wd, base); c.lineTo(cx + ox - wd * 0.6, base - hgt * 0.8); c.lineTo(cx + ox, base - hgt);
+                        c.lineTo(cx + ox + wd * 0.6, base - hgt * 0.8); c.lineTo(cx + ox + wd, base); c.closePath();
+                        c.fill();
+                        c.fillStyle = wcLight(cc, 0.35);
+                        c.beginPath();
+                        c.moveTo(cx + ox - wd * 0.55, base); c.lineTo(cx + ox - wd * 0.35, base - hgt * 0.78); c.lineTo(cx + ox, base - hgt); c.lineTo(cx + ox, base); c.closePath();
+                        c.fill();
+                    }
+                    this._glow(b, cx, cy, 17, cc, 0.45, true);
+                    break;
+                }
+                // Höhlenöffnung: Abendhimmel mit Bergen, ganz weit weg fliegt ein kleiner Drache
+                const hh = Math.min(17, q.h - 4), ww = 19, x0 = cx - ww / 2, y0 = cy - hh / 2;
+                const hole = g => {
+                    c.beginPath();
+                    c.moveTo(x0 + 2 - g, y0 + hh + g);
+                    c.lineTo(x0 - g, y0 + hh * 0.5);
+                    c.quadraticCurveTo(x0 - g, y0 - g, x0 + ww * 0.45, y0 - g);
+                    c.quadraticCurveTo(x0 + ww + g, y0 - g * 0.5, x0 + ww + g, y0 + hh * 0.55);
+                    c.lineTo(x0 + ww - 1.5 + g, y0 + hh + g);
+                    c.closePath();
+                };
+                c.fillStyle = ink;
+                hole(1.4);
+                c.fill();
+                c.save();
+                hole(0);
+                c.clip();
+                ['#2c2466', '#5a3486', '#b0507e', '#ff9a64'].forEach((bc, k) => {
+                    c.fillStyle = bc;
+                    c.fillRect(x0 - 2, y0 - 2 + k * (hh + 4) / 4, ww + 4, (hh + 4) / 4 + 0.5);
+                });
+                c.fillStyle = '#ffffff';
+                c.fillRect(x0 + 4, y0 + 2.5, 0.9, 0.9);
+                c.fillRect(x0 + 15, y0 + 3.5, 0.8, 0.8);
+                this._line(c, '#2a1a3e', 0.8);
+                c.beginPath();
+                c.moveTo(x0 + 8.5, y0 + 5.5); c.quadraticCurveTo(x0 + 9.7, y0 + 4.4, x0 + 10.7, y0 + 5.6);
+                c.quadraticCurveTo(x0 + 11.7, y0 + 4.4, x0 + 12.9, y0 + 5.5);
+                c.stroke();
+                c.fillStyle = '#3a2350';
+                c.beginPath();
+                c.moveTo(x0 - 2, y0 + hh + 2); c.lineTo(x0 - 2, y0 + hh * 0.72); c.lineTo(x0 + 4, y0 + hh * 0.45); c.lineTo(x0 + 8, y0 + hh * 0.68);
+                c.lineTo(x0 + 13, y0 + hh * 0.35); c.lineTo(x0 + ww + 2, y0 + hh * 0.75); c.lineTo(x0 + ww + 2, y0 + hh + 2); c.closePath();
+                c.fill();
+                c.fillStyle = '#f2f4ff';
+                c.beginPath();
+                c.moveTo(x0 + 13, y0 + hh * 0.35); c.lineTo(x0 + 15.2, y0 + hh * 0.46); c.lineTo(x0 + 13.9, y0 + hh * 0.43);
+                c.lineTo(x0 + 12.8, y0 + hh * 0.49); c.lineTo(x0 + 11.2, y0 + hh * 0.47); c.closePath();
+                c.fill();
+                c.fillStyle = '#26183a';
+                c.beginPath();
+                c.moveTo(x0 - 2, y0 + hh + 2); c.lineTo(x0 - 2, y0 + hh * 0.86); c.lineTo(x0 + 6, y0 + hh * 0.78); c.lineTo(x0 + 11, y0 + hh * 0.9);
+                c.lineTo(x0 + ww + 2, y0 + hh * 0.8); c.lineTo(x0 + ww + 2, y0 + hh + 2); c.closePath();
+                c.fill();
+                c.restore();
+                this._line(c, wcA(wcLight(P.wall, 0.35), 0.7), 1);
+                hole(0.6);
+                c.stroke();
+                this._glow(b, cx, cy + 3, 16, glow, 0.3, true);
                 break;
             }
         }
@@ -4951,7 +5788,8 @@ function createScrapYardLevel() {
 
 // Freie Rechtecke (rw × rh, nur Boden) für Einrichtung suchen: nicht im Boss-Block, nicht in der Vorkammer,
 // nicht am Start; untereinander mit Abstand. Liefert bis zu count Positionen (links oben), zufällig gewählt.
-function findFloorRects(map, rw, rh, count, rnd, taken) {
+// accept(x, y) kann Kandidaten zusätzlich ausschließen (z. B. nur in einer Element-Zone).
+function findFloorRects(map, rw, rh, count, rnd, taken, accept) {
     const h = map.length, w = map[0].length;
     const door = findTile(map, TILE_BOSS_DOOR), spawn = findTile(map, TILE_SPAWN);
     const cands = [];
@@ -4962,7 +5800,7 @@ function findFloorRects(map, rw, rh, count, rnd, taken) {
             if (spawn && x <= spawn.x + 2 && x + rw - 1 >= spawn.x - 2 && y <= spawn.y + 2 && y + rh - 1 >= spawn.y - 2) continue;
             let ok = true;
             for (let yy = y; yy < y + rh && ok; yy++) for (let xx = x; xx < x + rw && ok; xx++) if (map[yy][xx] !== TILE_FLOOR) ok = false;
-            if (ok) cands.push([x, y]);
+            if (ok && (!accept || accept(x, y))) cands.push([x, y]);
         }
     }
     for (let i = cands.length - 1; i > 0; i--) {
@@ -5026,9 +5864,27 @@ function createButterflyLevel() {
     return map;
 }
 
-// Welt 24: Drachenberg (Gerüst, das Aussehen folgt im Thema `dragon`)
+// Welt 24: Drachenberg – Lavabecken in Feuer-Zonen, Goldhaufen in Schatz-Zonen, Eiernester, Dampfschlote
 function createDragonLevel() {
     const map = generateLevel(58, 50, 17, 2424);
+    const rnd = wRng(2424), taken = [];
+    const inZone = (z, rw, rh) => (x, y) => dragonZone(x + rw / 2, y + rh / 2) === z;
+    // Lavabecken (fest, nur wo sie nichts abschneiden)
+    for (const r of findFloorRects(map, 5, 4, 3, rnd, taken, inZone(1, 5, 4))) {
+        for (let dy = 1; dy < 3; dy++) for (let dx = 1; dx < 4; dx++) placeSolidSafely(map, r.x + dx, r.y + dy, TILE_WATER);
+    }
+    // Goldhaufen-Reihen (Busch-Kachel = Goldhaufen in diesem Thema)
+    for (const r of findFloorRects(map, 6, 3, 3, rnd, taken, inZone(0, 6, 3))) {
+        for (let dx = 1; dx < 5; dx++) placeOnFloor(map, r.x + dx, r.y + 1, TILE_BUSH);
+    }
+    // Eiernester in kleinen Gruppen (Schädel-Kachel = Nest in diesem Thema)
+    for (const r of findFloorRects(map, 4, 4, 5, rnd, taken)) {
+        for (const [dx, dy] of [[1, 1], [2, 1], [1, 2]]) placeOnFloor(map, r.x + dx, r.y + dy, TILE_SKULL);
+    }
+    // Dampfschlote in einer Reihe
+    for (const r of findFloorRects(map, 5, 3, 1, rnd, taken)) {
+        for (let dx = 1; dx < 4; dx++) placeOnFloor(map, r.x + dx, r.y + 1, TILE_JUMP_PAD);
+    }
     sprinkleSpecialTiles(map);
     return map;
 }

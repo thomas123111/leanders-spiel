@@ -294,6 +294,14 @@ const FX = {
                 { kind: 'flutter', colors: ['#ff8ad8', '#8ad8ff', '#ffd23f', '#c9a8ff'], n: 4 },
             ],
         },
+        // Drachenberg: die drei Elemente – aufsteigende Glut, ein paar Schneeflocken, Glitzer in Diamantfarben
+        dragon: {
+            color: '#ffa04a', kind: 'ember', n: 14,
+            mix: [
+                { kind: 'snow', color: '#e8f6ff', n: 7 },
+                { kind: 'twinkle', colors: ['#d7a8ff', '#8ff0ff', '#ffd6f0', '#ffe27a'], n: 8 },
+            ],
+        },
     },
 
     setAmbient(theme, w, h) {
