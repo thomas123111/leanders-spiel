@@ -260,7 +260,8 @@ button { font-family: inherit; color: inherit; border: 0; background: none; curs
 #rotate b { font-size: 24px; font-weight: 900; }
 #rotate span { font-size: 15px; font-weight: 700; color: var(--muted); }
 @keyframes rot { 0%, 25% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
-@media (orientation: portrait) and (pointer: coarse) {
+/* Nur auf Handys (schmal) zum Drehen auffordern – Tablets dürfen auch hochkant spielen */
+@media (orientation: portrait) and (pointer: coarse) and (max-width: 700px) {
     #rotate { display: flex; }
 }
 

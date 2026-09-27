@@ -170,7 +170,7 @@ const Game = {
         if (this.world && this.world.invalidateCache) this.world.invalidateCache();
         this._pausedFrameDrawn = false;
         // Handy hochkant gedreht (Dreh-Hinweis deckt das Spiel ab): mitten im Kampf pausieren
-        if (cssH > cssW && typeof Input !== 'undefined' && Input.isMobile &&
+        if (cssH > cssW && cssW <= 700 && typeof Input !== 'undefined' && Input.isMobile &&
             (this.state === 'PLAYING' || this.state === 'BOSS_INTRO') && !this.paused) {
             this.pause(true);
         }
