@@ -99,17 +99,28 @@ class Player {
         if (typeof Sound !== 'undefined' && Sound.powerUp) Sound.powerUp();
     }
 
-    // Nach dem Auto-Modus: steckt Mark in einer Wand oder außerhalb, auf die nächste freie Kachel setzen.
+    // Darf Mark auf dieser Kachel landen? Außerhalb des Bosskampfs nur vom Start aus erreichbare Kacheln
+    // außerhalb des Boss-Bereichs, im Bosskampf nur der Boss-Raum (sonst Einsperren ohne Schlüssel möglich).
+    _safeTile(world, x, y) {
+        if (isSolidTile(world.tiles[y][x])) return false;
+        if (typeof Game === 'undefined' || !Game._isBossRoomTile) return true;
+        const inBossRoom = Game._isBossRoomTile(x, y);
+        if (Game.bossActive && !Game.bossDefeated) return inBossRoom;
+        if (inBossRoom) return false;
+        return !Game._reach || !!Game._reach[y * world.width + x];
+    }
+
+    // Nach dem Auto-Modus: steckt Mark in einer Wand oder außerhalb, auf die nächste sichere Kachel setzen.
     _escapeWalls(world) {
-        const inside = world.collideRect({ x: this.x, y: this.y, w: this.w, h: this.h }).length > 0;
-        if (!inside) return;
         const sx = clamp(Math.floor((this.x + this.w / 2) / TILE_SIZE), 0, world.width - 1);
         const sy = clamp(Math.floor((this.y + this.h / 2) / TILE_SIZE), 0, world.height - 1);
+        const inside = world.collideRect({ x: this.x, y: this.y, w: this.w, h: this.h }).length > 0;
+        if (!inside && this._safeTile(world, sx, sy)) return;
         const seen = new Set([sy * world.width + sx]);
         const queue = [[sx, sy]];
         while (queue.length) {
             const [x, y] = queue.shift();
-            if (!isSolidTile(world.tiles[y][x])) {
+            if (this._safeTile(world, x, y)) {
                 this.x = x * TILE_SIZE + TILE_SIZE / 2 - this.w / 2;
                 this.y = y * TILE_SIZE + TILE_SIZE / 2 - this.h / 2;
                 return;
@@ -122,6 +133,20 @@ class Player {
                 queue.push([nx, ny]);
             }
         }
+    }
+
+    // Prüft das ganze Auto-Rechteck gegen den Boss-Bereich
+    _autoMayEnter(world, px, py) {
+        if (typeof Game === 'undefined' || !Game._isBossBlockTile) return true;
+        const fight = Game.bossActive && !Game.bossDefeated;
+        const x0 = Math.floor(px / TILE_SIZE), x1 = Math.floor((px + this.w - 0.01) / TILE_SIZE);
+        const y0 = Math.floor(py / TILE_SIZE), y1 = Math.floor((py + this.h - 0.01) / TILE_SIZE);
+        for (let ty = y0; ty <= y1; ty++) {
+            for (let tx = x0; tx <= x1; tx++) {
+                if (fight ? !Game._isBossRoomTile(tx, ty) : Game._isBossBlockTile(tx, ty)) return false;
+            }
+        }
+        return true;
     }
 
     addAutoCharge() {
@@ -222,16 +247,16 @@ class Player {
             return; // No other movement during dodge
         }
 
-        // Check for dodge input
+        // Ausweichen: in Laufrichtung, im Stand in Blickrichtung
         if (Input.dodgeTriggered && !this.dodging && this.dodgeCooldown <= 0) {
             const dir = Input.direction;
-            if (dir.x !== 0 || dir.y !== 0) {
-                this.dodging = true;
-                this.dodgeTimer = this.dodgeDuration;
-                this.dodgeDir = vecNormalize(dir);
-                this.iFrames = this.dodgeDuration + 0.1;
-                Sound.dodge();
-            }
+            const moving = dir.x !== 0 || dir.y !== 0;
+            this.dodging = true;
+            this.dodgeTimer = this.dodgeDuration;
+            this.dodgeDir = moving ? vecNormalize(dir) : { x: Math.cos(this.facingAngle), y: Math.sin(this.facingAngle) };
+            this.iFrames = Math.max(this.iFrames, this.dodgeDuration + 0.1);
+            Input.consumeDodge();
+            Sound.dodge();
         }
 
         // Movement
@@ -242,13 +267,16 @@ class Player {
         const dx = dir.x * this.speed * this.slowFactor * dt;
         const dy = dir.y * this.speed * this.slowFactor * dt;
         if (this.autoActive) {
-            // Auto: fährt durch Wände, aber nie aus der Karte hinaus und nicht in den/aus dem Boss-Raum
+            // Auto: fährt durch Wände, aber nie aus der Karte hinaus, nie in den Boss-Bereich (samt Wänden)
+            // und im Bosskampf nicht aus dem Boss-Raum heraus
             const nx = clamp(this.x + dx, TILE_SIZE, world.pixelWidth - TILE_SIZE - this.w);
             const ny = clamp(this.y + dy, TILE_SIZE, world.pixelHeight - TILE_SIZE - this.h);
-            const inBoss = (px, py) => typeof Game !== 'undefined' && Game._isBossRoomTile &&
-                Game._isBossRoomTile(Math.floor((px + this.w / 2) / TILE_SIZE), Math.floor((py + this.h / 2) / TILE_SIZE));
-            if (inBoss(nx, ny) === inBoss(this.x, this.y)) {
+            if (this._autoMayEnter(world, nx, ny)) {
                 this.x = nx;
+                this.y = ny;
+            } else if (this._autoMayEnter(world, nx, this.y)) {
+                this.x = nx;
+            } else if (this._autoMayEnter(world, this.x, ny)) {
                 this.y = ny;
             }
         } else {

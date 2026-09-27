@@ -132,6 +132,29 @@ function findTile(map, type) {
     return null;
 }
 
+// Anzahl der vom Start aus erreichbaren begehbaren Kacheln
+function countReachable(map) {
+    const s = findTile(map, TILE_SPAWN);
+    if (!s) return 0;
+    const seen = reachableTiles(map, s.x, s.y);
+    let n = 0;
+    for (let i = 0; i < seen.length; i++) n += seen[i];
+    return n;
+}
+
+// Feste Kachel (z. B. Wasser) nur setzen, wenn dadurch kein Bereich abgeschnitten wird:
+// die Zahl erreichbarer Kacheln darf nur um genau diese eine sinken.
+function placeSolidSafely(map, x, y, type) {
+    if (map[y][x] !== TILE_FLOOR) return false;
+    const before = countReachable(map);
+    map[y][x] = type;
+    if (countReachable(map) !== before - 1 || !bossDoorReachable(map)) {
+        map[y][x] = TILE_FLOOR;
+        return false;
+    }
+    return true;
+}
+
 // Ist das Feld vor der Boss-Tür vom Start aus erreichbar?
 function bossDoorReachable(map) {
     const s = findTile(map, TILE_SPAWN);
@@ -231,10 +254,12 @@ class World {
 
     collideRect(rect) {
         // Check all tiles the rect overlaps
+        // Gleiche Kantenregel wie rectOverlap: auch Überlappungen unter 1 Einheit zählen
+        // (sonst „rutschten“ Figuren nach rechts/unten in Wände und sprangen dann zurück).
         const left = Math.floor(rect.x / TILE_SIZE);
         const top = Math.floor(rect.y / TILE_SIZE);
-        const right = Math.floor((rect.x + rect.w - 1) / TILE_SIZE);
-        const bottom = Math.floor((rect.y + rect.h - 1) / TILE_SIZE);
+        const right = Math.ceil((rect.x + rect.w) / TILE_SIZE) - 1;
+        const bottom = Math.ceil((rect.y + rect.h) / TILE_SIZE) - 1;
 
         const collisions = [];
         for (let ty = top; ty <= bottom; ty++) {
@@ -964,11 +989,11 @@ function sprinkleSpecialTiles(map) {
             // Vorkammer der Boss-Tür frei lassen
             if (door && Math.abs(x - door.x) <= 4 && y >= door.y - 6 && y < door.y) continue;
             if (map[y][x] !== TILE_FLOOR) continue;
-            map[y][x] = type;
-            // Feste Kacheln (Wasser) dürfen keinen Weg abschneiden
-            if (isSolidTile(type) && !bossDoorReachable(map)) {
-                map[y][x] = TILE_FLOOR;
-                continue;
+            // Feste Kacheln (Wasser) dürfen keinen Weg und keine Bodenfläche abschneiden
+            if (isSolidTile(type)) {
+                if (!placeSolidSafely(map, x, y, type)) continue;
+            } else {
+                map[y][x] = type;
             }
             placed++;
         }
@@ -1015,31 +1040,37 @@ function createDinoLevel() {
     return map;
 }
 
+// Begehbare Sonderkacheln nur auf Boden setzen (sonst würden Wände zu Durchgängen)
+function placeOnFloor(map, x, y, type) {
+    if (map[y] && map[y][x] === TILE_FLOOR) map[y][x] = type;
+}
+
 function createChronoLevel() {
     const map = generateLevel(56, 48, 16, 1818);
     sprinkleSpecialTiles(map);
-    for (let x = 6; x < 12; x++) map[9][x] = TILE_JUMP_PAD;
+    for (let x = 6; x < 12; x++) placeOnFloor(map, x, 9, TILE_JUMP_PAD);
     return map;
 }
 
 function createShadowSwampLevel() {
     const map = generateLevel(56, 48, 16, 1919);
+    // Feste Wasserlinie zuerst und nur dort, wo sie nichts abschneidet
+    for (let y = 7; y < 11; y++) placeSolidSafely(map, 14, y, TILE_WATER);
     sprinkleSpecialTiles(map);
-    for (let y = 7; y < 11; y++) map[y][14] = TILE_WATER;
     return map;
 }
 
 function createFootballArenaLevel() {
     const map = generateLevel(58, 46, 15, 2020);
     sprinkleSpecialTiles(map);
-    for (let x = 8; x < 16; x++) map[12][x] = TILE_JUMP_PAD;
+    for (let x = 8; x < 16; x++) placeOnFloor(map, x, 12, TILE_JUMP_PAD);
     return map;
 }
 
 function createScrapYardLevel() {
     const map = generateLevel(56, 48, 16, 2121);
     sprinkleSpecialTiles(map);
-    for (let x = 7; x < 13; x++) map[11][x] = TILE_SKULL;
+    for (let x = 7; x < 13; x++) placeOnFloor(map, x, 11, TILE_SKULL);
     return map;
 }
 

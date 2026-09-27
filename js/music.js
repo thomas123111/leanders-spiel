@@ -33,14 +33,28 @@ const Music = {
     _ensure() {
         if (this.gain || !Sound.ctx) return !!this.gain;
         this.gain = Sound.ctx.createGain();
-        this.gain.gain.value = this.enabled ? this.volume : 0;
+        this.gain.gain.value = this._level();
         this.gain.connect(Sound.comp || Sound.ctx.destination);
         return true;
     },
 
+    _ducked: false,
+
+    _level() {
+        return this.enabled ? this.volume * (this._ducked ? 0.35 : 1) : 0;
+    },
+
     setEnabled(on) {
         this.enabled = !!on;
-        if (this.gain) this.gain.gain.setTargetAtTime(this.enabled ? this.volume : 0, Sound.ctx.currentTime, 0.1);
+        if (this.gain) this.gain.gain.setTargetAtTime(this._level(), Sound.ctx.currentTime, 0.1);
+        // Beim Wiedereinschalten sauber neu ansetzen
+        if (this.enabled && Sound.ctx) this._next = Sound.ctx.currentTime + 0.1;
+    },
+
+    // In der Pause leiser
+    duck(on) {
+        this._ducked = !!on;
+        if (this.gain) this.gain.gain.setTargetAtTime(this._level(), Sound.ctx.currentTime, 0.15);
     },
 
     // Stimmung starten (gleiche Stimmung läuft einfach weiter)
@@ -69,7 +83,8 @@ const Music = {
 
     _tick() {
         const ctx = Sound.ctx;
-        if (!ctx || !this._song || ctx.state !== 'running') return;
+        // Ausgeschaltet oder angehalten: gar nichts erzeugen (spart Akku)
+        if (!ctx || !this._song || !this.enabled || ctx.state !== 'running') return;
         const stepDur = 60 / this._song.bpm / 2; // Achtel
         if (this._next < ctx.currentTime - 0.3) this._next = ctx.currentTime + 0.05; // nach Pause neu ansetzen
         while (this._next < ctx.currentTime + 0.25) {

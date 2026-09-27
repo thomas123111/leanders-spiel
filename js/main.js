@@ -98,14 +98,24 @@ const Game = {
         this.ctx = this.canvas.getContext('2d', { alpha: false });
         this.loadSettings();
         this.resize();
-        window.addEventListener('resize', () => this.resize());
-        window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 250));
-        if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.resize());
-        document.addEventListener('fullscreenchange', () => this.resize());
-        document.addEventListener('webkitfullscreenchange', () => this.resize());
+        this._lastDpr = window.devicePixelRatio;
+        // Größenänderungen sammeln und einmal pro Bild anwenden (Drehen/Vollbild feuern mehrere Ereignisse)
+        const later = () => {
+            if (this._resizeQueued) return;
+            this._resizeQueued = true;
+            requestAnimationFrame(() => { this._resizeQueued = false; this.resize(); });
+            setTimeout(() => { if (this._resizeQueued) { this._resizeQueued = false; this.resize(); } }, 300);
+        };
+        window.addEventListener('resize', later);
+        window.addEventListener('orientationchange', () => setTimeout(later, 250));
+        if (window.visualViewport) window.visualViewport.addEventListener('resize', later);
+        document.addEventListener('fullscreenchange', later);
+        document.addEventListener('webkitfullscreenchange', later);
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) this.onHidden();
+            else Sound.resume();
         });
+        window.addEventListener('pagehide', () => this.onHidden());
 
         Sound.init();
         this.applySettings();
@@ -124,9 +134,13 @@ const Game = {
     setState(state) {
         const prev = this.state;
         this.state = state;
+        this._stateSince = performance.now();
         if (state !== 'PLAYING' && state !== 'BOSS_INTRO') this.paused = false;
-        // Gehaltene Finger aus dem vorigen Bildschirm nicht in den nächsten mitnehmen
-        if (!(prev === 'BOSS_INTRO' && state === 'PLAYING')) Input.releaseAll();
+        // Gehaltene Finger aus dem vorigen Bildschirm nicht in den nächsten mitnehmen –
+        // zwischen Spielen und Boss-Einblendung bleiben die Sticks aber in der Hand
+        const fightSwitch = (prev === 'BOSS_INTRO' && state === 'PLAYING') || (prev === 'PLAYING' && state === 'BOSS_INTRO');
+        if (fightSwitch) Input.releaseActions();
+        else Input.releaseAll();
         this._updateMusic(state);
         UI.onState(state);
     },
@@ -143,8 +157,11 @@ const Game = {
         this.cssH = cssH;
         this.canvas.style.width = cssW + 'px';
         this.canvas.style.height = cssH + 'px';
-        this.canvas.width = Math.max(1, Math.round(cssW * dpr));
-        this.canvas.height = Math.max(1, Math.round(cssH * dpr));
+        const bw = Math.max(1, Math.round(cssW * dpr));
+        const bh = Math.max(1, Math.round(cssH * dpr));
+        // Nur bei echter Größenänderung neu anlegen (jedes Setzen leert und belegt die Fläche neu)
+        if (this.canvas.width !== bw) this.canvas.width = bw;
+        if (this.canvas.height !== bh) this.canvas.height = bh;
 
         // Kurze Bildschirmseite zeigt ~330–470 Welt-Einheiten (Handy quer: ~360 → Figuren schön groß).
         const shortSide = Math.min(cssW, cssH);
@@ -190,19 +207,25 @@ const Game = {
         return { t: px(cs.paddingTop), r: px(cs.paddingRight), b: px(cs.paddingBottom), l: px(cs.paddingLeft) };
     },
 
-    // Bildrate beobachten und Auflösung bei Bedarf senken/heben (schwache Handys).
-    _trackPerformance(frameMs) {
+    // Auflösung bei Bedarf senken/heben (schwache Handys). Gesenkt wird nur, wenn das Spiel selbst
+    // viel Zeit braucht – ein 30-Hz-Stromsparmodus allein ist kein Grund, unscharf zu werden.
+    _workTimes: [],
+    _trackPerformance(frameMs, workMs) {
         const ft = this._frameTimes;
+        const wt = this._workTimes;
         ft.push(frameMs);
+        wt.push(workMs);
         if (ft.length > 90) ft.shift();
+        if (wt.length > 90) wt.shift();
         this._qualityTimer += frameMs / 1000;
         if (this._qualityTimer < 3 || ft.length < 60 || this.state !== 'PLAYING' || this.paused) return;
         this._qualityTimer = 0;
-        const sorted = ft.slice().sort((a, b) => a - b);
-        const median = sorted[Math.floor(sorted.length / 2)];
+        const med = arr => arr.slice().sort((a, b) => a - b)[Math.floor(arr.length / 2)];
+        const frame = med(ft);
+        const work = med(wt);
         let q = this.quality;
-        if (median > 24 && q > 0.55) q = Math.max(0.55, q - 0.15);
-        else if (median < 15 && q < 1) q = Math.min(1, q + 0.1);
+        if (frame > 24 && work > frame * 0.45 && q > 0.7) q = Math.max(0.7, q - 0.15);
+        else if ((frame < 18 || work < frame * 0.25) && q < 1) q = Math.min(1, q + 0.1);
         if (q !== this.quality) {
             this.quality = q;
             this.resize();
@@ -234,10 +257,12 @@ const Game = {
         if (Input.isMobile && !standalone) this.enterFullscreen();
     },
 
+    // App im Hintergrund / Bildschirm aus: pausieren, speichern, Ton anhalten
     onHidden() {
         if (this.state === 'PLAYING' || this.state === 'BOSS_INTRO') this.pause(true);
         this.save();
         Input.releaseAll();
+        Sound.suspend();
     },
 
     pause(on) {
@@ -247,6 +272,7 @@ const Game = {
         }
         this.paused = !!on;
         Input.releaseAll();
+        Music.duck(this.paused);
         UI.showPause(this.paused);
     },
 
@@ -299,6 +325,8 @@ const Game = {
         }
         this.activeMode = null;
         this.paused = false;
+        this._resultDelay = 0;
+        this._resultState = null;
         this.setState('TITLE');
         this.save();
     },
@@ -329,6 +357,7 @@ const Game = {
                 petrify: this.unlockedPetrifyStone,
                 star: this.shopRandomStarActive ? {
                     tier: this.shopRandomStarTier, tries: this.shopRandomStarAttempts, done: this.shopRandomStarFinished,
+                    earned: !!this.shopRandomStarWithStar,
                 } : null,
             }));
         } catch (e) { /* Speichern nicht möglich (privater Modus) */ }
@@ -343,12 +372,13 @@ const Game = {
                     ? data.maxWorld
                     : (typeof data.world === 'number' ? data.world : 1);
                 this.maxWorldUnlocked = clamp(maxWorld, 1, LAST_WORLD);
-                this.coins = Math.max(0, data.coins | 0);
-                this.jewels = Math.max(0, data.jewels | 0);
+                const num = v => (Number.isFinite(+v) ? Math.max(0, Math.floor(+v)) : 0);
+                this.coins = num(data.coins);
+                this.jewels = num(data.jewels);
                 this.trainingCompleted = !!data.trainingDone;
                 this.dailyRewardClaimDate = data.dailyRewardClaimDate || '';
                 this.freeStarTier = data.freeStarTier || null;
-                this.boseStarUses = Math.max(0, data.boseStarUses | 0);
+                this.boseStarUses = num(data.boseStarUses);
                 this.worldRewardClaims = data.worldRewards || {};
                 this.rewardValues = data.rewardValues || {};
                 this.unlockedRanged = !!data.ranged;
@@ -367,6 +397,7 @@ const Game = {
                     this.shopRandomStarAttempts = clamp(data.star.tries | 0, 0, 5);
                     this.shopRandomStarFinished = !!data.star.done;
                     this.shopRandomStarRevealReady = !!data.star.done;
+                    this.shopRandomStarWithStar = !!data.star.earned;
                 }
             }
         } catch (e) { /* kaputter Speicherstand: neu beginnen */ }
@@ -509,8 +540,14 @@ const Game = {
     startBadStar() {
         // Angefangener (schon bezahlter) Stern läuft weiter, statt verloren zu gehen
         if (this.shopRandomStarActive) return true;
-        if ((this.boseStarUses || 0) > 0) this.boseStarUses--;
-        else if (!this._spendCoins(BAD_STAR_PRICE)) return false;
+        if ((this.boseStarUses || 0) > 0) {
+            this.boseStarUses--;
+            this.shopRandomStarWithStar = true;
+        } else if (this._spendCoins(BAD_STAR_PRICE)) {
+            this.shopRandomStarWithStar = false;
+        } else {
+            return false;
+        }
         this.shopRandomStarActive = true;
         this.shopRandomStarTier = 0;
         this.shopRandomStarAttempts = 5;
@@ -535,23 +572,34 @@ const Game = {
 
     openBadStar() {
         const tier = Math.min(this.shopRandomStarTier || 0, 3);
+        // Mit Münzen gekaufte Sterne zahlen weniger aus als verdiente – sonst wäre der Stern eine
+        // Gelddruckmaschine (Stufe 3 kommt in fast jeder zweiten Runde).
+        const earned = !!this.shopRandomStarWithStar;
         let text;
+        const upgrade = (flag, name) => {
+            if (this[flag]) {
+                const bonus = earned ? 150 : 20;
+                this._grantCoins(bonus);
+                return name + ' hast du schon: +' + bonus + ' Münzen';
+            }
+            this[flag] = true;
+            return name + '!';
+        };
         if (tier >= 3) {
-            this._grantCoins(1000);
+            // Erwartungswert bei Münz-Kauf: 0,458 × 180 + 0,542 × 20 ≈ 93 < 100 Einsatz
+            const coins = earned ? 1000 : 180;
+            this._grantCoins(coins);
             this.unlockedTripleShot = true;
             this.unlockedShadowCaster = true;
             this.unlockedGamerPistol = true;
             this.unlockedFruitUpgrades = true;
-            text = 'ULTRA! 1000 Münzen + alle Werfer-Upgrades! 🔥';
+            text = `ULTRA! ${coins} Münzen + alle Werfer-Upgrades! 🔥`;
         } else if (tier === 2) {
-            this.unlockedGamerPistol = true;
-            text = 'Mega Scharf: Gamer-Pistole! 🟠';
+            text = 'Mega Scharf: ' + upgrade('unlockedGamerPistol', 'Gamer-Pistole') + ' 🟠';
         } else if (tier === 1) {
-            this.unlockedShadowCaster = true;
-            text = 'Super Scharf: Schatten-Werfer! 🟡';
+            text = 'Super Scharf: ' + upgrade('unlockedShadowCaster', 'Schatten-Werfer') + ' 🟡';
         } else {
-            this.unlockedTripleShot = true;
-            text = 'Scharf: Schnell-Wurf! 🟢';
+            text = 'Scharf: ' + upgrade('unlockedTripleShot', 'Schnell-Wurf') + ' 🟢';
         }
         this.shopRandomStarActive = false;
         this.shopRandomStarFinished = false;
@@ -614,6 +662,7 @@ const Game = {
         this.levelTime = 0;
         this.lastReward = null;
         this.lastUnlockText = '';
+        this.lastHowTo = '';
         this._trainingDoneShown = false;
 
         // Welt laden
@@ -623,6 +672,11 @@ const Game = {
         this.world.load(LEVELS[worldNum]);
 
         this.player = new Player(this.world.spawnPoint.x, this.world.spawnPoint.y);
+        // Vom Start aus erreichbare Kacheln (für sichere Landeplätze, z. B. nach dem Auto)
+        this._reach = reachableTiles(this.world.tiles,
+            Math.floor(this.world.spawnPoint.x / TILE_SIZE), Math.floor(this.world.spawnPoint.y / TILE_SIZE));
+        this._resultDelay = 0;
+        this._resultState = null;
 
         // Begleiter
         if (worldNum >= 7) {
@@ -734,6 +788,13 @@ const Game = {
             ty <= this.world.height - 3;
     },
 
+    // Boss-Bereich samt Wandring (Kachelkoordinaten)
+    _isBossBlockTile(tx, ty) {
+        if (!this.world) return false;
+        return tx >= this.world.width - 14 && tx <= this.world.width - 2 &&
+            ty >= this.world.height - 12 && ty <= this.world.height - 2;
+    },
+
     // Innenraum des Boss-Raums in Welt-Einheiten
     _bossRoomRect() {
         const w = this.world.width;
@@ -789,7 +850,10 @@ const Game = {
             case 15: add(StoneSamurai, 16); this.enemies.push(this._spawnAt(KeyGhost, 300)); chests(7); break;
             case 16:
                 add(AppleNinja, 10); add(KiwiNinja, 8); this.enemies.push(this._spawnAt(KeyGhost, 300)); chests(7);
-                for (let i = 0; i < 6; i++) this.props.push(new SkullProp(this.player.x + 100 + i * 22, this.player.y + 60 + (i % 2) * 18));
+                for (let i = 0; i < 6; i++) {
+                    const p = this._getSpawnPos(80);
+                    this.props.push(new SkullProp(p.x - 8, p.y - 8));
+                }
                 break;
             case 17: add(MiniTRex, 16); add(Triceratops, 6); this.enemies.push(this._spawnAt(KeyGhost, 300)); chests(8); break;
             case 18: add(TimeClock, 14); keyCarrier(TimeClock); chests(6); break;
@@ -827,9 +891,7 @@ const Game = {
     _onBossDefeated() {
         this.bossDefeated = true;
         Music.stop();
-        Sound.bossDeath();
-        this.camera.shake(8, 0.5);
-        this.vibrate(400);
+        // Boss-Ton, Vibration und Wackeln kamen schon zu Beginn des Stillstands
 
         this.maxWorldUnlocked = Math.min(LAST_WORLD, Math.max(this.maxWorldUnlocked, this.currentWorld + 1));
         Sound.worldClear();
@@ -854,10 +916,15 @@ const Game = {
         };
         const u = unlocks[this.currentWorld];
         this.lastUnlockText = '';
+        this.lastHowTo = '';
         if (u) {
-            if (!this[u[0]]) this.lastUnlockText = u[1];
+            if (!this[u[0]]) {
+                this.lastUnlockText = u[1];
+                this.lastHowTo = this._howTo(this.currentWorld);
+            }
             this[u[0]] = true;
         }
+        if (reward && (reward.star || reward.starPack)) this.lastHowTo = 'Löse Böse Sterne im Shop ein – sie zahlen besonders viel aus!';
         if (!this.lastUnlockText && reward) {
             if (reward.star || reward.starPack) this.lastUnlockText = UI._rewardText(reward) + ' 😈';
             else if (this.currentWorld === 6) this.lastUnlockText = 'Juri hilft dir bald! 🧒';
@@ -871,16 +938,42 @@ const Game = {
         this._resultState = this.currentWorld >= LAST_WORLD ? 'WIN' : 'WORLD_CLEAR';
     },
 
+    // Kurze Erklärung zur neuen Fähigkeit, passend zum Eingabegerät
+    _howTo(world) {
+        const touch = Input.lastInput === 'touch' || Input.isMobile;
+        const t = {
+            2: touch ? 'Rechts ziehen = zielen und werfen. Mit der Waffen-Taste oben rechts wechselst du zum Schläger.'
+                : 'Maus zielt, Klick wirft. Mit Q wechselst du zum Schläger.',
+            3: (touch ? 'Tipp auf die 🚗-Taste' : 'Drück E') + ': 15 Sekunden durch Wände fahren und unverwundbar sein. Danach lädt es sich mit 5 besiegten Gegnern wieder auf.',
+            4: 'Jede Welt startest du jetzt mit 15 Sekunden Schutzschild.',
+            9: 'Dein Werfer macht jetzt mehr Schaden.',
+            10: 'Deine Treffer lassen Orangen explodieren, Juri und das Krokodil kämpfen mit Obst.',
+            11: 'Noch mehr Schaden mit Pixel-Strahlen!',
+            13: 'Dein Schläger haut jetzt kräftiger zu.',
+            14: 'Eine kleine Schlange auf deiner Schulter spuckt Gift auf Gegner.',
+            15: 'Deine Würfe versteinern Gegner manchmal für einen Moment.',
+        };
+        return t[world] || '';
+    },
+
     _advanceToNextWorld() {
-        if (this.currentWorld < LAST_WORLD) this.startWorld(this.currentWorld + 1);
-        else this.returnToTitle();
+        const next = this.currentWorld + 1;
+        if (next <= LAST_WORLD && next <= Math.max(1, this.maxWorldUnlocked)) this.startWorld(next);
+        else this.openWorldSelect();
     },
 
     // ── Spielschleife ──
     gameLoop(timestamp) {
         const rawMs = timestamp - this.lastTime;
         this.lastTime = timestamp;
+        // Bildschirm mit anderer Pixeldichte (z. B. Fenster auf anderen Monitor gezogen)
+        if (window.devicePixelRatio !== this._lastDpr) {
+            this._lastDpr = window.devicePixelRatio;
+            this.resize();
+        }
+        const t0 = performance.now();
         this._frame(rawMs);
+        if (rawMs > 0 && rawMs < 250) this._trackPerformance(rawMs, performance.now() - t0);
         requestAnimationFrame(t => this.gameLoop(t));
     },
 
@@ -897,7 +990,6 @@ const Game = {
 
     _frame(rawMs) {
         let dt = this.paused ? 0 : Math.min(rawMs / 1000, 0.05);
-        if (rawMs > 0 && rawMs < 250) this._trackPerformance(rawMs);
         if (this.hitstopTimer > 0 && dt > 0) {
             this.hitstopTimer -= dt;
             dt *= 0.12;
@@ -962,13 +1054,15 @@ const Game = {
             Input.postUpdate();
             return;
         }
+        // Ergebnis-Bildschirme: erst nach einer halben Sekunde auf Tasten reagieren
+        const settled = performance.now() - (this._stateSince || 0) > 500;
         if (this.state === 'GAME_OVER') {
-            if (Input.keyPressed('Enter')) this.startWorld(this.currentWorld);
+            if (settled && Input.keyPressed('Enter')) this.startWorld(this.currentWorld);
             Input.postUpdate();
             return;
         }
         if (this.state === 'WORLD_CLEAR' || this.state === 'WIN') {
-            if (Input.keyPressed('Enter')) this._advanceToNextWorld();
+            if (settled && Input.keyPressed('Enter')) this._advanceToNextWorld();
             this._updateAmbientOnly(dt);
             Input.postUpdate();
             return;

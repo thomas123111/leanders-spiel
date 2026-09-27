@@ -51,8 +51,11 @@ const HUD = {
     },
 
     hitTest(x, y) {
-        if (Game.state !== 'PLAYING' || Game.paused) return null;
-        for (const id of ['pause', 'ability', 'swap', 'dodge']) {
+        if (Game.paused) return null;
+        // In der Boss-Einblendung geht nur die Pause
+        const ids = Game.state === 'PLAYING' ? ['pause', 'ability', 'swap', 'dodge']
+            : (Game.state === 'BOSS_INTRO' ? ['pause'] : []);
+        for (const id of ids) {
             const b = this.controls[id];
             if (b && b.show && Math.hypot(x - b.x, y - b.y) <= b.r + 8) return id;
         }
@@ -135,14 +138,19 @@ const HUD = {
         Art.text(ctx, String(jewels), 39 + cw, y + 11.5, { size: 13, align: 'left', color: '#aef0ff', lineWidth: 3 });
     },
 
-    // Kleine Zustandsanzeigen: Kraft, Tempo, Krone, Auto, Schlüssel
+    // Kleine Zustandsanzeigen: Kraft, Tempo, Krone, Auto, Schlüssel (brechen um, statt in die Mitte zu laufen)
     _drawStatus(ctx, p, game) {
         let x = 12;
-        const y = 76;
+        let y = 76;
+        const maxX = Math.min(Game.hudW * 0.36, 260);
         const chip = (icon, color, text, frac) => {
             ctx.font = Art.font(11);
             const tw = ctx.measureText(text).width;
             const w = tw + 30;
+            if (x > 12 && x + w > maxX) {
+                x = 12;
+                y += 24;
+            }
             this._pill(ctx, x, y, w, 20);
             if (frac !== undefined) {
                 ctx.strokeStyle = color;
@@ -160,6 +168,11 @@ const HUD = {
         if (p.hasPowerUp && p.hasPowerUp('speed')) chip('»', '#74c7ff', 'Tempo ' + Math.ceil(p.powerUps.speed.timer), p.powerUps.speed.timer / 10);
         if (p.crownShieldTimer > 0) chip('♛', '#ffd23f', 'Schild ' + Math.ceil(p.crownShieldTimer), p.crownShieldTimer / (p.crownShieldDuration || 15));
         if (p.autoActive) chip('🚗', '#5ff2ff', 'Auto ' + Math.ceil(p.autoTimer), p.autoTimer / (p.autoDuration || 15));
+        else if (p.hasAuto && !this.controls.ability.show) {
+            // Am PC gibt es keine Auto-Taste: Ladestand als Anzeige
+            if (p.autoReady) chip('🚗', '#5ff2ff', 'Auto bereit (E)', undefined);
+            else chip('🚗', '#8fa0b8', 'Auto ' + p.autoCharges + '/' + p.autoChargesNeeded, p.autoCharges / (p.autoChargesNeeded || 5));
+        }
         if (p.slowTimer > 0) chip('❄', '#bfe8ff', 'Langsam', undefined);
         if (game.hasKey && !game.bossActive) chip('🔑', '#ffd23f', 'Schlüssel!', undefined);
     },
@@ -229,13 +242,14 @@ const HUD = {
             ax = ph.x + Math.cos(a) * 58;
             ay = ph.y + Math.sin(a) * 58;
         } else {
-            const m = 34;
+            // Am Rand, aber nicht über Sticks und Tasten (unten) oder Herzen/Pause (oben)
+            const left = 40, right = w - 70, top = 110, bottom = h - 120;
             const tx = Math.cos(a), ty = Math.sin(a);
-            const sx = tx > 0 ? (w - m - ph.x) / tx : (m - ph.x) / tx;
-            const sy = ty > 0 ? (h - m - ph.y) / ty : (m - 70 - ph.y + 70) / ty;
-            const s = Math.min(Math.abs(sx), Math.abs(sy));
-            ax = clamp(ph.x + tx * s, m, w - m);
-            ay = clamp(ph.y + ty * s, m + 60, h - m);
+            const sx = tx > 0 ? (right - ph.x) / tx : (left - ph.x) / tx;
+            const sy = ty > 0 ? (bottom - ph.y) / ty : (top - ph.y) / ty;
+            const s = Math.max(0, Math.min(Math.abs(sx), Math.abs(sy)));
+            ax = clamp(ph.x + tx * s, left, right);
+            ay = clamp(ph.y + ty * s, top, bottom);
         }
         const bob = Math.sin(Art.time * 6) * 3;
         ctx.save();
@@ -279,7 +293,8 @@ const HUD = {
         const a = Math.min(1, t.time / 0.4, (t.max - t.time) / 0.2);
         ctx.save();
         ctx.globalAlpha = clamp(a, 0, 1);
-        const y = 118;
+        // Mittig im oberen Drittel, unter der Boss-Leiste und rechts neben den Anzeigen links
+        const y = Math.max(96, h * 0.3);
         ctx.font = Art.font(15);
         const tw = ctx.measureText(t.text).width + 36;
         ctx.fillStyle = 'rgba(18,8,38,0.72)';

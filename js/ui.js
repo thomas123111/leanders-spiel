@@ -185,7 +185,9 @@ const UI = {
                     <div class="head"><span class="ico">🎁</span><div><h3>Tagesbelohnung</h3>
                     <p>${dailyDone ? 'Heute schon geholt. Nochmal geht für 5000 Münzen.' : 'Einmal am Tag gratis: Münzen, Upgrade oder ein freier Stern!'}</p></div></div>
                     ${g.freeStarTier ? `<p>Freier Stern wartet: <b>${(STAR_TIERS.find(t => t.id === g.freeStarTier) || {}).label || g.freeStarTier}</b></p>` : ''}
-                    <div class="foot"><button class="btn small ${dailyDone ? '' : 'green pulse'}" data-act="daily" ${dailyDone && g.coins < 5000 ? 'disabled' : ''}>${dailyDone ? '🪙 5000' : 'GRATIS holen'}</button></div>
+                    <div class="foot">${dailyDone
+                        ? `<span class="owned">✓ heute geholt</span><button class="btn small gray" data-act="dailypaid" ${g.coins < 5000 ? 'disabled' : ''}>Nochmal · 🪙 5000</button>`
+                        : '<button class="btn small green pulse" data-act="daily">GRATIS holen</button>'}</div>
                 </div>
                 <div class="card" style="--a:#ff5f5f">
                     <div class="head"><span class="ico">😈</span><div><h3>Böse Sterne</h3>
@@ -351,6 +353,7 @@ const UI = {
                     ${r && r.jewels ? `<span class="big">💎</span><span>+${r.jewels}</span>` : ''}
                     ${unlock ? `<span class="big">🎁</span><span>${unlock}</span>` : ''}
                 </div>` : ''}
+                ${g.lastHowTo ? `<div class="sub howto">${g.lastHowTo}</div>` : ''}
                 <div class="row">
                     ${g.currentWorld < LAST_WORLD ? '<button class="btn big pulse" data-act="next">WEITER ▶</button>' : ''}
                 </div>
@@ -380,6 +383,12 @@ const UI = {
         }
         el.innerHTML = html;
         this.show('result');
+        // Kurz sperren, damit wildes Weitertippen aus dem Kampf nicht sofort einen Knopf trifft
+        const dlg = el.querySelector('.dialog');
+        if (dlg) {
+            dlg.classList.add('locked');
+            setTimeout(() => dlg.classList.remove('locked'), 650);
+        }
     },
 
     // ── Klicks ──
@@ -422,16 +431,26 @@ const UI = {
                 break;
             }
             case 'daily': {
-                const paid = g.dailyRewardClaimDate === g._todayKey();
-                // Bezahltes Nachholen (5000 🪙) nur nach zweitem Tippen – kein versehentlicher Doppeltipp
-                if (paid && !(this._dailyConfirm && performance.now() - this._dailyConfirm < 3000)) {
+                if (g.dailyRewardClaimDate === g._todayKey()) break; // bezahltes Nachholen hat einen eigenen Knopf
+                if (g._grantDailyReward(false)) {
+                    Sound.powerUp();
+                    this.flashMessage(g.lastDailyText || 'Belohnung abgeholt!');
+                    this._dailyLockUntil = performance.now() + 2000;
+                }
+                this.renderShop();
+                break;
+            }
+            case 'dailypaid': {
+                if (performance.now() < (this._dailyLockUntil || 0)) break;
+                // Nur nach zweitem Tippen (Bestätigung), damit kein Doppeltipp 5000 Münzen kostet
+                if (!(this._dailyConfirm && performance.now() - this._dailyConfirm < 3000)) {
                     this._dailyConfirm = performance.now();
-                    btn.textContent = 'Sicher? Nochmal tippen';
+                    btn.textContent = 'Wirklich 5000 🪙? Nochmal tippen';
                     btn.classList.add('pink');
                     break;
                 }
                 this._dailyConfirm = 0;
-                if (g._grantDailyReward(paid)) {
+                if (g._grantDailyReward(true)) {
                     Sound.powerUp();
                     this.flashMessage(g.lastDailyText || 'Belohnung abgeholt!');
                 }
