@@ -2574,6 +2574,7 @@ class Juri {
         this.faceX = 1; this.moving = false; this.walkT = 0;
         this.fireFlash = 0; this.stuckTimer = 0;
         this.seed = Math.random() * 10;
+        this.stunTimer = 0;   // > 0: betäubt (z. B. vom Hammer des Riesen-Zombies)
     }
     centerX() { return this.x + this.w / 2; }
     centerY() { return this.y + this.h / 2; }
@@ -2586,6 +2587,9 @@ class Juri {
             Juri.poof(this.centerX(), this.centerY());
         }
     }
+
+    // Betäuben: steht ein paar Sekunden benommen da (Engine: Gegnergeschosse mit hitsCompanions)
+    stun(seconds) { this.stunTimer = Math.max(this.stunTimer, seconds); }
 
     // ── gemeinsame Helfer für alle Begleiter ──
 
@@ -2630,6 +2634,46 @@ class Juri {
         if (!small) FX.burst(x, y, ['#ffd23f', '#ffffff'], 8, 130, 0.5, { kind: 'star' });
     }
 
+    // Berührungsschaden durch Gegner (auch betäubt kann ein Begleiter angerempelt werden).
+    static bump(c, enemies) {
+        for (const e of enemies) {
+            if (e.dead || !e.contactDamage) continue;
+            if (rectOverlap(c, e)) c.takeDamage(e.damage);
+        }
+    }
+
+    // Spiralauge (benommen); rot dreht die Spirale.
+    static spiralEye(ctx, x, y, r, rot) {
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, TAU);
+        ctx.fill();
+        ctx.lineWidth = Math.max(0.7, r * 0.22);
+        ctx.strokeStyle = Art.INK;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        for (let i = 1; i <= 12; i++) {
+            const k = i / 12;
+            const a = rot + k * TAU * 1.75;
+            ctx.lineTo(x + Math.cos(a) * r * 0.78 * k, y + Math.sin(a) * r * 0.78 * k);
+        }
+        ctx.lineWidth = Math.max(0.6, r * 0.26);
+        ctx.strokeStyle = '#3a2a6a';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+    }
+
+    // Drei Sterne kreisen über dem Kopf (benommen).
+    static dizzyStars(ctx, x, y, rx, seed) {
+        for (let i = 0; i < 3; i++) {
+            const a = Art.time * 4.2 + seed + (i * TAU) / 3;
+            const s = Math.sin(a);
+            Art.star(ctx, x + Math.cos(a) * rx, y + s * rx * 0.35, 2.4 + s * 0.6, '#ffe35a', { lineWidth: 0.9, outline: '#a86a00' });
+        }
+    }
+
     // Kleine Lebensleiste (nur wenn verletzt, gleicher Stil wie bei Gegnern).
     static hpBar(ctx, x, y, hp, maxHp) {
         if (hp >= maxHp) return;
@@ -2652,6 +2696,15 @@ class Juri {
         if (this.swingTimer > 0) {
             this.swingTimer -= dt;
             if (this.swingTimer <= 0) this.swinging = false;
+        }
+        // Betäubt: steht still, haut nicht, springt nicht zu Mark
+        if (this.stunTimer > 0) {
+            this.stunTimer -= dt;
+            this.moving = false;
+            this.stuckTimer = 0;
+            this.target = null;
+            Juri.bump(this, enemies);
+            return;
         }
         this.attackTimer -= dt;
         const px = player.x + player.w / 2, py = player.y + player.h / 2;
@@ -2697,10 +2750,7 @@ class Juri {
         }
 
         // Berührungsschaden durch Gegner
-        for (const e of enemies) {
-            if (e.dead || !e.contactDamage) continue;
-            if (rectOverlap(this, e)) this.takeDamage(e.damage);
-        }
+        Juri.bump(this, enemies);
     }
 
     _bonk(tg, enemies) {
@@ -2764,6 +2814,14 @@ class Juri {
             const d = Math.hypot(dx, dy) || 1;
             lx = dx / d;
             ly = dy / d;
+        }
+        // Betäubt: schwankt um die Füße, Spiralaugen, Sterne über dem Kopf
+        const stunned = this.stunTimer > 0;
+        if (stunned) {
+            ctx.save();
+            ctx.translate(cx, cy + 12);
+            ctx.rotate(Math.sin(t * 5 + this.seed) * 0.09);
+            ctx.translate(-cx, -(cy + 12));
         }
         if (this.fireFlash > 0) Art.glow(ctx, cx, cy, 36, '#ff7a1f', Math.min(1, this.fireFlash * 2.2));
         // Hammer: in Ruhe über der Schulter, beim Schlag saust er über den Kopf aufs Ziel
@@ -2843,8 +2901,13 @@ class Juri {
         }, { x: hx - 12, y: hy - 12, w: 24, h: 17 }, '#ff8a1f', { outline: '#8a3a00', lineWidth: 1.2 });
         Art.body(ctx, hx, hy, 7.6, 7.2, '#ffe6cc', { outline: '#8a4a2a' });
         Art.blush(ctx, hx + f * 1.4, hy + 2.8, 1.5, 4.6, '#ff8aa8');
-        Art.eyes(ctx, hx + f * 1.5, hy - 1.1, 2.1, { gap: 2.9, look: { x: lx, y: ly }, seed: this.seed });
-        Art.mouth(ctx, hx + f * 1.7, hy + 4.3, 4.8, sw >= 0 ? 'open' : 'grin');
+        if (stunned) {
+            Juri.spiralEye(ctx, hx + f * 1.5 - 2.9, hy - 1.1, 2.1, t * 7);
+            Juri.spiralEye(ctx, hx + f * 1.5 + 2.9, hy - 1.1, 2.1, -t * 7);
+        } else {
+            Art.eyes(ctx, hx + f * 1.5, hy - 1.1, 2.1, { gap: 2.9, look: { x: lx, y: ly }, seed: this.seed });
+        }
+        Art.mouth(ctx, hx + f * 1.7, hy + 4.3, 4.8, stunned ? 'o' : (sw >= 0 ? 'open' : 'grin'));
         Art.body(ctx, hx + f * 3.4, hy + 1.7, 2.5, 2.3, '#ff2d3f', { glossy: true, lineWidth: 1.1, outline: '#7a0a1a' });
         if (!hammerBack) this._drawHammer(ctx, handX, handY, ha, charged, sw);
         // vordere Hand hält den Hammer
@@ -2855,6 +2918,10 @@ class Juri {
         ctx.ellipse(handX, handY, 2.4, 2.3, 0, 0, TAU);
         ctx.fill();
         ctx.stroke();
+        if (stunned) {
+            ctx.restore();
+            Juri.dizzyStars(ctx, cx, pos.y - 6, 10, this.seed);
+        }
         Juri.hpBar(ctx, cx, pos.y - 13, this.hp, this.maxHp);
     }
 
@@ -2922,6 +2989,7 @@ class ShadowCrocodile {
         this.faceX = 1; this.moving = false; this.walkT = 0;
         this.mouthTimer = 0; this.stuckTimer = 0;
         this.seed = Math.random() * 10;
+        this.stunTimer = 0;   // > 0: betäubt (z. B. vom Hammer des Riesen-Zombies)
     }
     centerX() { return this.x + this.w / 2; }
     centerY() { return this.y + this.h / 2; }
@@ -2935,11 +3003,23 @@ class ShadowCrocodile {
         }
     }
 
+    // Betäuben: steht ein paar Sekunden benommen da (Engine: Gegnergeschosse mit hitsCompanions)
+    stun(seconds) { this.stunTimer = Math.max(this.stunTimer, seconds); }
+
     update(dt, world, player, enemies) {
         if (this.dead) return;
         if (this.iFrames > 0) this.iFrames -= dt;
         if (this.hitFlash > 0) this.hitFlash -= dt;
         if (this.mouthTimer > 0) this.mouthTimer -= dt;
+        // Betäubt: steht still, spuckt nicht, springt nicht zu Mark
+        if (this.stunTimer > 0) {
+            this.stunTimer -= dt;
+            this.moving = false;
+            this.stuckTimer = 0;
+            this.target = null;
+            Juri.bump(this, enemies);
+            return;
+        }
         this.shootTimer -= dt;
         const px = player.x + player.w / 2, py = player.y + player.h / 2;
         if (Math.hypot(px - this.centerX(), py - this.centerY()) > 260 || this.stuckTimer > 1.2) {
@@ -2995,10 +3075,7 @@ class ShadowCrocodile {
         }
 
         // Berührungsschaden durch Gegner
-        for (const e of enemies) {
-            if (e.dead || !e.contactDamage) continue;
-            if (rectOverlap(this, e)) this.takeDamage(e.damage);
-        }
+        Juri.bump(this, enemies);
     }
 
     // Schatten-Krokodil: kleines, aufrechtes Krokodil mit lila Rückenzacken und Schatten-Aura.
@@ -3016,6 +3093,14 @@ class ShadowCrocodile {
         const open = this.mouthTimer > 0 ? Math.min(1, this.mouthTimer / 0.12) : 0;
         const charge = this.target && this.shootTimer < 0.3 ? clamp(1 - this.shootTimer / 0.3, 0, 1) : 0;
         const G = '#2fb36d', GD = '#1f8a52', INK = '#0f4a2c', SPIKE = '#8a5cff';
+        // Betäubt: schwankt um die Füße, Spiralaugen, Sterne über dem Kopf
+        const stunned = this.stunTimer > 0;
+        if (stunned) {
+            ctx.save();
+            ctx.translate(cx, cy + 13);
+            ctx.rotate(Math.sin(t * 5 + this.seed) * 0.08);
+            ctx.translate(-cx, -(cy + 13));
+        }
         // Schatten-Aura und aufsteigende Schattenwölkchen
         Art.glow(ctx, cx, cy + 2, 26, '#8a5cff', 0.24 + 0.06 * Math.sin(t * 3 + this.seed));
         const wu = (t * 0.8 + this.seed) % 1;
@@ -3154,8 +3239,15 @@ class ShadowCrocodile {
         ctx.strokeStyle = INK;
         ctx.lineWidth = Art.LINE;
         ctx.stroke();
-        Art.eye(ctx, e0, ey - 0.2, 2.1, look, { iris: '#ffd23f', irisSize: 0.72, open: blink, lid: INK });
-        Art.eye(ctx, e1, ey - 0.2, 2.1, look, { iris: '#ffd23f', irisSize: 0.72, open: blink, lid: INK });
+        if (stunned) {
+            Juri.spiralEye(ctx, e0, ey - 0.2, 2.1, t * 7);
+            Juri.spiralEye(ctx, e1, ey - 0.2, 2.1, -t * 7);
+            ctx.restore();
+            Juri.dizzyStars(ctx, cx, pos.y - 7, 10, this.seed);
+        } else {
+            Art.eye(ctx, e0, ey - 0.2, 2.1, look, { iris: '#ffd23f', irisSize: 0.72, open: blink, lid: INK });
+            Art.eye(ctx, e1, ey - 0.2, 2.1, look, { iris: '#ffd23f', irisSize: 0.72, open: blink, lid: INK });
+        }
         Juri.hpBar(ctx, cx, pos.y - 14, this.hp, this.maxHp);
     }
 }
