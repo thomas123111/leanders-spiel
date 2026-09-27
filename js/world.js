@@ -430,6 +430,29 @@ const WORLD_THEMES = {
         deco: [['bolt', 3], ['tire', 0.8], ['can', 1], ['spring', 1], ['oil', 1], ['cap', 1.5]], rate: 0.3,
         win: 'tv', glow: '#8fe8ff',
     },
+    // Welt 22: Schule bei Nacht – Linoleum-Flur, Backstein mit Spinden, Schleim, Turnhalle als Boss-Arena.
+    // edge = Streifen entlang der Wände, lockers = Spindfarben, sk = Aussehen der Schädel-Kachel, poolGlow = Leuchten der Becken
+    zombie: {
+        void: '#0d0a1f', vignette: 0.42, shade: '#0e0826', fs: 'lino', floor: ['#675d98', '#5c528c'], edge: '#8ee86a',
+        ws: 'school', wall: '#704a6c', wallF: '#3b2d5e', accent: '#8ee86a', tints: ['#9a4a5a', '#5a4a9a', '#8a6a4a'],
+        lockers: ['#3f9a8f', '#d6a93c', '#c9524f', '#4f73c8', '#9a62c8'], arena: '#8ee86a', arenaStyle: 'gym', deepCol: '#1a1030', deep: 0.45,
+        bush: ['#23413f', '#355f55', '#6a9a78'], bx: 'eyes', bxc: ['#d8ff6a'],
+        water: 'goo', wc: ['#2a6e2a', '#4cb838', '#a8f070'], poolGlow: [17, 0.15], bone: '#efeaf6', pad: '#3f78e0',
+        deco: [['paper', 2.4], ['pencil', 1.4], ['book', 1.4], ['chalk', 0.8], ['slime', 0.9], ['sneaker', 0.4], ['tomb', 0.45], ['apple', 0.3]], rate: 0.22,
+        sk: 'desk', win: 'school', glow: '#fff1a8', dark: 0.4, darkCol: '#0b0620',
+    },
+    // Welt 23: bunte Blumenwiese – Riesenblumen als Wände, Teich mit Seerosen, Blumenring als Boss-Arena.
+    // blossoms = Blütchen im Gras, petals = Farben der Riesenblüten
+    butterfly: {
+        void: '#173a26', vignette: 0.22, shade: '#1a4a26', fs: 'grass', stripes: 0, floor: ['#5fb257', '#5aa952'],
+        blossoms: ['#ffffff', '#ffb3e0', '#c9a8ff', '#9ad8ff'],
+        ws: 'blooms', wall: '#3f9a4a', wallF: '#317a41', accent: '#ff8ad8', arena: '#ff8ad8', arenaStyle: 'meadow', deepCol: '#1b4a30', deep: 0.4,
+        petals: ['#ff8ad8', '#ffb3e0', '#c9a8ff', '#ffe066', '#ffffff', '#8ad8ff', '#ffa07a'],
+        bush: ['#2a7a3e', '#43a553', '#8fdc6a'], bx: 'flowers', bxc: ['#ff8ad8', '#ffe14a', '#ffffff', '#c9a8ff'],
+        water: 'water', wc: ['#2a86c8', '#4cb2ec', '#dcf6ff'], lily: true, bone: '#fff6e8', pad: '#ff6fb5',
+        deco: [['flower', 5], ['tuft', 3], ['clover', 2], ['daisy', 1.2], ['butterfly', 0.6], ['mushroom', 0.5], ['pebble', 0.6], ['ladybug', 0.35]], rate: 0.38,
+        flowers: ['#ffffff', '#ffe14a', '#ff9ad0', '#c9a8ff', '#8ad8ff', '#ff8a6a'], sk: 'bloom', win: 'rainbow', glow: '#fff0c8',
+    },
 };
 
 class World {
@@ -853,8 +876,10 @@ const WorldPaint = {
                     });
                     c.stroke();
                 }
+                if (P.blossoms) this._blossomField(w, c, P, X, Y, W, H, seed);
                 break;
             }
+            case 'lino': this._lino(c, P, X, Y, W, H, seed); break;
             case 'flag': this._flagstones(c, P, X, Y, W, H, seed); break;
             case 'plate': this._plates(c, P, X, Y, W, H, seed); break;
             case 'sand': {
@@ -933,6 +958,76 @@ const WorldPaint = {
             });
             c.fill();
         }
+    },
+
+    // Blumenwiese: überall ein paar Blütchen, in weichen, weltfesten Flecken viele (klein, damit Geschosse gut
+    // sichtbar bleiben). Die Boss-Arena bleibt frei – dort fliegt im Kampf am meisten.
+    _blossomField(w, c, P, X, Y, W, H, seed) {
+        const T = TILE_SIZE, cols = P.blossoms, pts = [];
+        const ax = w._hasArena() ? (w.width - 13) * T - 4 : Infinity, ay = (w.height - 11) * T - 4;
+        const dense = (px, py) => Math.sin(px * 0.019 + Math.sin(py * 0.011) * 2.2) * Math.sin(py * 0.017 + Math.sin(px * 0.013) * 1.7) > 0.22;
+        wScatter(X, Y, W, H, 9, 3, seed + 33, (px, py, r, gx, gy) => {
+            if (r > (dense(px, py) ? 0.5 : 0.1) || (px > ax && py > ay)) return;
+            pts.push(px, py, Math.floor(wHash(gx, gy, seed + 35) * cols.length), 0.85 + wHash(gy, gx, seed + 39) * 0.5);
+        });
+        if (!pts.length) return;
+        c.fillStyle = wcA(wcDark(P.floor[0], 0.35), 0.45);
+        c.beginPath();
+        for (let i = 0; i < pts.length; i += 4) {
+            c.moveTo(pts[i] + 3.8, pts[i + 1] + 1.4);
+            c.ellipse(pts[i] + 1.8, pts[i + 1] + 1.4, 2, 0.9, 0.5, 0, W_TAU);
+        }
+        c.fill();
+        cols.forEach((col, k) => {
+            c.fillStyle = col;
+            c.beginPath();
+            for (let i = 0; i < pts.length; i += 4) {
+                if (pts[i + 2] !== k) continue;
+                const s = pts[i + 3];
+                for (let q = 0; q < 5; q++) this._dot(c, pts[i] + Math.cos(q * 1.2566) * 1.3 * s, pts[i + 1] + Math.sin(q * 1.2566) * 1.3 * s, s);
+            }
+            c.fill();
+        });
+        c.fillStyle = '#ffb627';
+        c.beginPath();
+        for (let i = 0; i < pts.length; i += 4) this._dot(c, pts[i], pts[i + 1], 0.65 * pts[i + 3]);
+        c.fill();
+    },
+
+    // Schul-Linoleum: glatte Platten mit feinen Fugen, Glanzstreifen und Schuhabrieb
+    _lino(c, P, X, Y, W, H, seed) {
+        const T = TILE_SIZE, f = P.floor[0];
+        c.fillStyle = wcA('#ffffff', 0.05);
+        c.beginPath();
+        const n0 = Math.floor((X + Y) / 150) - 2, n1 = Math.ceil((X + W + Y + H) / 150) + 1;
+        for (let n = n0; n <= n1; n++) {
+            const r = wHash(n, 3, seed + 61);
+            if (r > 0.6) continue;
+            const o = n * 150 + r * 60, bw = 10 + r * 34;
+            c.moveTo(o - Y, Y);
+            c.lineTo(o + bw - Y, Y);
+            c.lineTo(o + bw - Y - H, Y + H);
+            c.lineTo(o - Y - H, Y + H);
+            c.closePath();
+        }
+        c.fill();
+        const gx0 = Math.floor(X / T) * T, gy0 = Math.floor(Y / T) * T;
+        c.fillStyle = wcA(wcDark(f, 0.5), 0.45);
+        for (let gx = gx0; gx <= X + W; gx += T) c.fillRect(gx - 0.5, Y, 1, H);
+        for (let gy = gy0; gy <= Y + H; gy += T) c.fillRect(X, gy - 0.5, W, 1);
+        c.fillStyle = wcA('#ffffff', 0.1);
+        for (let gx = gx0; gx <= X + W; gx += T) c.fillRect(gx + 0.5, Y, 0.8, H);
+        for (let gy = gy0; gy <= Y + H; gy += T) c.fillRect(X, gy + 0.5, W, 0.8);
+        this._line(c, wcA(wcDark(f, 0.55), 0.3), 1.1);
+        c.beginPath();
+        wScatter(X, Y, W, H, 23, 10, seed + 63, (px, py, r) => {
+            if (r > 0.4) return;
+            const a = r * 15, l = 3 + r * 9;
+            c.moveTo(px - Math.cos(a) * l, py - Math.sin(a) * l);
+            c.quadraticCurveTo(px + Math.sin(a) * 2, py - Math.cos(a) * 2, px + Math.cos(a) * l, py + Math.sin(a) * l);
+        });
+        c.stroke();
+        this._specks(c, X, Y, W, H, 10, seed + 65, wcA(wcDark(f, 0.4), 0.3), wcA(wcLight(f, 0.35), 0.25));
     },
 
     _flagstones(c, P, X, Y, W, H, seed) {
@@ -1175,6 +1270,13 @@ const WorldPaint = {
         const T = TILE_SIZE;
         if (P.lines === 'training') this._trainingLines(w, c);
         else if (P.lines === 'pitch') this._pitchLines(w, c, P, x0, y0, x1, y1, seed);
+        if (P.edge) {
+            // Farbiger Streifen am Wandfuß (Schulflur)
+            this._line(c, wcA(P.edge, 0.34), 2.6);
+            c.beginPath();
+            this._edgePath(w, c, x0, y0, x1, y1, 4.5);
+            c.stroke();
+        }
         if (w._hasArena()) {
             const ax = (w.width - 13) * T, ay = (w.height - 11) * T;
             if (x1 * T > ax - 8 && y1 * T > ay - 8) this._arena(w, c, P);
@@ -1212,27 +1314,11 @@ const WorldPaint = {
 
     // Fußball: weiße Linien laufen parallel zu allen Wänden, dazu einige Mittelkreise
     _pitchLines(w, c, P, x0, y0, x1, y1, seed) {
-        const T = TILE_SIZE, i = 5, o = T - 5;
+        const T = TILE_SIZE;
         const floorish = (x, y) => !w._raised(x, y) && w._tileAt(x, y) !== TILE_WATER;
         this._line(c, 'rgba(255,255,255,0.7)', 2.2);
         c.beginPath();
-        for (let y = y0; y < y1; y++) {
-            for (let x = x0; x < x1; x++) {
-                if (!floorish(x, y)) continue;
-                const px = x * T, py = y * T;
-                const up = w._raised(x, y - 1), dn = w._raised(x, y + 1), lf = w._raised(x - 1, y), rt = w._raised(x + 1, y);
-                const ax = lf ? px + i : px, bx = rt ? px + o : px + T;
-                const ay = up ? py + i : py, by = dn ? py + o : py + T;
-                if (up) { c.moveTo(ax, py + i); c.lineTo(bx, py + i); }
-                if (dn) { c.moveTo(ax, py + o); c.lineTo(bx, py + o); }
-                if (lf) { c.moveTo(px + i, ay); c.lineTo(px + i, by); }
-                if (rt) { c.moveTo(px + o, ay); c.lineTo(px + o, by); }
-                if (!up && !lf && w._raised(x - 1, y - 1)) { c.moveTo(px + i, py); c.lineTo(px + i, py + i); c.lineTo(px, py + i); }
-                if (!up && !rt && w._raised(x + 1, y - 1)) { c.moveTo(px + o, py); c.lineTo(px + o, py + i); c.lineTo(px + T, py + i); }
-                if (!dn && !lf && w._raised(x - 1, y + 1)) { c.moveTo(px + i, py + T); c.lineTo(px + i, py + o); c.lineTo(px, py + o); }
-                if (!dn && !rt && w._raised(x + 1, y + 1)) { c.moveTo(px + o, py + T); c.lineTo(px + o, py + o); c.lineTo(px + T, py + o); }
-            }
-        }
+        this._edgePath(w, c, x0, y0, x1, y1, 5);
         c.stroke();
         // Mittelkreise in offenen Flächen (auch aus Nachbarblöcken, damit nichts abgeschnitten wird)
         for (let y = y0 - 2; y < y1 + 2; y++) {
@@ -1253,8 +1339,33 @@ const WorldPaint = {
         }
     },
 
+    // Pfad aus Linien parallel zu allen Wänden im Abstand i vom Wandfuß (Ecken geschlossen)
+    _edgePath(w, c, x0, y0, x1, y1, i) {
+        const T = TILE_SIZE, o = T - i;
+        const floorish = (x, y) => !w._raised(x, y) && w._tileAt(x, y) !== TILE_WATER;
+        for (let y = y0; y < y1; y++) {
+            for (let x = x0; x < x1; x++) {
+                if (!floorish(x, y)) continue;
+                const px = x * T, py = y * T;
+                const up = w._raised(x, y - 1), dn = w._raised(x, y + 1), lf = w._raised(x - 1, y), rt = w._raised(x + 1, y);
+                const ax = lf ? px + i : px, bx = rt ? px + o : px + T;
+                const ay = up ? py + i : py, by = dn ? py + o : py + T;
+                if (up) { c.moveTo(ax, py + i); c.lineTo(bx, py + i); }
+                if (dn) { c.moveTo(ax, py + o); c.lineTo(bx, py + o); }
+                if (lf) { c.moveTo(px + i, ay); c.lineTo(px + i, by); }
+                if (rt) { c.moveTo(px + o, ay); c.lineTo(px + o, by); }
+                if (!up && !lf && w._raised(x - 1, y - 1)) { c.moveTo(px + i, py); c.lineTo(px + i, py + i); c.lineTo(px, py + i); }
+                if (!up && !rt && w._raised(x + 1, y - 1)) { c.moveTo(px + o, py); c.lineTo(px + o, py + i); c.lineTo(px + T, py + i); }
+                if (!dn && !lf && w._raised(x - 1, y + 1)) { c.moveTo(px + i, py + T); c.lineTo(px + i, py + o); c.lineTo(px, py + o); }
+                if (!dn && !rt && w._raised(x + 1, y + 1)) { c.moveTo(px + o, py + T); c.lineTo(px + o, py + o); c.lineTo(px + T, py + o); }
+            }
+        }
+    },
+
     // Boss-Arena: Leuchtkreis, Rahmen und Krone in der Mitte (gut erkennbar für Kinder)
     _arena(w, c, P) {
+        if (P.arenaStyle === 'gym') { this._gymArena(w, c, P); return; }
+        if (P.arenaStyle === 'meadow') { this._meadowArena(w, c, P); return; }
         const T = TILE_SIZE, a = P.arena || P.accent;
         const ix = (w.width - 13) * T, iy = (w.height - 11) * T, iw = 11 * T, ih = 9 * T;
         const cx = (w.width - 8) * T + T / 2, cy = (w.height - 7) * T + T / 2;
@@ -1319,6 +1430,176 @@ const WorldPaint = {
         c.lineTo(cx + 15, cy + 9);
         c.closePath();
         c.fill();
+    },
+
+    // Zombie Academy: Turnhalle mit Parkett, Spielfeldlinien und Schulwappen „ZA“
+    _gymArena(w, c, P) {
+        const T = TILE_SIZE, a = P.arena || P.accent;
+        const ix = (w.width - 13) * T, iy = (w.height - 11) * T, iw = 11 * T, ih = 9 * T;
+        const cx = (w.width - 8) * T + T / 2, cy = (w.height - 7) * T + T / 2;
+        c.save();
+        c.beginPath();
+        c.rect(ix, iy, iw, ih);
+        c.clip();
+        // Parkett: Dielenreihen mit versetzten Stößen, nach Farbe gruppiert
+        const woods = ['#dca25e', '#d09657', '#e6b06c', '#c98e50'];
+        const pl = [];
+        for (let ry = 0; ry < ih; ry += 8) {
+            let px = -Math.floor(wHash(ry, 1, 91) * 48);
+            while (px < iw) {
+                const len = 40 + Math.floor(wHash(px + 999, ry, 93) * 5) * 12;
+                pl.push(px, ry, len, Math.floor(wHash(px + 999, ry, 95) * woods.length));
+                px += len;
+            }
+        }
+        woods.forEach((col, k) => {
+            c.fillStyle = col;
+            c.beginPath();
+            for (let i = 0; i < pl.length; i += 4) if (pl[i + 3] === k) c.rect(ix + pl[i], iy + pl[i + 1], pl[i + 2], 8);
+            c.fill();
+        });
+        c.fillStyle = 'rgba(255,238,205,0.3)';
+        c.beginPath();
+        for (let i = 0; i < pl.length; i += 4) c.rect(ix + pl[i] + 1, iy + pl[i + 1] + 0.7, pl[i + 2] - 2, 1);
+        c.fill();
+        c.fillStyle = 'rgba(100,46,20,0.45)';
+        c.beginPath();
+        for (let i = 0; i < pl.length; i += 4) {
+            c.rect(ix + pl[i], iy + pl[i + 1] + 7.3, pl[i + 2], 0.8);
+            c.rect(ix + pl[i] - 0.4, iy + pl[i + 1], 0.8, 8);
+        }
+        c.fill();
+        // Glanz der frisch versiegelten Halle
+        c.fillStyle = 'rgba(255,255,255,0.07)';
+        c.beginPath();
+        for (const [o, bw] of [[60, 34], [170, 16], [300, 44], [390, 20]]) {
+            c.moveTo(ix + o, iy); c.lineTo(ix + o + bw, iy);
+            c.lineTo(ix + o + bw - ih * 0.7, iy + ih); c.lineTo(ix + o - ih * 0.7, iy + ih);
+            c.closePath();
+        }
+        c.fill();
+        // Farbige Zonen und Mittelkreis
+        const L = ix + 12, R = ix + iw - 12, Tp = iy + 12, B = iy + ih - 12;
+        c.fillStyle = wcA(a, 0.3);
+        c.beginPath();
+        c.rect(L, cy - 36, 62, 72);
+        c.rect(R - 62, cy - 36, 62, 72);
+        c.moveTo(cx + 40, cy);
+        c.arc(cx, cy, 40, 0, W_TAU);
+        c.fill();
+        // Spielfeldlinien (Basketball)
+        this._line(c, 'rgba(255,255,255,0.85)', 2);
+        c.beginPath();
+        c.rect(L, Tp, R - L, B - Tp);
+        c.moveTo(cx, Tp); c.lineTo(cx, B);
+        c.moveTo(cx + 40, cy);
+        c.arc(cx, cy, 40, 0, W_TAU);
+        for (const s of [-1, 1]) {
+            const ex = s < 0 ? L : R, kx = ex - s * 62, hx = ex - s * 16, a0 = s < 0 ? -Math.PI / 2 : Math.PI / 2;
+            c.moveTo(ex, cy - 36); c.lineTo(kx, cy - 36); c.lineTo(kx, cy + 36); c.lineTo(ex, cy + 36);
+            c.moveTo(kx + Math.cos(a0) * 28, cy + Math.sin(a0) * 28);
+            c.arc(kx, cy, 28, a0, a0 + Math.PI);
+            c.moveTo(ex, cy - 88); c.lineTo(hx, cy - 88);
+            c.arc(hx, cy, 88, -Math.PI / 2, Math.PI / 2, s > 0);
+            c.lineTo(ex, cy + 88);
+        }
+        c.stroke();
+        // Schulwappen „ZA“ im Mittelkreis
+        const za = () => {
+            c.beginPath();
+            c.moveTo(cx - 13, cy - 8); c.lineTo(cx - 3, cy - 8); c.lineTo(cx - 13, cy + 8); c.lineTo(cx - 3, cy + 8);
+            c.moveTo(cx + 2, cy + 8); c.lineTo(cx + 7.5, cy - 8); c.lineTo(cx + 13, cy + 8);
+            c.moveTo(cx + 4.4, cy + 2.5); c.lineTo(cx + 10.6, cy + 2.5);
+        };
+        this._line(c, wcDark(a, 0.55), 5);
+        za();
+        c.stroke();
+        this._line(c, '#ffffff', 2.4);
+        za();
+        c.stroke();
+        c.restore();
+    },
+
+    // Schmetterlingwelt: Lichtung mit Blumenring, Pilzkreis und Schmetterlings-Wappen
+    _meadowArena(w, c, P) {
+        const T = TILE_SIZE, a = P.arena || P.accent, f = P.floor[0];
+        const ix = (w.width - 13) * T, iy = (w.height - 11) * T, iw = 11 * T, ih = 9 * T;
+        const cx = (w.width - 8) * T + T / 2, cy = (w.height - 7) * T + T / 2;
+        c.save();
+        c.beginPath();
+        c.rect(ix, iy, iw, ih);
+        c.clip();
+        // Lichtung: etwas hellere Wiese, weiche Mitte und ein ausgetretener Pfad, auf dem der Leuchtring läuft
+        c.fillStyle = wcA(wcLight(f, 0.3), 0.12);
+        c.fillRect(ix, iy, iw, ih);
+        for (const [r, al] of [[104, 0.13], [66, 0.12]]) {
+            c.fillStyle = wcA(wcLight(f, 0.45), al);
+            c.beginPath();
+            c.arc(cx, cy, r, 0, W_TAU);
+            c.fill();
+        }
+        this._line(c, wcA(wcLight(f, 0.55), 0.32), 14);
+        c.beginPath();
+        c.arc(cx, cy, 130, 0, W_TAU);
+        c.stroke();
+        this._line(c, wcA(wcDark(f, 0.35), 0.3), 1.2);
+        c.beginPath();
+        c.arc(cx, cy, 137.5, 0, W_TAU);
+        c.moveTo(cx + 122.5, cy);
+        c.arc(cx, cy, 122.5, 0, W_TAU);
+        c.stroke();
+        // Blumenring innen am Pfad, Blumenbüsche in den Ecken, Pilze außen
+        const cols = P.petals, fl = [];
+        for (let k = 0; k < 44; k++) {
+            const ang = k * W_TAU / 44 + (wHash(k, 5, 97) - 0.5) * 0.06, rr = 110 + (wHash(k, 9, 99) - 0.5) * 6;
+            fl.push(cx + Math.cos(ang) * rr, cy + Math.sin(ang) * rr, 4.4 + wHash(k, 3, 101) * 1.6, k % cols.length, ang);
+        }
+        for (const [sx, sy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+            const ex = sx > 0 ? ix + 24 : ix + iw - 24, ey = sy > 0 ? iy + 24 : iy + ih - 22;
+            for (const [dx, dy, r] of [[0, 0, 6.5], [11, 3, 5], [3, 11, 5], [13, 14, 4], [-3, -4, 4]]) {
+                fl.push(ex + dx * sx, ey + dy * sy, r, Math.floor(wHash(ex + dx, ey + dy, 103) * cols.length), wHash(dx, dy, 105) * 1.26);
+            }
+        }
+        c.fillStyle = wcDark(f, 0.3);
+        c.beginPath();
+        for (let i = 0; i < fl.length; i += 5) {
+            for (const d of [0.7, -0.9]) {
+                const a2 = fl[i + 4] + d, lx = fl[i] + Math.cos(a2) * fl[i + 2] * 1.1, ly = fl[i + 1] + Math.sin(a2) * fl[i + 2] * 1.1;
+                c.moveTo(lx + Math.cos(a2) * 3.8, ly + Math.sin(a2) * 3.8);
+                c.ellipse(lx, ly, 3.8, 1.6, a2, 0, W_TAU);
+            }
+        }
+        c.fill();
+        this._petalPass(c, fl, cols);
+        for (let k = 0; k < 16; k++) {
+            const ang = (k + 0.5) * W_TAU / 16, mx = cx + Math.cos(ang) * 152, my = cy + Math.sin(ang) * 152;
+            if (my < iy + 10 || my > iy + ih - 8) continue;
+            this.decoItem(c, P, null, 'mushroom', mx, my, wRng(k * 7 + 3));
+        }
+        // Schmetterlings-Wappen in der Mitte
+        for (const [cc, al, o] of [[wcDark(a, 0.35), 0.45, 1.2], [a, 0.5, 0]]) {
+            c.fillStyle = wcA(cc, al);
+            c.beginPath();
+            for (const [dx, dy, rx, ry, rot] of [[-17, -9, 18, 13, -0.5], [17, -9, 18, 13, 0.5], [-13, 12, 12, 9, 0.45], [13, 12, 12, 9, -0.45]]) {
+                c.moveTo(cx + dx + o + Math.cos(rot) * rx, cy + dy + o + Math.sin(rot) * rx);
+                c.ellipse(cx + dx + o, cy + dy + o, rx, ry, rot, 0, W_TAU);
+            }
+            c.fill();
+        }
+        c.fillStyle = wcA('#ffffff', 0.4);
+        c.beginPath();
+        for (const [dx, dy, r] of [[-19, -10, 6], [19, -10, 6], [-14, 13, 3.8], [14, 13, 3.8]]) this._dot(c, cx + dx, cy + dy, r);
+        c.fill();
+        c.fillStyle = wcA(wcDark(a, 0.65), 0.55);
+        c.beginPath();
+        c.ellipse(cx, cy + 1, 3, 15, 0, 0, W_TAU);
+        c.fill();
+        this._line(c, wcA(wcDark(a, 0.65), 0.55), 1.5);
+        c.beginPath();
+        c.moveTo(cx - 1, cy - 13); c.quadraticCurveTo(cx - 5, cy - 23, cx - 11, cy - 26);
+        c.moveTo(cx + 1, cy - 13); c.quadraticCurveTo(cx + 5, cy - 23, cx + 11, cy - 26);
+        c.stroke();
+        c.restore();
     },
 
     _carpet(c, P, x, y, h) {
@@ -1421,7 +1702,9 @@ const WorldPaint = {
         c.stroke();
         b.anim.push({ k: 'water', px: px + 16, py: py + 16, x, y, top: !u, ph: wHash(x, y, seed + 5) * 6 });
         if (kind === 'lava' || kind === 'goo' || kind === 'plasma' || kind === 'time') {
-            b.anim.push({ k: 'glow', px: px + 16, py: py + 18, r: 26, col: light, ph: wHash(x, y, 9) * 6, light: true, a: 0.22 });
+            // poolGlow = [Radius, Stärke] (dunkle Welten: kleiner, sonst überstrahlt das Becken mit dem Lichtkreis)
+            const pg = P.poolGlow || [26, 0.22];
+            b.anim.push({ k: 'glow', px: px + 16, py: py + 18, r: pg[0], col: light, ph: wHash(x, y, 9) * 6, light: true, a: pg[1] });
         }
     },
 
@@ -2016,6 +2299,224 @@ const WorldPaint = {
                 c.stroke();
                 break;
             }
+            // ── Zombie Academy ──
+            case 'paper': {
+                if (rnd() < 0.25) {
+                    // zerknülltes Blatt
+                    c.fillStyle = 'rgba(20,10,40,0.28)';
+                    c.beginPath();
+                    this._dot(c, cx + 0.8, cy + 1, 3.6);
+                    c.fill();
+                    c.fillStyle = '#f2eefc';
+                    c.beginPath();
+                    this._dot(c, cx, cy, 3.4);
+                    c.fill();
+                    this._line(c, 'rgba(120,110,170,0.65)', 0.7);
+                    c.beginPath();
+                    c.moveTo(cx - 2, cy - 1); c.lineTo(cx, cy + 0.5); c.lineTo(cx + 1.5, cy - 1.5);
+                    c.moveTo(cx - 1, cy + 2); c.lineTo(cx + 1.8, cy + 1);
+                    c.stroke();
+                    break;
+                }
+                c.save();
+                c.translate(cx, cy);
+                c.rotate((rnd() - 0.5) * 1.4);
+                c.fillStyle = 'rgba(20,10,40,0.28)';
+                c.fillRect(-3.2, -4, 8, 10);
+                c.fillStyle = '#f4f1ff';
+                c.fillRect(-4, -5, 8, 10);
+                c.fillStyle = '#8fb4ff';
+                for (let k = 0; k < 4; k++) c.fillRect(-3, -2.6 + k * 2, 6.2, 0.5);
+                c.fillStyle = '#ff7a8a';
+                c.fillRect(-2.4, -5, 0.5, 10);
+                c.restore();
+                break;
+            }
+            case 'pencil': {
+                c.save();
+                c.translate(cx, cy);
+                c.rotate(rnd() * Math.PI);
+                c.fillStyle = 'rgba(20,10,40,0.28)';
+                c.fillRect(-7, -0.2, 14, 2.4);
+                c.fillStyle = '#ffc93c';
+                c.fillRect(-5, -1.2, 9, 2.4);
+                c.fillStyle = '#e39a22';
+                c.fillRect(-5, 0.4, 9, 0.8);
+                c.fillStyle = '#f2d4a8';
+                c.beginPath(); c.moveTo(4, -1.2); c.lineTo(7.4, 0); c.lineTo(4, 1.2); c.closePath(); c.fill();
+                c.fillStyle = '#3a3050';
+                c.beginPath(); c.moveTo(6.2, -0.45); c.lineTo(7.4, 0); c.lineTo(6.2, 0.45); c.closePath(); c.fill();
+                c.fillStyle = '#c8c8d8';
+                c.fillRect(-6.4, -1.2, 1.4, 2.4);
+                c.fillStyle = '#ff8fa8';
+                c.fillRect(-7.6, -1.2, 1.2, 2.4);
+                c.restore();
+                break;
+            }
+            case 'book': {
+                const col = ['#e0453c', '#3c7ae0', '#3cb86a', '#f0a63c', '#9a5ae0'][Math.floor(rnd() * 5)];
+                c.save();
+                c.translate(cx, cy);
+                c.rotate((rnd() - 0.5) * 1.2);
+                c.fillStyle = 'rgba(20,10,40,0.3)';
+                c.fillRect(-4.6, -2.8, 11, 8.4);
+                if (rnd() < 0.3) {
+                    // aufgeschlagen
+                    c.fillStyle = wcDark(col, 0.2);
+                    c.fillRect(-6, -4.3, 12, 8.6);
+                    c.fillStyle = '#f6f2ff';
+                    c.fillRect(-5.4, -3.8, 5.1, 7.6);
+                    c.fillRect(0.3, -3.8, 5.1, 7.6);
+                    c.fillStyle = '#b8b0d0';
+                    for (let k = 0; k < 3; k++) { c.fillRect(-4.6, -2.4 + k * 2, 3.6, 0.5); c.fillRect(1.1, -2.4 + k * 2, 3.6, 0.5); }
+                } else {
+                    c.fillStyle = '#f4ecd8';
+                    c.fillRect(-4.5, -3.4, 9.6, 7.6);
+                    c.fillStyle = col;
+                    c.fillRect(-5, -4, 9, 7.2);
+                    c.fillStyle = wcDark(col, 0.3);
+                    c.fillRect(-5, -4, 1.6, 7.2);
+                    c.fillStyle = 'rgba(255,255,255,0.55)';
+                    c.fillRect(-1.8, -2.2, 4.4, 1.3);
+                }
+                c.restore();
+                break;
+            }
+            case 'chalk': {
+                // Kreidekritzelei auf dem Boden
+                const v = Math.floor(rnd() * 5);
+                this._line(c, ['rgba(255,255,255,0.5)', 'rgba(255,224,130,0.55)', 'rgba(255,170,215,0.55)', 'rgba(150,220,255,0.55)'][Math.floor(rnd() * 4)], 0.9);
+                c.beginPath();
+                if (v === 0) {
+                    c.moveTo(cx + 5.5, cy);
+                    c.arc(cx, cy, 5.5, 0, W_TAU);
+                    c.moveTo(cx - 2, cy - 2); c.lineTo(cx - 2, cy - 0.8);
+                    c.moveTo(cx + 2, cy - 2); c.lineTo(cx + 2, cy - 0.8);
+                    c.moveTo(cx - 3, cy + 1.4); c.quadraticCurveTo(cx, cy + 4.2, cx + 3, cy + 1.4);
+                } else if (v === 1) {
+                    for (let k = 0; k <= 5; k++) {
+                        const a = -Math.PI / 2 + k * 2 * W_TAU / 5;
+                        if (k) c.lineTo(cx + Math.cos(a) * 6, cy + Math.sin(a) * 6); else c.moveTo(cx + Math.cos(a) * 6, cy + Math.sin(a) * 6);
+                    }
+                } else if (v === 2) {
+                    c.rect(cx - 3, cy - 7, 6, 4.6); c.rect(cx - 6, cy - 2.4, 6, 4.6); c.rect(cx, cy - 2.4, 6, 4.6); c.rect(cx - 3, cy + 2.2, 6, 4.6);
+                } else if (v === 3) {
+                    // Zombie-Gesicht mit Kreuzaugen und Naht-Mund
+                    c.moveTo(cx + 5.5, cy);
+                    c.arc(cx, cy, 5.5, 0, W_TAU);
+                    c.moveTo(cx - 3, cy - 2.6); c.lineTo(cx - 1, cy - 0.6); c.moveTo(cx - 1, cy - 2.6); c.lineTo(cx - 3, cy - 0.6);
+                    c.moveTo(cx + 1, cy - 2.6); c.lineTo(cx + 3, cy - 0.6); c.moveTo(cx + 3, cy - 2.6); c.lineTo(cx + 1, cy - 0.6);
+                    c.moveTo(cx - 3, cy + 2.4); c.lineTo(cx + 3, cy + 2.4);
+                    for (let k = -2; k <= 2; k += 2) { c.moveTo(cx + k, cy + 1.4); c.lineTo(cx + k, cy + 3.4); }
+                } else {
+                    c.moveTo(cx, cy + 5);
+                    c.bezierCurveTo(cx - 7, cy, cx - 5, cy - 6, cx, cy - 2.4);
+                    c.bezierCurveTo(cx + 5, cy - 6, cx + 7, cy, cx, cy + 5);
+                }
+                c.stroke();
+                break;
+            }
+            case 'sneaker': {
+                // verlorener Turnschuh
+                const col = ['#ff5a5a', '#4cb2ff', '#9aff5a'][Math.floor(rnd() * 3)];
+                c.save();
+                c.translate(cx, cy);
+                c.rotate((rnd() - 0.5) * 2.4);
+                c.fillStyle = 'rgba(20,10,40,0.3)';
+                c.beginPath(); c.ellipse(0.8, 1.2, 6.5, 3.4, 0, 0, W_TAU); c.fill();
+                c.fillStyle = '#f4f2fa';
+                c.beginPath(); c.ellipse(0, 0, 6.5, 3.3, 0, 0, W_TAU); c.fill();
+                c.fillStyle = col;
+                c.beginPath(); c.ellipse(-0.6, -0.2, 5.3, 2.5, 0, 0, W_TAU); c.fill();
+                c.fillStyle = '#2a1f3a';
+                c.beginPath(); c.ellipse(-2.8, -0.2, 1.8, 1.3, 0, 0, W_TAU); c.fill();
+                c.fillStyle = '#ffffff';
+                for (let k = 0; k < 3; k++) c.fillRect(-0.2 + k * 1.5, -1.5, 0.6, 2.6);
+                c.restore();
+                break;
+            }
+            case 'tomb': {
+                // kleiner Grabstein mit „ZA“
+                const st = '#a39cc4', ink = wcDark(st, 0.45);
+                c.fillStyle = 'rgba(20,10,40,0.3)';
+                c.beginPath(); c.ellipse(cx + 1, cy + 5, 6.5, 2.2, 0, 0, W_TAU); c.fill();
+                c.fillStyle = ink;
+                c.beginPath(); wRound(c, cx - 5, cy - 7.4, 10, 12.6, [5, 5, 1, 1]); c.fill();
+                c.fillStyle = st;
+                c.beginPath(); wRound(c, cx - 4.3, cy - 6.8, 8.6, 11, [4.3, 4.3, 1, 1]); c.fill();
+                c.fillStyle = 'rgba(255,255,255,0.35)';
+                c.fillRect(cx - 3.3, cy - 4.4, 1, 6.5);
+                this._line(c, ink, 0.8);
+                c.beginPath();
+                c.moveTo(cx - 3, cy - 3.2); c.lineTo(cx - 0.7, cy - 3.2); c.lineTo(cx - 3, cy + 0.8); c.lineTo(cx - 0.7, cy + 0.8);
+                c.moveTo(cx + 0.3, cy + 0.8); c.lineTo(cx + 1.7, cy - 3.2); c.lineTo(cx + 3.1, cy + 0.8);
+                c.moveTo(cx + 0.8, cy - 0.6); c.lineTo(cx + 2.6, cy - 0.6);
+                c.stroke();
+                c.fillStyle = '#6fbf5a';
+                c.beginPath();
+                for (const [dx, r] of [[-4.5, 1.5], [-2.5, 1.1], [3, 1.4], [4.8, 1]]) this._dot(c, cx + dx, cy + 4.6, r);
+                c.fill();
+                break;
+            }
+            case 'slime': {
+                // leuchtende Schleimpfütze
+                const col = P.wc ? P.wc[1] : '#9dff5a';
+                c.fillStyle = wcA(wcDark(col, 0.35), 0.7);
+                c.beginPath(); c.ellipse(cx + 0.6, cy + 0.9, 6.6, 3.9, 0, 0, W_TAU); c.fill();
+                c.fillStyle = col;
+                c.beginPath();
+                c.ellipse(cx, cy, 6, 3.4, rnd() * 0.4 - 0.2, 0, W_TAU);
+                for (let k = 0; k < 3; k++) this._dot(c, cx + (rnd() - 0.5) * 17, cy + (rnd() - 0.5) * 10, 0.9 + rnd() * 1.2);
+                c.fill();
+                c.fillStyle = 'rgba(255,255,255,0.6)';
+                c.beginPath(); c.ellipse(cx - 2, cy - 1.2, 1.8, 0.8, -0.3, 0, W_TAU); c.fill();
+                if (b) this._glow(b, cx, cy, 11, col, 0.3, true);
+                break;
+            }
+            // ── Schmetterlingwelt ──
+            case 'daisy': {
+                c.fillStyle = wcA(wcDark(f, 0.35), 0.5);
+                c.beginPath();
+                this._dot(c, cx + 0.8, cy + 1, 4.6);
+                c.fill();
+                c.fillStyle = '#ffffff';
+                c.beginPath();
+                for (let k = 0; k < 8; k++) {
+                    const a = k * W_TAU / 8 + 0.2, ex = cx + Math.cos(a) * 2.8, ey = cy + Math.sin(a) * 2.8;
+                    c.moveTo(ex + Math.cos(a) * 2, ey + Math.sin(a) * 2);
+                    c.ellipse(ex, ey, 2, 1, a, 0, W_TAU);
+                }
+                c.fill();
+                c.fillStyle = '#ffc53d';
+                c.beginPath();
+                this._dot(c, cx, cy, 1.6);
+                c.fill();
+                c.fillStyle = 'rgba(255,255,255,0.6)';
+                c.beginPath();
+                this._dot(c, cx - 0.5, cy - 0.5, 0.6);
+                c.fill();
+                break;
+            }
+            case 'ladybug': {
+                c.save();
+                c.translate(cx, cy);
+                c.rotate(rnd() * W_TAU);
+                c.fillStyle = 'rgba(20,40,20,0.3)';
+                c.beginPath(); c.ellipse(0.6, 0.8, 3.8, 3, 0, 0, W_TAU); c.fill();
+                c.fillStyle = '#2a1a2a';
+                c.beginPath(); this._dot(c, 3, 0, 1.6); c.fill();
+                c.fillStyle = '#ff3d4a';
+                c.beginPath(); c.ellipse(0, 0, 3.4, 2.8, 0, 0, W_TAU); c.fill();
+                c.fillStyle = '#2a1a2a';
+                c.fillRect(-3.4, -0.25, 6.8, 0.5);
+                c.beginPath();
+                for (const [dx, dy] of [[-1.5, -1.3], [1, -1.5], [-1.3, 1.3], [1.2, 1.3]]) this._dot(c, dx, dy, 0.6);
+                c.fill();
+                c.fillStyle = 'rgba(255,255,255,0.6)';
+                c.beginPath(); this._dot(c, -1.4, -1.8, 0.6); c.fill();
+                c.restore();
+                break;
+            }
         }
     },
 
@@ -2167,11 +2668,41 @@ const WorldPaint = {
             c.beginPath();
             for (let k = 0; k < 3; k++) c.ellipse(px + 9 + k * 6.5, py + 3, 1.6, 3.2, 0, 0, W_TAU);
             c.fill();
+        } else if (ex === 'eyes') {
+            // Welke Hecke: kahle Zweige, manchmal schaut ein neugieriges Augenpaar heraus
+            this._line(c, '#5a4658', 1.3);
+            c.beginPath();
+            for (let k = 0; k < 3; k++) {
+                const tx = px + 9 + k * 7 + (rnd() - 0.5) * 4, ty = py + 8 + rnd() * 4;
+                const a = -Math.PI / 2 + (rnd() - 0.5) * 1.3;
+                const ex2 = tx + Math.cos(a) * 8, ey2 = ty + Math.sin(a) * 8;
+                c.moveTo(tx, ty);
+                c.lineTo(ex2, ey2);
+                c.moveTo(tx + (ex2 - tx) * 0.5, ty + (ey2 - ty) * 0.5);
+                c.lineTo(ex2 + (k - 1) * 2 + 1, ey2 + 1.5);
+            }
+            c.stroke();
+            if (rnd() < 0.4) {
+                const ex3 = px + 11 + rnd() * 10, ey3 = py + 15 + rnd() * 5;
+                c.fillStyle = cols[0];
+                c.beginPath();
+                c.ellipse(ex3 - 2.5, ey3, 2, 1.5, 0, 0, W_TAU);
+                c.moveTo(ex3 + 4.5, ey3);
+                c.ellipse(ex3 + 2.5, ey3, 2, 1.5, 0, 0, W_TAU);
+                c.fill();
+                c.fillStyle = '#1a1030';
+                c.beginPath();
+                this._dot(c, ex3 - 2, ey3 + 0.2, 0.8);
+                this._dot(c, ex3 + 3, ey3 + 0.2, 0.8);
+                c.fill();
+            }
         }
     },
 
     // ── Schädel-Kachel (Deko, begehbar) ──
     skull(w, c, P, x, y, seed) {
+        if (P.sk === 'desk') { this._schoolDesk(w, c, P, x, y, seed); return; }
+        if (P.sk === 'bloom') { this._flowerBed(w, c, P, x, y, seed); return; }
         const T = TILE_SIZE, px = x * T, py = y * T;
         const r = wHash(x, y, seed + 401);
         c.fillStyle = wcA(P.shade, 0.3);
@@ -2190,6 +2721,129 @@ const WorldPaint = {
             return;
         }
         this._skullShape(c, px + 16, py + 15, 7, P.bone, (r - 0.5) * 0.5);
+    },
+
+    // Zombie Academy: Schulbank mit Stuhl (in Reihen immer), einzeln auch Bücherstapel oder Schulranzen
+    _schoolDesk(w, c, P, x, y, seed) {
+        const T = TILE_SIZE, px = x * T, py = y * T;
+        const row = w._tileAt(x - 1, y) === TILE_SKULL || w._tileAt(x + 1, y) === TILE_SKULL;
+        const r = wHash(x, y, seed + 411), rnd = wRng(Math.floor(wHash(x, y, seed + 413) * 4294967295));
+        c.fillStyle = wcA(P.shade, 0.4);
+        c.beginPath();
+        c.ellipse(px + 17, py + 25, 13, 4.5, 0, 0, W_TAU);
+        c.fill();
+        if (row || r < 0.4) {
+            // Stuhl (Sitz und Lehne), darüber die Bank mit Holzplatte und Kante
+            const chair = r < 0.5 ? '#4f73c8' : '#3f9a8f';
+            c.fillStyle = wcDark(chair, 0.35);
+            c.beginPath(); wRound(c, px + 9.5, py + 19, 13, 9, 2); c.fill();
+            c.fillStyle = chair;
+            c.beginPath(); wRound(c, px + 10, py + 19, 12, 7, 2); c.fill();
+            c.fillStyle = wcDark(chair, 0.2);
+            c.beginPath(); wRound(c, px + 9.5, py + 26, 13, 3.6, 1.2); c.fill();
+            c.fillStyle = 'rgba(255,255,255,0.3)';
+            c.fillRect(px + 11.5, py + 26.6, 9, 0.9);
+            c.fillStyle = '#4a4a66';
+            c.fillRect(px + 5, py + 17, 2, 6);
+            c.fillRect(px + 25, py + 17, 2, 6);
+            c.fillStyle = '#a8703e';
+            c.fillRect(px + 3.5, py + 16, 25, 3.4);
+            c.fillStyle = '#d9a563';
+            c.beginPath(); wRound(c, px + 3.5, py + 5, 25, 11.5, 1.5); c.fill();
+            c.fillStyle = '#f0c98a';
+            c.fillRect(px + 4.5, py + 5.6, 23, 1.1);
+            c.fillStyle = 'rgba(120,70,30,0.25)';
+            c.fillRect(px + 6, py + 11, 20, 0.6);
+            const item = Math.floor(wHash(x, y, seed + 415) * 5);
+            if (item === 0) this.decoItem(c, P, null, 'pencil', px + 16, py + 10, rnd);
+            else if (item === 1) this.decoItem(c, P, null, 'apple', px + 23, py + 10, rnd);
+            else if (item === 2) {
+                c.fillStyle = '#f6f2ff';
+                c.fillRect(px + 8, py + 7, 6, 7.5);
+                c.fillRect(px + 14.6, py + 7, 6, 7.5);
+                c.fillStyle = '#b8b0d0';
+                for (let k = 0; k < 3; k++) { c.fillRect(px + 9, py + 9 + k * 1.8, 4, 0.5); c.fillRect(px + 15.6, py + 9 + k * 1.8, 4, 0.5); }
+            } else if (item === 3) {
+                c.fillStyle = '#f4f1ff';
+                c.fillRect(px + 11, py + 7, 7, 8);
+                c.fillStyle = '#8fb4ff';
+                for (let k = 0; k < 3; k++) c.fillRect(px + 12, py + 9 + k * 1.8, 5, 0.5);
+            }
+            return;
+        }
+        if (r < 0.75) {
+            // Bücherstapel
+            const cols = ['#e0453c', '#3c7ae0', '#3cb86a', '#f0a63c', '#9a5ae0'];
+            for (let k = 0; k < 3; k++) {
+                const col = cols[Math.floor(rnd() * cols.length)], bx = px + 8 + (rnd() - 0.5) * 3, by = py + 17 - k * 4.2;
+                c.fillStyle = wcDark(col, 0.35);
+                c.fillRect(bx, by + 3, 16, 3);
+                c.fillStyle = '#f4ecd8';
+                c.fillRect(bx + 1.5, by + 3.2, 13, 2.4);
+                c.fillStyle = col;
+                c.fillRect(bx, by, 16, 3.2);
+                c.fillStyle = 'rgba(255,255,255,0.35)';
+                c.fillRect(bx + 1, by + 0.6, 14, 0.8);
+            }
+            return;
+        }
+        // Schulranzen
+        const col = ['#e0453c', '#3cb8a8', '#f0a63c'][Math.floor(rnd() * 3)];
+        c.fillStyle = wcDark(col, 0.4);
+        c.beginPath(); wRound(c, px + 8.5, py + 8.5, 16, 17, 4); c.fill();
+        c.fillStyle = col;
+        c.beginPath(); wRound(c, px + 9, py + 9, 15, 15, 3.5); c.fill();
+        c.fillStyle = wcDark(col, 0.18);
+        c.beginPath(); wRound(c, px + 9, py + 9, 15, 8, [3.5, 3.5, 2, 2]); c.fill();
+        c.fillStyle = '#ffd23f';
+        c.fillRect(px + 15, py + 15, 3, 3);
+        c.fillStyle = '#f4f2fa';
+        c.fillRect(px + 11, py + 20.5, 11, 1.4);
+        c.fillStyle = 'rgba(255,255,255,0.4)';
+        c.fillRect(px + 11, py + 10, 8, 1.2);
+    },
+
+    // Schmetterlingwelt: begehbares Blumenbeet (manchmal mit rastendem Schmetterling)
+    _flowerBed(w, c, P, x, y, seed) {
+        const T = TILE_SIZE, cx = x * T + 16, cy = y * T + 16;
+        const rnd = wRng(Math.floor(wHash(x, y, seed + 421) * 4294967295));
+        c.fillStyle = wcA(P.shade, 0.3);
+        c.beginPath();
+        c.ellipse(cx + 1.5, cy + 6, 14, 6, 0, 0, W_TAU);
+        c.fill();
+        const leaves = [];
+        for (let k = 0; k < 7; k++) {
+            const a = k * W_TAU / 7 + rnd() * 0.5;
+            leaves.push(cx + Math.cos(a) * 8, cy + Math.sin(a) * 6 + 1, 4.5 + rnd() * 2);
+        }
+        leaves.push(cx, cy, 7);
+        for (const [col, o] of [['#23703a', 1.2], ['#3f9a4a', 0], ['#6fcf5f', -1.5]]) {
+            c.fillStyle = col;
+            c.beginPath();
+            for (let i = 0; i < leaves.length; i += 3) this._dot(c, leaves[i] + (o < 0 ? -0.8 : o * 0.5), leaves[i + 1] + (o < 0 ? -1.2 : o), o < 0 ? leaves[i + 2] * 0.45 : leaves[i + 2]);
+            c.fill();
+        }
+        const fl = [];
+        for (let k = 0; k < 6; k++) {
+            const a = k * W_TAU / 6 + rnd() * 0.6, d = k ? 5.5 + rnd() * 3 : 0;
+            fl.push([cx + Math.cos(a) * d * 1.2, cy + Math.sin(a) * d - 1, 2.6 + rnd() * 1.2, P.petals[Math.floor(rnd() * P.petals.length)]]);
+        }
+        fl.sort((p, q) => p[1] - q[1]);
+        for (const [fx, fy, s, col] of fl) {
+            c.fillStyle = wcDark(col, 0.3);
+            c.beginPath();
+            for (let q = 0; q < 5; q++) this._dot(c, fx + 0.5 + Math.cos(q * 1.2566) * s * 0.7, fy + 0.7 + Math.sin(q * 1.2566) * s * 0.7, s * 0.6);
+            c.fill();
+            c.fillStyle = col;
+            c.beginPath();
+            for (let q = 0; q < 5; q++) this._dot(c, fx + Math.cos(q * 1.2566) * s * 0.7, fy + Math.sin(q * 1.2566) * s * 0.7, s * 0.6);
+            c.fill();
+            c.fillStyle = col === '#ffe066' ? '#ff9a2e' : '#ffc53d';
+            c.beginPath();
+            this._dot(c, fx, fy, s * 0.36);
+            c.fill();
+        }
+        if (rnd() < 0.3) this.decoItem(c, P, null, 'butterfly', cx + 5, cy - 7, rnd);
     },
 
     // ── Sprungfeld (statischer Teil; Pfeil und Ladering sind animiert) ──
@@ -2217,6 +2871,68 @@ const WorldPaint = {
             c.fillStyle = '#ffb347';
             c.beginPath();
             c.arc(cx, cy, 8.5, 0, W_TAU);
+            c.fill();
+        } else if (th === 'zombie') {
+            // Trampolin aus der Turnhalle: blauer Rahmen, Federn, schwarzes Sprungtuch
+            c.fillStyle = '#1d2f6e';
+            c.beginPath();
+            c.arc(cx, cy, 13.8, 0, W_TAU);
+            c.fill();
+            c.fillStyle = col;
+            c.beginPath();
+            c.arc(cx - 0.3, cy - 0.6, 12.8, 0, W_TAU);
+            c.fill();
+            c.fillStyle = '#1b1828';
+            c.beginPath();
+            c.arc(cx, cy - 0.4, 10.2, 0, W_TAU);
+            c.fill();
+            this._line(c, '#c8cce0', 1.1);
+            c.beginPath();
+            for (let k = 0; k < 16; k++) {
+                const a = k * W_TAU / 16;
+                c.moveTo(cx + Math.cos(a) * 8.2, cy - 0.4 + Math.sin(a) * 8.2);
+                c.lineTo(cx + Math.cos(a) * 11.4, cy - 0.4 + Math.sin(a) * 11.4);
+            }
+            c.stroke();
+            c.fillStyle = '#2c2940';
+            c.beginPath();
+            c.arc(cx, cy - 0.4, 7.8, 0, W_TAU);
+            c.fill();
+            this._line(c, wcA(P.accent, 0.7), 1.2);
+            c.beginPath();
+            c.arc(cx, cy - 0.4, 4.2, 0, W_TAU);
+            c.stroke();
+            c.fillStyle = 'rgba(255,255,255,0.28)';
+            c.beginPath();
+            c.ellipse(cx - 3.5, cy - 4.5, 3.2, 1.3, -0.6, 0, W_TAU);
+            c.fill();
+        } else if (th === 'butterfly') {
+            // Hüpfblume: große Blütenblätter um eine federnde Mitte
+            for (const [cc, o, s] of [[wcDark(col, 0.4), 0.8, 1.05], [col, 0, 1], [wcLight(col, 0.35), -0.8, 0.55]]) {
+                c.fillStyle = cc;
+                c.beginPath();
+                for (let k = 0; k < 8; k++) {
+                    const a = k * W_TAU / 8 + 0.2, ex = cx + Math.cos(a) * 9.5 + o * 0.5, ey = cy + Math.sin(a) * 9 + o;
+                    c.moveTo(ex + Math.cos(a) * 5 * s, ey + Math.sin(a) * 5 * s);
+                    c.ellipse(ex, ey, 5 * s, 3.6 * s, a, 0, W_TAU);
+                }
+                c.fill();
+            }
+            c.fillStyle = '#c8861a';
+            c.beginPath();
+            c.arc(cx, cy, 7.8, 0, W_TAU);
+            c.fill();
+            c.fillStyle = '#ffd23f';
+            c.beginPath();
+            c.arc(cx - 0.4, cy - 0.7, 7, 0, W_TAU);
+            c.fill();
+            c.fillStyle = '#e8a52a';
+            c.beginPath();
+            for (let k = 0; k < 7; k++) this._dot(c, cx + Math.cos(k * 0.9) * 3.8, cy - 0.5 + Math.sin(k * 0.9) * 3.8, 0.8);
+            c.fill();
+            c.fillStyle = 'rgba(255,255,255,0.5)';
+            c.beginPath();
+            c.ellipse(cx - 3, cy - 3.6, 2.8, 1.3, -0.6, 0, W_TAU);
             c.fill();
         } else {
             const rim = th === 'dojo' ? '#b22a2a' : col;
@@ -2458,6 +3174,45 @@ const WorldPaint = {
                 for (let i = 0; i < stones.length; i += 2) c.rect(stones[i] + 2.5, stones[i + 1] + bh - 2.6, bw - 5, 1.3);
                 c.fill();
                 this._specks(c, X, Y, W, H, 8, seed + 503, wcA(wcDark(col, 0.4), 0.3), wcA(wcLight(col, 0.45), 0.3));
+                break;
+            }
+            case 'school': {
+                // Backstein der Schule bei Nacht: ruhiger Ziegelverband, nur einzelne Steine heller, dunkler oder getönt
+                const bw = 16, bh = 8, groups = new Map();
+                const gy0 = Math.floor(Y / bh) * bh;
+                for (let gy = gy0; gy < Y + H; gy += bh) {
+                    const off = ((gy / bh) & 1) * bw / 2;
+                    for (let gx = Math.floor((X - off) / bw) * bw + off; gx < X + W; gx += bw) {
+                        const v = wHash(gx, gy, seed + 501);
+                        let cc = null;
+                        if (v < 0.12) cc = wcDark(col, 0.16);
+                        else if (v > 0.9) cc = wcLight(col, 0.1);
+                        else if (v > 0.8 && P.tints) cc = wcMix(col, P.tints[Math.floor(v * 97) % P.tints.length], 0.3);
+                        if (!cc) continue;
+                        let l = groups.get(cc);
+                        if (!l) groups.set(cc, l = []);
+                        l.push(gx, gy);
+                    }
+                }
+                for (const [cc, l] of groups) {
+                    c.fillStyle = cc;
+                    c.beginPath();
+                    for (let i = 0; i < l.length; i += 2) c.rect(l[i], l[i + 1], bw, bh);
+                    c.fill();
+                }
+                c.fillStyle = wcA(wcDark(col, 0.5), 0.55);
+                c.beginPath();
+                for (let gy = gy0; gy < Y + H; gy += bh) {
+                    c.rect(X, gy - 0.5, W, 1);
+                    const off = ((gy / bh) & 1) * bw / 2;
+                    for (let gx = Math.floor((X - off) / bw) * bw + off; gx < X + W; gx += bw) c.rect(gx - 0.5, gy, 1, bh);
+                }
+                c.fill();
+                c.fillStyle = wcA(wcLight(col, 0.35), 0.16);
+                c.beginPath();
+                for (let gy = gy0; gy < Y + H; gy += bh) c.rect(X, gy + 0.6, W, 0.8);
+                c.fill();
+                this._specks(c, X, Y, W, H, 9, seed + 503, wcA(wcDark(col, 0.4), 0.25), wcA(wcLight(col, 0.4), 0.18));
                 break;
             }
             case 'strata': {
@@ -2767,7 +3522,56 @@ const WorldPaint = {
                 }
                 break;
             }
+            case 'blooms': {
+                // Riesenblumen von oben: Blattwerk, darauf große Blüten in Regenbogenfarben
+                this._clumps(c, X, Y, W, H, 13, 6, 9.5, seed + 531, [wcDark(col, 0.35), col, wcLight(col, 0.22)]);
+                const cols = P.petals, bl = [];
+                wScatter(X, Y, W, H, 18, 12, seed + 591, (px, py, r, gx, gy) => {
+                    if (r > 0.62) return;
+                    bl.push(px, py, 5.5 + r * 4.5, Math.floor(wHash(gx, gy, seed + 593) * cols.length), wHash(gy, gx, seed + 595) * 1.26);
+                });
+                c.fillStyle = wcA(wcDark(col, 0.55), 0.5);
+                c.beginPath();
+                for (let i = 0; i < bl.length; i += 5) this._dot(c, bl[i] + 1.3, bl[i + 1] + 1.8, bl[i + 2]);
+                c.fill();
+                this._petalPass(c, bl, cols);
+                break;
+            }
         }
+    },
+
+    // Blüten (x, y, Radius, Farbnummer, Drehung je 5 Einträge) mit Rand, Farbe, Glanz und Mitte – ein Füllaufruf je Ton
+    _petalPass(c, bl, cols) {
+        const used = new Set();
+        for (let i = 3; i < bl.length; i += 5) used.add(bl[i]);
+        cols.forEach((pc, k) => {
+            if (!used.has(k)) return;
+            for (const [cc, o, s] of [[wcDark(pc, 0.3), 0, 1], [pc, -0.5, 0.84]]) {
+                c.fillStyle = cc;
+                c.beginPath();
+                for (let i = 0; i < bl.length; i += 5) {
+                    if (bl[i + 3] !== k) continue;
+                    const R = bl[i + 2];
+                    for (let q = 0; q < 5; q++) {
+                        const a = bl[i + 4] + q * 1.2566;
+                        this._dot(c, bl[i] + o + Math.cos(a) * R * 0.52, bl[i + 1] + o + Math.sin(a) * R * 0.52, R * 0.5 * s);
+                    }
+                }
+                c.fill();
+            }
+        });
+        c.fillStyle = 'rgba(255,255,255,0.45)';
+        c.beginPath();
+        for (let i = 0; i < bl.length; i += 5) this._dot(c, bl[i] - bl[i + 2] * 0.42, bl[i + 1] - bl[i + 2] * 0.45, bl[i + 2] * 0.2);
+        c.fill();
+        c.fillStyle = '#e8961e';
+        c.beginPath();
+        for (let i = 0; i < bl.length; i += 5) this._dot(c, bl[i], bl[i + 1], bl[i + 2] * 0.3);
+        c.fill();
+        c.fillStyle = '#ffd23f';
+        c.beginPath();
+        for (let i = 0; i < bl.length; i += 5) this._dot(c, bl[i] - 0.4, bl[i + 1] - 0.5, bl[i + 2] * 0.2);
+        c.fill();
     },
 
     wallFront(w, c, P, b, fr, seed) {
@@ -3000,6 +3804,68 @@ const WorldPaint = {
                 c.fill();
                 break;
             }
+            case 'school': {
+                // Spinde (je Kachel zwei, paarweise gleiche Farbe), dazwischen Pinnwände aus Kork
+                const lk = P.lockers, notes = ['#fff3a0', '#9ad8ff', '#ffb3d0', '#ffffff', '#b8ff9a'];
+                for (const q of fr) {
+                    const top = q.py + T - F;
+                    if (wHash(q.x, q.y, seed + 681) < 0.14) {
+                        c.fillStyle = '#5a3a24';
+                        c.fillRect(q.px + 1.5, top + 1.2, T - 3, F - 2.6);
+                        c.fillStyle = '#c8905a';
+                        c.fillRect(q.px + 2.5, top + 2, T - 5, F - 4.2);
+                        for (let k = 0; k < 3; k++) {
+                            const nx = q.px + 4 + k * 8.2 + wHash(q.x, k, seed + 685) * 2, ny = top + 2.6 + wHash(k, q.y, seed + 687) * 1.4;
+                            c.fillStyle = notes[Math.floor(wHash(q.x + k, q.y, seed + 689) * notes.length)];
+                            c.fillRect(nx, ny, 6, 4.4);
+                            c.fillStyle = '#e8323c';
+                            c.fillRect(nx + 2.4, ny - 0.3, 1.2, 1.2);
+                        }
+                        continue;
+                    }
+                    const col = lk[Math.floor(wHash(q.x >> 1, q.y, seed + 683) * lk.length)];
+                    c.fillStyle = wcDark(col, 0.45);
+                    c.fillRect(q.px, top, T, F);
+                    for (let k = 0; k < 2; k++) {
+                        const lx = q.px + k * 16;
+                        c.fillStyle = col;
+                        c.fillRect(lx + 0.8, top + 0.6, 14.4, F - 1.2);
+                        c.fillStyle = wcLight(col, 0.3);
+                        c.fillRect(lx + 0.8, top + 0.6, 1, F - 1.2);
+                        c.fillStyle = wcDark(col, 0.4);
+                        for (let v = 0; v < 3; v++) c.fillRect(lx + 4, top + 2.6 + v * 1.4, 7, 0.7);
+                        c.fillStyle = '#e8e4f4';
+                        c.fillRect(lx + 12, top + 5.4, 1.4, 2.8);
+                    }
+                }
+                break;
+            }
+            case 'blooms': {
+                // Stängel und Blätter der Riesenblumen, oben der Schatten der Blütenkrone
+                const stems = [wcLight(col, 0.22), wcLight(col, 0.08), wcDark(col, 0.12)];
+                for (const q of fr) {
+                    const top = q.py + T - F;
+                    for (let k = 0; k < 6; k++) {
+                        c.fillStyle = stems[(k + q.x) % 3];
+                        c.fillRect(q.px + 1.5 + k * 5.3 + (wHash(q.x * 7 + k, q.y, seed + 695) - 0.5) * 1.6, top, 2.2, F);
+                    }
+                }
+                c.fillStyle = wcLight(col, 0.32);
+                c.beginPath();
+                for (const q of fr) {
+                    const top = q.py + T - F;
+                    for (let k = 0; k < 3; k++) {
+                        const s = (k + q.x) & 1 ? 1 : -1;
+                        const lx = q.px + 5 + k * 10 + wHash(q.x, q.y + k, seed + 697) * 4 + s * 3, ly = top + 4 + wHash(q.y, q.x + k, seed + 699) * 3;
+                        c.moveTo(lx + Math.cos(-s * 0.5) * 3.4, ly + Math.sin(-s * 0.5) * 3.4);
+                        c.ellipse(lx, ly, 3.4, 1.4, -s * 0.5, 0, W_TAU);
+                    }
+                }
+                c.fill();
+                c.fillStyle = wcA(wcDark(col, 0.55), 0.55);
+                for (const q of fr) c.fillRect(q.px, q.py + T - F, T, 3);
+                break;
+            }
         }
     },
 
@@ -3079,6 +3945,124 @@ const WorldPaint = {
             c.fillStyle = '#8fe06a';
             c.beginPath();
             for (let k = 0; k < 4; k++) this._dot(c, cx - 5.6 + k * 3.5, cy - 0.8 + Math.sin(k * 2) * 2, 1.2);
+            c.fill();
+        } else if (P.ws === 'school') {
+            this._schoolExtra(c, P, b, q, r, seed);
+        } else if (P.ws === 'blooms') {
+            this._bloomExtra(c, P, b, q, r, cx, cy, seed);
+        }
+    },
+
+    // Zombie Academy: Schleim tropft über Mauerkanten, hier und da eine Efeuranke
+    _schoolExtra(c, P, b, q, r, seed) {
+        if (q.front && r < 0.16) {
+            const sx = q.px + 7 + wHash(q.y, q.x, seed + 713) * 16, top = q.py + q.h;
+            const col = P.wc[1];
+            for (const [cc, o] of [[wcDark(col, 0.4), 0.7], [col, 0]]) {
+                c.fillStyle = cc;
+                c.beginPath();
+                c.ellipse(sx + o, top - 1 + o, 6, 2.6, 0, 0, W_TAU);
+                for (const [dx, len] of [[-3, 5 + r * 20], [2.2, 3 + r * 12]]) {
+                    const lx = sx + dx + o;
+                    c.moveTo(lx - 1.4, top);
+                    c.lineTo(lx - 1.4, top + len);
+                    c.arc(lx, top + len, 1.4, Math.PI, 0, true);
+                    c.lineTo(lx + 1.4, top);
+                }
+                c.fill();
+            }
+            c.fillStyle = 'rgba(255,255,255,0.6)';
+            c.beginPath();
+            c.ellipse(sx - 2, top - 1.8, 2, 0.8, 0, 0, W_TAU);
+            c.fill();
+            this._glow(b, sx, top + 2, 12, col, 0.35, true);
+        } else if (r > 0.93) {
+            const ex = q.px + 10 + wHash(q.y, q.x, seed + 715) * 12, ey = q.py + 6 + wHash(q.x, q.y, seed + 717) * Math.max(1, q.h - 13);
+            this._line(c, '#2f5a2a', 1);
+            c.beginPath();
+            c.moveTo(ex - 7, ey + 4);
+            c.quadraticCurveTo(ex, ey - 5, ex + 7, ey + 2);
+            c.stroke();
+            for (const [col, o] of [['#2f6a2a', 0.6], ['#5fb04a', 0]]) {
+                c.fillStyle = col;
+                c.beginPath();
+                for (let k = 0; k < 5; k++) {
+                    const t = k / 4, lx = ex - 7 + 14 * t, ly = ey + 4 - 9 * t * (1 - t) * 1.6 - 2 * t + (k & 1 ? 2 : -1.5);
+                    c.moveTo(lx + 2.2 + o, ly + o);
+                    c.ellipse(lx + o, ly + o, 2.2, 1.6, k, 0, W_TAU);
+                }
+                c.fill();
+            }
+        }
+    },
+
+    // Schmetterlingwelt: Blüten hängen über die Kante, manchmal eine Sonnenblume oder ein rastender Schmetterling
+    _bloomExtra(c, P, b, q, r, cx, cy, seed) {
+        // Alles bleibt innerhalb der eigenen Kachel (Nachbarblöcke zeichnen diese Aufsätze nicht mit)
+        cy = q.py + clamp(cy - q.py, 10, q.h - 10);
+        if (q.front) {
+            const bl = [];
+            for (let k = 0; k < 2; k++) {
+                if (wHash(q.x * 3 + k, q.y, seed + 721) > 0.6) continue;
+                bl.push(q.px + 9 + k * 14 + (wHash(q.y, q.x + k, seed + 723) - 0.5) * 4, q.py + q.h + 0.5,
+                    4.2 + wHash(q.x, k, seed + 725) * 1.4, Math.floor(wHash(q.x + k, q.y, seed + 727) * P.petals.length), k * 0.6 + 0.3);
+            }
+            if (bl.length) this._petalPass(c, bl, P.petals);
+        }
+        if (r < 0.045) {
+            // rastender Schmetterling
+            const col = ['#ff8ad8', '#8ad8ff', '#ffd23f', '#c9a8ff'][Math.floor(r * 89) % 4];
+            for (const [cc, o, s] of [[wcDark(col, 0.45), 0.6, 1.12], [col, 0, 1]]) {
+                c.fillStyle = cc;
+                c.beginPath();
+                for (const [dx, dy, rx, ry, rot] of [[-4.2, -1.6, 4.4, 3.3, -0.5], [4.2, -1.6, 4.4, 3.3, 0.5], [-3, 2.8, 2.9, 2.2, 0.4], [3, 2.8, 2.9, 2.2, -0.4]]) {
+                    c.moveTo(cx + dx + o + Math.cos(rot) * rx * s, cy + dy + o + Math.sin(rot) * rx * s);
+                    c.ellipse(cx + dx + o, cy + dy + o, rx * s, ry * s, rot, 0, W_TAU);
+                }
+                c.fill();
+            }
+            c.fillStyle = 'rgba(255,255,255,0.7)';
+            c.beginPath();
+            this._dot(c, cx - 4.8, cy - 2.2, 1.2);
+            this._dot(c, cx + 4.8, cy - 2.2, 1.2);
+            c.fill();
+            c.fillStyle = '#3a2248';
+            c.beginPath();
+            c.ellipse(cx, cy + 0.5, 1, 4.2, 0, 0, W_TAU);
+            c.fill();
+            this._line(c, '#3a2248', 0.7);
+            c.beginPath();
+            c.moveTo(cx - 0.4, cy - 3.4); c.lineTo(cx - 2.2, cy - 6.4);
+            c.moveTo(cx + 0.4, cy - 3.4); c.lineTo(cx + 2.2, cy - 6.4);
+            c.stroke();
+        } else if (r < 0.11) {
+            // Sonnenblume
+            const R = 9.5;
+            c.fillStyle = 'rgba(10,40,20,0.3)';
+            c.beginPath();
+            this._dot(c, cx + 1.5, cy + 2, R + 1);
+            c.fill();
+            for (const [cc, o] of [['#d8961a', 0.7], ['#ffd23f', 0]]) {
+                c.fillStyle = cc;
+                c.beginPath();
+                for (let k = 0; k < 12; k++) {
+                    const a = k * W_TAU / 12, ex = cx + o + Math.cos(a) * R * 0.62, ey = cy + o + Math.sin(a) * R * 0.62;
+                    c.moveTo(ex + Math.cos(a) * R * 0.42, ey + Math.sin(a) * R * 0.42);
+                    c.ellipse(ex, ey, R * 0.42, R * 0.2, a, 0, W_TAU);
+                }
+                c.fill();
+            }
+            c.fillStyle = '#6a3a14';
+            c.beginPath();
+            this._dot(c, cx, cy, R * 0.4);
+            c.fill();
+            c.fillStyle = '#a8662a';
+            c.beginPath();
+            for (let k = 0; k < 6; k++) this._dot(c, cx + Math.cos(k * 1.05) * R * 0.2, cy + Math.sin(k * 1.05) * R * 0.2, 0.7);
+            c.fill();
+            c.fillStyle = 'rgba(255,255,255,0.35)';
+            c.beginPath();
+            c.ellipse(cx - 2, cy - 2.2, 1.6, 0.8, -0.6, 0, W_TAU);
             c.fill();
         }
     },
@@ -3308,6 +4292,110 @@ const WorldPaint = {
             }
             case 'target': {
                 for (const [r, col] of [[8.5, '#b8202a'], [7.5, '#ff3d4a'], [5.5, '#ffffff'], [3.5, '#ff3d4a'], [1.6, '#ffd23f']]) disc(cx, cy, r, col);
+                break;
+            }
+            case 'school': {
+                if (wHash(q.x, q.y, seed + 811) < 0.34) {
+                    // Tafel mit Kreide: „1+1=“ und ein Gehirn (Zombie-Mathe)
+                    c.fillStyle = '#5a3a20';
+                    c.beginPath(); wRound(c, cx - 11, cy - 7.5, 22, 15, 2); c.fill();
+                    c.fillStyle = '#2f6a4c';
+                    c.fillRect(cx - 9.5, cy - 6, 19, 11);
+                    c.fillStyle = 'rgba(255,255,255,0.08)';
+                    c.fillRect(cx - 9.5, cy - 6, 19, 3);
+                    this._line(c, 'rgba(255,255,255,0.85)', 0.8);
+                    c.beginPath();
+                    c.moveTo(cx - 8, cy - 2.6); c.lineTo(cx - 7, cy - 3.6); c.lineTo(cx - 7, cy + 1);
+                    c.moveTo(cx - 5.6, cy - 1.3); c.lineTo(cx - 3, cy - 1.3); c.moveTo(cx - 4.3, cy - 2.6); c.lineTo(cx - 4.3, cy);
+                    c.moveTo(cx - 2, cy - 2.6); c.lineTo(cx - 1, cy - 3.6); c.lineTo(cx - 1, cy + 1);
+                    c.moveTo(cx + 0.5, cy - 2); c.lineTo(cx + 3, cy - 2); c.moveTo(cx + 0.5, cy - 0.6); c.lineTo(cx + 3, cy - 0.6);
+                    c.stroke();
+                    c.fillStyle = '#ff9ad0';
+                    c.beginPath();
+                    for (const [dx, dy, r] of [[5.2, -1.8, 1.6], [7, -2.2, 1.7], [6.2, -0.6, 1.6], [7.8, -0.9, 1.3]]) this._dot(c, cx + dx, cy + dy, r);
+                    c.fill();
+                    this._line(c, '#d85a9a', 0.5);
+                    c.beginPath();
+                    c.moveTo(cx + 4.6, cy - 1.4); c.quadraticCurveTo(cx + 6, cy - 2.6, cx + 7.4, cy - 1.2);
+                    c.stroke();
+                    c.fillStyle = '#c8a070';
+                    c.fillRect(cx - 9.5, cy + 5, 19, 1.4);
+                    c.fillStyle = '#ffffff';
+                    c.fillRect(cx + 4, cy + 4.4, 3, 0.9);
+                    break;
+                }
+                // Hohes Schulfenster: Nachthimmel mit Vollmond und Sternen
+                const hh = Math.min(19, q.h - 3), y0 = cy - hh / 2;
+                c.fillStyle = ink; arch(cx - 8.5, y0 - 1, 17, hh + 2); c.fill();
+                c.fillStyle = frame; arch(cx - 7.5, y0, 15, hh); c.fill();
+                c.fillStyle = '#1c2766'; arch(cx - 6.3, y0 + 1.2, 12.6, hh - 2.2); c.fill();
+                c.save();
+                arch(cx - 6.3, y0 + 1.2, 12.6, hh - 2.2);
+                c.clip();
+                disc(cx + 1.4, y0 + 7, 6, wcA('#fff6c8', 0.18));
+                disc(cx + 1.4, y0 + 7, 4.4, '#fff3b0');
+                c.fillStyle = 'rgba(214,190,110,0.6)';
+                c.beginPath();
+                this._dot(c, cx + 0.2, y0 + 6.2, 1);
+                this._dot(c, cx + 2.8, y0 + 8.4, 0.7);
+                this._dot(c, cx + 2.2, y0 + 5.4, 0.5);
+                c.fill();
+                c.fillStyle = '#ffffff';
+                c.fillRect(cx - 4.6, y0 + 11, 0.9, 0.9);
+                c.fillRect(cx - 3, y0 + 4.5, 0.8, 0.8);
+                c.fillRect(cx + 3.6, y0 + 14, 0.8, 0.8);
+                c.restore();
+                c.fillStyle = frame;
+                c.fillRect(cx - 0.5, y0 + 1.2, 1, hh - 2.2);
+                c.fillRect(cx - 6.3, y0 + hh * 0.6, 12.6, 1);
+                c.fillStyle = wcLight(frame, 0.35);
+                c.fillRect(cx - 8, y0 + hh - 1.2, 16, 1.6);
+                // Mondlicht: schwächer als Laternen, damit der Mond sichtbar bleibt
+                this._glow(b, cx + 1.4, y0 + 7, 14, glow, 0.24, true);
+                break;
+            }
+            case 'rainbow': {
+                if (wHash(q.x, q.y, seed + 821) < 0.5) {
+                    // Regenbogen mit zwei Wölkchen
+                    const by = cy + 5;
+                    ['#ff5a6a', '#ffa03a', '#ffe14a', '#6ad86a', '#4cb2ff', '#a78cff'].forEach((col, k) => {
+                        this._line(c, col, 1.8);
+                        c.beginPath();
+                        c.arc(cx, by, 10.5 - k * 1.6, Math.PI, 0);
+                        c.stroke();
+                    });
+                    for (const s of [-1, 1]) {
+                        c.fillStyle = 'rgba(60,90,140,0.25)';
+                        c.beginPath();
+                        this._dot(c, cx + s * 8.6 + 0.6, by + 1, 3);
+                        c.fill();
+                        c.fillStyle = '#ffffff';
+                        c.beginPath();
+                        this._dot(c, cx + s * 9.5, by, 2.6);
+                        this._dot(c, cx + s * 7, by + 0.6, 2.2);
+                        this._dot(c, cx + s * 11.6, by + 0.8, 1.8);
+                        c.fill();
+                    }
+                } else {
+                    // Rundes Blütenfenster mit Himmel
+                    const pc = P.petals[Math.floor(wHash(q.y, q.x, seed + 823) * 4)];
+                    for (const [cc, o] of [[wcDark(pc, 0.35), 0.6], [pc, 0]]) {
+                        c.fillStyle = cc;
+                        c.beginPath();
+                        for (let k = 0; k < 8; k++) this._dot(c, cx + o + Math.cos(k * W_TAU / 8) * 7.6, cy + o + Math.sin(k * W_TAU / 8) * 7.6, 3.6);
+                        c.fill();
+                    }
+                    disc(cx, cy, 7, wcDark(pc, 0.3));
+                    disc(cx, cy, 6.2, '#8fd4ff');
+                    disc(cx - 1.5, cy + 2, 2.2, '#ffffff');
+                    disc(cx + 1, cy + 2.4, 1.8, '#ffffff');
+                    disc(cx + 2.8, cy + 2, 1.3, '#ffffff');
+                    c.fillStyle = 'rgba(255,255,255,0.7)';
+                    c.beginPath();
+                    c.ellipse(cx - 2.4, cy - 3, 2.2, 1, -0.6, 0, W_TAU);
+                    c.fill();
+                }
+                this._glow(b, cx, cy, 16, glow, 0.22, false);
                 break;
             }
         }
@@ -3861,16 +4949,79 @@ function createScrapYardLevel() {
     return map;
 }
 
-// Welt 22: Zombie Academy
+// Freie Rechtecke (rw × rh, nur Boden) für Einrichtung suchen: nicht im Boss-Block, nicht in der Vorkammer,
+// nicht am Start; untereinander mit Abstand. Liefert bis zu count Positionen (links oben), zufällig gewählt.
+function findFloorRects(map, rw, rh, count, rnd, taken) {
+    const h = map.length, w = map[0].length;
+    const door = findTile(map, TILE_BOSS_DOOR), spawn = findTile(map, TILE_SPAWN);
+    const cands = [];
+    for (let y = 1; y + rh < h; y++) {
+        for (let x = 1; x + rw < w; x++) {
+            if (x + rw - 1 >= w - 15 && y + rh - 1 >= h - 13) continue;
+            if (door && x <= door.x + 4 && x + rw - 1 >= door.x - 4 && y <= door.y && y + rh - 1 >= door.y - 6) continue;
+            if (spawn && x <= spawn.x + 2 && x + rw - 1 >= spawn.x - 2 && y <= spawn.y + 2 && y + rh - 1 >= spawn.y - 2) continue;
+            let ok = true;
+            for (let yy = y; yy < y + rh && ok; yy++) for (let xx = x; xx < x + rw && ok; xx++) if (map[yy][xx] !== TILE_FLOOR) ok = false;
+            if (ok) cands.push([x, y]);
+        }
+    }
+    for (let i = cands.length - 1; i > 0; i--) {
+        const j = Math.floor(rnd() * (i + 1));
+        [cands[i], cands[j]] = [cands[j], cands[i]];
+    }
+    const out = [];
+    for (const [x, y] of cands) {
+        if (out.length >= count) break;
+        if (taken.some(r => x < r.x + r.w + 1 && x + rw + 1 > r.x && y < r.y + r.h + 1 && y + rh + 1 > r.y)) continue;
+        const r = { x, y, w: rw, h: rh };
+        taken.push(r);
+        out.push(r);
+    }
+    return out;
+}
+
+// Welt 22: Zombie Academy – Klassenzimmer mit Bankreihen, Schleimpfützen, welke Hecken, Trampoline
 function createZombieAcademyLevel() {
     const map = generateLevel(56, 48, 16, 2222);
+    const rnd = wRng(2222), taken = [];
+    // Klassenzimmer: je vier Zweiertische in zwei Reihen (Schädel-Kachel = Schulbank in diesem Thema)
+    for (const r of findFloorRects(map, 8, 5, 4, rnd, taken)) {
+        for (const dy of [1, 3]) for (const dx of [1, 2, 5, 6]) placeOnFloor(map, r.x + dx, r.y + dy, TILE_SKULL);
+    }
+    // Schleimpfützen (fest, nur wo sie nichts abschneiden)
+    for (const r of findFloorRects(map, 4, 4, 3, rnd, taken)) {
+        for (const [dx, dy] of [[1, 1], [2, 1], [1, 2], [2, 2]]) placeSolidSafely(map, r.x + dx, r.y + dy, TILE_WATER);
+    }
+    // Welke Hecken und eine Trampolin-Reihe aus der Turnhalle
+    for (const r of findFloorRects(map, 5, 3, 2, rnd, taken)) {
+        for (let dx = 1; dx < 4; dx++) placeOnFloor(map, r.x + dx, r.y + 1, TILE_BUSH);
+    }
+    for (const r of findFloorRects(map, 5, 3, 1, rnd, taken)) {
+        for (let dx = 1; dx < 4; dx++) placeOnFloor(map, r.x + dx, r.y + 1, TILE_JUMP_PAD);
+    }
     sprinkleSpecialTiles(map);
     return map;
 }
 
-// Welt 23: Schmetterlingwelt
+// Welt 23: Schmetterlingwelt – Blumenbeete, Seerosenteiche, Blütenhecken, Hüpfblumen
 function createButterflyLevel() {
     const map = generateLevel(56, 48, 16, 2323);
+    const rnd = wRng(2323), taken = [];
+    // Blumenbeete als Plus (Schädel-Kachel = Blumenbeet in diesem Thema)
+    for (const r of findFloorRects(map, 5, 5, 6, rnd, taken)) {
+        for (const [dx, dy] of [[2, 2], [1, 2], [3, 2], [2, 1], [2, 3]]) placeOnFloor(map, r.x + dx, r.y + dy, TILE_SKULL);
+    }
+    // Teiche mit Seerosen (fest, nur wo sie nichts abschneiden)
+    for (const r of findFloorRects(map, 5, 4, 2, rnd, taken)) {
+        for (let dy = 1; dy < 3; dy++) for (let dx = 1; dx < 4; dx++) placeSolidSafely(map, r.x + dx, r.y + dy, TILE_WATER);
+    }
+    // Blütenhecken und ein Feld Hüpfblumen
+    for (const r of findFloorRects(map, 6, 3, 3, rnd, taken)) {
+        for (let dx = 1; dx < 5; dx++) placeOnFloor(map, r.x + dx, r.y + 1, TILE_BUSH);
+    }
+    for (const r of findFloorRects(map, 4, 4, 1, rnd, taken)) {
+        for (const [dx, dy] of [[1, 1], [2, 1], [1, 2], [2, 2]]) placeOnFloor(map, r.x + dx, r.y + dy, TILE_JUMP_PAD);
+    }
     sprinkleSpecialTiles(map);
     return map;
 }

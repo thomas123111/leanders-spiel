@@ -281,6 +281,19 @@ const FX = {
         shadowswamp: { color: '#7dff9e', kind: 'mote', n: 26 },
         football: { color: '#ffffff', kind: 'confetti', n: 22 },
         scrap: { color: '#ffc46b', kind: 'spark', n: 18 },
+        // mix = weitere Partikelarten desselben Themas (colors: Farben reihum)
+        zombie: {
+            color: '#c8ff8a', kind: 'mote', n: 12,
+            mix: [{ kind: 'mist', color: '#7ee85a', n: 7 }, { kind: 'paper', color: '#f2eefc', n: 4 }],
+        },
+        butterfly: {
+            color: '#ffc8ec', kind: 'petal', n: 10,
+            mix: [
+                { kind: 'petal', colors: ['#fff3b0', '#e4d4ff', '#ffffff'], n: 6 },
+                { kind: 'pollen', color: '#fff3a0', n: 12 },
+                { kind: 'flutter', colors: ['#ff8ad8', '#8ad8ff', '#ffd23f', '#c9a8ff'], n: 4 },
+            ],
+        },
     },
 
     setAmbient(theme, w, h) {
@@ -294,11 +307,20 @@ const FX = {
                 ph: Math.random() * TAU, color: cfg.color,
             });
         }
+        for (const m of cfg.mix || []) {
+            for (let i = 0; i < m.n; i++) {
+                this.ambient.push({
+                    x: Math.random() * w, y: Math.random() * h,
+                    z: randRange(0.4, 1.2), s: randRange(0.6, 1.4),
+                    ph: Math.random() * TAU, color: m.colors ? m.colors[i % m.colors.length] : m.color, kind: m.kind,
+                });
+            }
+        }
     },
 
     updateAmbient(dt, w, h, camDx, camDy) {
-        const k = this.ambientKind;
         for (const a of this.ambient) {
+            const k = a.kind || this.ambientKind;
             a.ph += dt;
             let vx = 0, vy = 0;
             if (k === 'snow') { vx = Math.sin(a.ph * 0.8) * 12; vy = 26 * a.z; }
@@ -306,6 +328,10 @@ const FX = {
             else if (k === 'bubble') { vx = Math.sin(a.ph * 2) * 6; vy = -18 * a.z; }
             else if (k === 'petal' || k === 'confetti') { vx = 14 * a.z; vy = 18 * a.z; }
             else if (k === 'spark') { vx = Math.sin(a.ph) * 8; vy = 10 * a.z; }
+            else if (k === 'mist') { vx = 7 * a.z + Math.sin(a.ph * 0.3) * 4; vy = Math.cos(a.ph * 0.25) * 3; }
+            else if (k === 'paper') { vx = 9 * a.z + Math.sin(a.ph * 1.1) * 14; vy = 7 * a.z + Math.sin(a.ph * 2.2) * 6; }
+            else if (k === 'pollen') { vx = Math.sin(a.ph * 0.9) * 6; vy = -5 * a.z + Math.cos(a.ph * 1.3) * 4; }
+            else if (k === 'flutter') { vx = Math.sin(a.ph * 0.7 + a.s * 3) * 20; vy = Math.cos(a.ph * 0.9 + a.s * 5) * 12 - 3; }
             else { vx = Math.sin(a.ph * 0.6) * 8; vy = Math.cos(a.ph * 0.5) * 6; }
             a.x += vx * dt - camDx * a.z * 0.35;
             a.y += vy * dt - camDy * a.z * 0.35;
@@ -315,10 +341,14 @@ const FX = {
     },
 
     drawAmbient(ctx) {
-        const k = this.ambientKind;
         const prev = ctx.globalAlpha;
         for (const a of this.ambient) {
+            const k = a.kind || this.ambientKind;
             const tw = 0.55 + 0.45 * Math.sin(a.ph * 2.3);
+            if (k === 'mist' || k === 'paper' || k === 'pollen' || k === 'flutter') {
+                this._drawAmbientExtra(ctx, a, k, tw, prev);
+                continue;
+            }
             if (k === 'snow') {
                 ctx.globalAlpha = prev * 0.75;
                 ctx.fillStyle = a.color;
@@ -352,6 +382,57 @@ const FX = {
             }
         }
         ctx.globalAlpha = prev;
+    },
+
+    // Flügel der Umgebungs-Schmetterlinge: x, y, Radius x, Radius y, Drehung (fest, damit pro Bild nichts angelegt wird)
+    _wings: [-2.2, -1, 2.4, 1.9, -0.4, 2.2, -1, 2.4, 1.9, 0.4, -1.6, 1.5, 1.5, 1.2, 0.3, 1.6, 1.5, 1.5, 1.2, -0.3],
+
+    // Umgebungspartikel der Welten 22/23: Nebelschwaden, Heftblätter, Blütenstaub, kleine Schmetterlinge
+    _drawAmbientExtra(ctx, a, k, tw, prev) {
+        if (k === 'mist') {
+            ctx.globalAlpha = prev;
+            ctx.save();
+            ctx.translate(a.x, a.y);
+            ctx.scale(2.4, 1);
+            Art.glow(ctx, 0, 0, 16 * a.s * a.z + 6, a.color, 0.11 + 0.06 * tw);
+            ctx.restore();
+        } else if (k === 'paper') {
+            const s = a.s * 1.25;
+            ctx.globalAlpha = prev * 0.85;
+            ctx.save();
+            ctx.translate(a.x, a.y);
+            ctx.rotate(Math.sin(a.ph * 1.3) * 0.7);
+            ctx.scale(Math.cos(a.ph * 1.9), 1);
+            ctx.fillStyle = a.color;
+            ctx.fillRect(-3 * s, -3.8 * s, 6 * s, 7.6 * s);
+            ctx.fillStyle = '#8fb4ff';
+            for (let i = 0; i < 3; i++) ctx.fillRect(-2.2 * s, (-1.9 + i * 1.8) * s, 4.6 * s, 0.5);
+            ctx.restore();
+        } else if (k === 'pollen') {
+            ctx.globalAlpha = prev * tw * 0.85;
+            Art.sparkle(ctx, a.x, a.y, 1.5 * a.s + 0.4, a.color);
+        } else {
+            // flatternder, leise leuchtender Schmetterling
+            const s = a.s * 0.9, f = 0.25 + 0.75 * Math.abs(Math.sin(a.ph * 11));
+            ctx.globalAlpha = prev;
+            Art.glow(ctx, a.x, a.y, 9 * s + 3, a.color, 0.3);
+            ctx.globalAlpha = prev * 0.9;
+            ctx.save();
+            ctx.translate(a.x, a.y);
+            ctx.rotate(Math.sin(a.ph * 0.8) * 0.4);
+            ctx.fillStyle = a.color;
+            ctx.beginPath();
+            const wg = this._wings;
+            for (let i = 0; i < wg.length; i += 5) {
+                const ex = wg[i] * f * s, ey = wg[i + 1] * s, erx = wg[i + 2] * f * s, rot = wg[i + 4];
+                ctx.moveTo(ex + Math.cos(rot) * erx, ey + Math.sin(rot) * erx);
+                ctx.ellipse(ex, ey, erx, wg[i + 3] * s, rot, 0, TAU);
+            }
+            ctx.fill();
+            ctx.fillStyle = '#3a2248';
+            ctx.fillRect(-0.4, -2 * s, 0.8, 4 * s);
+            ctx.restore();
+        }
     },
 
     // Vignette (vorgerendert je Größe).
