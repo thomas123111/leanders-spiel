@@ -56,6 +56,7 @@ const Game = {
     dailyRewardClaimDate: '',
     freeStarTier: null,
     boseStarUses: 0,
+    shopRandomStarActive: false,
     shopRandomStarTier: 0,
     shopRandomStarAttempts: 5,
     shopRandomStarFinished: false,
@@ -112,6 +113,10 @@ const Game = {
         this.loadSave();
         UI.init();
         this.setState('TITLE');
+        // Offline-Fähigkeit (nur auf der echten Seite, nicht beim lokalen Entwickeln)
+        if ('serviceWorker' in navigator && location.protocol === 'https:') {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
         this.lastTime = performance.now();
         requestAnimationFrame(t => this.gameLoop(t));
     },
@@ -154,6 +159,8 @@ const Game = {
         this.hudW = cssW / uiZoom;
         this.hudH = cssH / uiZoom;
         this.safe = this._readSafeArea(uiZoom);
+        // Menüs auf Tablets im gleichen Verhältnis vergrößern wie das HUD
+        document.documentElement.style.setProperty('--ui-zoom', uiZoom.toFixed(3));
 
         if (this.camera) {
             this.camera.width = this.viewW;
@@ -161,6 +168,11 @@ const Game = {
         }
         if (this.world && this.world.invalidateCache) this.world.invalidateCache();
         this._pausedFrameDrawn = false;
+        // Handy hochkant gedreht (Dreh-Hinweis deckt das Spiel ab): mitten im Kampf pausieren
+        if (cssH > cssW && typeof Input !== 'undefined' && Input.isMobile &&
+            (this.state === 'PLAYING' || this.state === 'BOSS_INTRO') && !this.paused) {
+            this.pause(true);
+        }
     },
 
     // Abstände für Notch/abgerundete Ecken (CSS env(safe-area-inset-*)) in HUD-Einheiten.
@@ -305,6 +317,9 @@ const Game = {
                 bone: this.unlockedBoneBat,
                 snake: this.unlockedSnakeCompanion,
                 petrify: this.unlockedPetrifyStone,
+                star: this.shopRandomStarActive ? {
+                    tier: this.shopRandomStarTier, tries: this.shopRandomStarAttempts, done: this.shopRandomStarFinished,
+                } : null,
             }));
         } catch (e) { /* Speichern nicht möglich (privater Modus) */ }
     },
@@ -336,6 +351,13 @@ const Game = {
                 this.unlockedBoneBat = !!data.bone;
                 this.unlockedSnakeCompanion = !!data.snake;
                 this.unlockedPetrifyStone = !!data.petrify;
+                if (data.star && typeof data.star === 'object') {
+                    this.shopRandomStarActive = true;
+                    this.shopRandomStarTier = clamp(data.star.tier | 0, 0, 3);
+                    this.shopRandomStarAttempts = clamp(data.star.tries | 0, 0, 5);
+                    this.shopRandomStarFinished = !!data.star.done;
+                    this.shopRandomStarRevealReady = !!data.star.done;
+                }
             }
         } catch (e) { /* kaputter Speicherstand: neu beginnen */ }
     },
@@ -475,8 +497,11 @@ const Game = {
 
     // Böser Stern: kostet einen verdienten Stern oder 100 Münzen (vorher war er versehentlich gratis).
     startBadStar() {
+        // Angefangener (schon bezahlter) Stern läuft weiter, statt verloren zu gehen
+        if (this.shopRandomStarActive) return true;
         if ((this.boseStarUses || 0) > 0) this.boseStarUses--;
         else if (!this._spendCoins(BAD_STAR_PRICE)) return false;
+        this.shopRandomStarActive = true;
         this.shopRandomStarTier = 0;
         this.shopRandomStarAttempts = 5;
         this.shopRandomStarFinished = false;
@@ -495,6 +520,7 @@ const Game = {
             this.shopRandomStarFinished = true;
             this.shopRandomStarRevealReady = true;
         }
+        this.save();
     },
 
     openBadStar() {
@@ -517,6 +543,7 @@ const Game = {
             this.unlockedTripleShot = true;
             text = 'Scharf: Schnell-Wurf! 🟢';
         }
+        this.shopRandomStarActive = false;
         this.shopRandomStarFinished = false;
         this.shopRandomStarRevealReady = false;
         this.shopRandomStarTier = 0;

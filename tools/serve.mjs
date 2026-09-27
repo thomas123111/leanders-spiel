@@ -21,6 +21,22 @@ const types = {
 };
 
 http.createServer((req, res) => {
+    // Nur für die Entwicklung: PNG-Symbole aus dem Browser speichern (PUT /__save/icons/<name>.png)
+    if (req.method === 'PUT' && req.url.startsWith('/__save/icons/')) {
+        const name = path.basename(decodeURIComponent(req.url.slice('/__save/icons/'.length)));
+        if (!/^[\w-]+\.png$/.test(name)) {
+            res.writeHead(400).end('ungültiger Name');
+            return;
+        }
+        const chunks = [];
+        req.on('data', c => chunks.push(c));
+        req.on('end', () => {
+            fs.writeFile(path.join(root, 'icons', name), Buffer.concat(chunks), err => {
+                res.writeHead(err ? 500 : 200).end(err ? String(err) : 'gespeichert');
+            });
+        });
+        return;
+    }
     let rel = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     if (rel.endsWith('/')) rel += 'index.html';
     const file = path.join(root, rel);

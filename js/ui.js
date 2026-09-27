@@ -171,7 +171,9 @@ const UI = {
             const ic = x => x === 'J' ? '💎' : '🪙';
             return `<button class="btn small blue" data-act="exchange" data-i="${i}" ${can ? '' : 'disabled'}>${a}${ic(from)} → ${b}${ic(to)}</button>`;
         }).join('');
-        const badCan = (g.boseStarUses || 0) > 0 || g.coins >= BAD_STAR_PRICE;
+        const badCan = g.shopRandomStarActive || (g.boseStarUses || 0) > 0 || g.coins >= BAD_STAR_PRICE;
+        const badLabel = g.shopRandomStarActive ? 'Weitermachen!' :
+            ((g.boseStarUses || 0) > 0 ? 'Öffnen (1 😈)' : 'Öffnen · 🪙 ' + BAD_STAR_PRICE);
         el.innerHTML = `
             <div class="page-head">
                 <button class="btn small gray" data-act="title">◀ Zurück</button>
@@ -188,7 +190,7 @@ const UI = {
                 <div class="card" style="--a:#ff5f5f">
                     <div class="head"><span class="ico">😈</span><div><h3>Böse Sterne</h3>
                     <p>Tippe den Stern 5-mal an – mit Glück wird er schärfer und die Belohnung größer!</p></div></div>
-                    <div class="foot"><button class="btn small pink" data-act="badstar" ${badCan ? '' : 'disabled'}>${(g.boseStarUses || 0) > 0 ? 'Öffnen (1 😈)' : 'Öffnen · 🪙 ' + BAD_STAR_PRICE}</button></div>
+                    <div class="foot"><button class="btn small pink${g.shopRandomStarActive ? ' pulse' : ''}" data-act="badstar" ${badCan ? '' : 'disabled'}>${badLabel}</button></div>
                 </div>
                 <div class="card" style="--a:#ffd23f">
                     <div class="head"><span class="ico">👑</span><div><h3>Goldene Krone</h3>

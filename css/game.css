@@ -37,7 +37,7 @@ html, body {
 
 #game { position: fixed; left: 0; top: 0; display: block; touch-action: none; }
 
-#ui { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+#ui { position: fixed; inset: 0; pointer-events: none; z-index: 10; zoom: var(--ui-zoom, 1); }
 .screen {
     position: absolute;
     inset: 0;
@@ -165,6 +165,7 @@ button { font-family: inherit; color: inherit; border: 0; background: none; curs
     border: 2px solid color-mix(in srgb, var(--a) 70%, white 10%);
     box-shadow: 0 6px 0 rgba(0, 0, 0, 0.35), 0 12px 24px rgba(0, 0, 0, 0.35), inset 0 0 24px color-mix(in srgb, var(--a) 30%, transparent);
     text-align: center; min-height: 0;
+    height: min(100%, 320px); align-self: center;
     transition: transform 0.12s;
 }
 .world-card:active { transform: scale(0.96); }

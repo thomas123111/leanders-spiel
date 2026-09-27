@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="36%" r="78%">
+      <stop offset="0" stop-color="#6a3fd0"/>
+      <stop offset="0.55" stop-color="#2b1660"/>
+      <stop offset="1" stop-color="#140b2a"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#b58cff" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#b58cff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="cap" cx="36%" cy="28%" r="82%">
+      <stop offset="0" stop-color="#ff8a78"/>
+      <stop offset="0.45" stop-color="#e8302f"/>
+      <stop offset="1" stop-color="#99121f"/>
+    </radialGradient>
+    <linearGradient id="brim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d42330"/>
+      <stop offset="1" stop-color="#7d0d17"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="250" r="210" fill="url(#glow)"/>
+  <!-- Funkeln -->
+  <path d="M96 118 q6 22 28 28 q-22 6 -28 28 q-6 -22 -28 -28 q22 -6 28 -28z" fill="#ffe38a"/>
+  <path d="M420 92 q4 15 19 19 q-15 4 -19 19 q-4 -15 -19 -19 q15 -4 19 -19z" fill="#ffffff"/>
+  <path d="M432 380 q5 18 23 23 q-18 5 -23 23 q-5 -18 -23 -23 q18 -5 23 -23z" fill="#8fe8ff"/>
+  <!-- Schirm -->
+  <path d="M136 296 Q150 392 256 404 Q362 392 376 296 Q256 330 136 296Z"
+        fill="url(#brim)" stroke="#34060d" stroke-width="14" stroke-linejoin="round"/>
+  <path d="M168 330 Q256 372 344 330" stroke="#ff6b6b" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.55"/>
+  <!-- Kappe -->
+  <path d="M118 304 Q114 146 256 130 Q398 146 394 304 Q256 336 118 304Z"
+        fill="url(#cap)" stroke="#34060d" stroke-width="14" stroke-linejoin="round"/>
+  <path d="M256 134 L256 318" stroke="#9c1420" stroke-width="7" stroke-linecap="round" opacity="0.55"/>
+  <path d="M186 146 Q170 230 176 314" stroke="#9c1420" stroke-width="6" fill="none" opacity="0.4"/>
+  <path d="M326 146 Q342 230 336 314" stroke="#9c1420" stroke-width="6" fill="none" opacity="0.4"/>
+  <!-- Abzeichen mit M -->
+  <circle cx="256" cy="236" r="58" fill="#ffffff" stroke="#34060d" stroke-width="11"/>
+  <path d="M222 268 L222 206 L241 206 L256 232 L271 206 L290 206 L290 268 L273 268 L273 236 L256 262 L239 236 L239 268 Z"
+        fill="#e8302f" stroke="#7d0d17" stroke-width="4" stroke-linejoin="round"/>
+  <!-- Knopf und Glanz -->
+  <circle cx="256" cy="130" r="17" fill="#ff5a5a" stroke="#34060d" stroke-width="9"/>
+  <ellipse cx="184" cy="190" rx="36" ry="20" fill="#ffffff" opacity="0.38" transform="rotate(-32 184 190)"/>
+</svg>
