@@ -1400,6 +1400,11 @@ const Game = {
         FX.updateAmbient(dt, this.viewW, this.viewH, 0, 0);
     },
 
+    // Öffentliche Schnittstelle für Gegner (gleich wie _hurtPlayer)
+    hurtPlayer(amount, angle, force) {
+        this._hurtPlayer(amount, angle, force);
+    },
+
     // Schaden am Spieler mit Rückmeldung (Wackeln, Ton, Vibration, roter Rand)
     _hurtPlayer(amount, angle, force) {
         const before = this.player.hp;

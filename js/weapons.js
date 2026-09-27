@@ -567,6 +567,7 @@ class Projectile {
             return;
         }
         // ── Gegner-Geschosse ──
+        if (this.shape && this._drawShape(ctx, x, y, r, dx, dy, age)) return;
         if (this.isIce || this.slow) {
             // eisblau mit Kristall
             this._streak(ctx, x, y, dx, dy, r * 0.85, r * 2.8, '#c9f2ff', 0.45);
@@ -615,6 +616,82 @@ class Projectile {
         ctx.beginPath();
         ctx.arc(x - r * 0.15, y - r * 0.15, r * 0.52, 0, TAU);
         ctx.fill();
+    }
+
+    // Besondere Gegner-Geschosse (Hinweis p.shape). Liefert false, wenn die Form unbekannt ist.
+    _drawShape(ctx, x, y, r, dx, dy, age) {
+        const s = this.shape;
+        const col = this.color;
+        const ang = Math.atan2(dy, dx);
+        if (s === 'arrow') {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(ang);
+            Art.limb(ctx, -r * 2.6, 0, r * 1.2, 0, Math.max(1.2, r * 0.32), '#c98a4b', { lineWidth: 1 });
+            Art.shape(ctx, c => {
+                c.moveTo(r * 2.1, 0);
+                c.lineTo(r * 0.9, -r * 0.7);
+                c.lineTo(r * 0.9, r * 0.7);
+                c.closePath();
+            }, { x: r * 0.9, y: -r * 0.7, w: r * 1.2, h: r * 1.4 }, col || '#d9dee8', { lineWidth: 1 });
+            ctx.fillStyle = col ? Art.light(col, 0.2) : '#ff6b6b';
+            ctx.beginPath();
+            ctx.moveTo(-r * 2.6, 0);
+            ctx.lineTo(-r * 3.4, -r * 0.8);
+            ctx.lineTo(-r * 2.0, 0);
+            ctx.lineTo(-r * 3.4, r * 0.8);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+            return true;
+        }
+        if (s === 'boomerang') {
+            Art.glow(ctx, x, y, r * 2.6, col || '#fff2c0', 0.35);
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(age * 16);
+            const c1 = col || '#f3e3c3';
+            Art.limb(ctx, 0, 0, r * 1.9, -r * 0.4, r * 0.75, c1, { lineWidth: 1.2 });
+            Art.limb(ctx, 0, 0, -r * 0.4, r * 1.9, r * 0.75, c1, { lineWidth: 1.2 });
+            ctx.restore();
+            return true;
+        }
+        if (s === 'fruit') {
+            this._streak(ctx, x, y, dx, dy, r * 0.8, r * 2.4, '#ffe0e6', 0.35);
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(age * 8);
+            Art.body(ctx, 0, r * 0.1, r * 1.05, r, col || '#ff3b4e', { glossy: true });
+            ctx.fillStyle = '#4fbf3a';
+            ctx.beginPath();
+            ctx.ellipse(r * 0.5, -r * 0.95, r * 0.42, r * 0.2, -0.4, 0, TAU);
+            ctx.fill();
+            ctx.restore();
+            return true;
+        }
+        if (s === 'seed') {
+            Art.glow(ctx, x, y, r * 2.4, '#9dff5a', 0.4);
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(ang);
+            Art.body(ctx, 0, 0, r * 1.2, r * 0.75, col || '#a8743a', { glossy: true, lineWidth: 1 });
+            ctx.restore();
+            return true;
+        }
+        if (s === 'pixel') {
+            const c1 = col || '#39f0ff';
+            Art.glow(ctx, x, y, r * 3, c1, 0.6);
+            const q = Math.max(1.5, r * 0.8);
+            ctx.fillStyle = Art.dark(c1, 0.35);
+            ctx.fillRect(Math.round(x - q * 1.25), Math.round(y - q * 1.25), q * 2.5, q * 2.5);
+            ctx.fillStyle = c1;
+            ctx.fillRect(Math.round(x - q), Math.round(y - q), q * 2, q * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(Math.round(x - q), Math.round(y - q), q * 0.8, q * 0.8);
+            return true;
+        }
+        // 'orb' und 'poison' zeichnen die normalen Zweige (Energiekugel bzw. Gifttropfen)
+        return false;
     }
 
     // Kurzer, spitz zulaufender Schweif hinter dem Geschoss.
