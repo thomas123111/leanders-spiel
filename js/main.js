@@ -9,7 +9,15 @@ const WORLD10_LEVEL = generateLevel(52, 48, 14, 1010);
 const LEVELS = [TUTORIAL_LEVEL, WORLD1_LEVEL, WORLD2_LEVEL, WORLD3_LEVEL, WORLD4_LEVEL,
     WORLD5_LEVEL, WORLD6_LEVEL, WORLD7_LEVEL, WORLD8_LEVEL, WORLD9_LEVEL, WORLD10_LEVEL,
     WORLD11_LEVEL, WORLD12_LEVEL, WORLD13_LEVEL, WORLD14_LEVEL, WORLD15_LEVEL,
-    WORLD16_LEVEL, WORLD17_LEVEL, WORLD18_LEVEL, WORLD19_LEVEL, WORLD20_LEVEL, WORLD21_LEVEL];
+    WORLD16_LEVEL, WORLD17_LEVEL, WORLD18_LEVEL, WORLD19_LEVEL, WORLD20_LEVEL, WORLD21_LEVEL,
+    WORLD22_LEVEL, WORLD23_LEVEL];
+
+// Stärkere Bosse in allen Welten (Wunsch von Leander).
+// BOSS_TOUGHNESS: Bosse nehmen nur 1/1,5 des Schadens, halten also 1,5-mal so viel aus. Absichtlich nicht
+// über mehr Lebenspunkte gelöst: viele Bosse wechseln bei einer festen Lebenszahl in Phase 2, das bleibt so gleich.
+// BOSS_TEMPO lässt die Zeit für Bosse schneller laufen (Laufen, Angriffe, Pausen), Geschosse fliegen normal.
+const BOSS_TOUGHNESS = 1.5;
+const BOSS_TEMPO = 1.15;
 
 const KEEP_ALIVE = o => !o.dead;
 const KEEP_ENEMY = e => !(e.dead && e.deathTimer <= 0 && !e.isBoss);
@@ -385,6 +393,14 @@ const Game = {
                 this.boseStarUses = num(data.boseStarUses);
                 this.worldRewardClaims = data.worldRewards || {};
                 this.rewardValues = data.rewardValues || {};
+                // Neue Welten werden hinten angehängt: wer eine Welt geschafft hat, für den ist die nächste offen
+                // (früher endete das Spiel mit Welt 21, dann blieb maxWorld bei 21 stehen)
+                for (const k in this.worldRewardClaims) {
+                    const n = parseInt(String(k).slice(1), 10);
+                    if (this.worldRewardClaims[k] && n >= 1) {
+                        this.maxWorldUnlocked = Math.max(this.maxWorldUnlocked, Math.min(LAST_WORLD, n + 1));
+                    }
+                }
                 this.unlockedRanged = !!data.ranged;
                 this.unlockedAuto = !!data.auto;
                 this.unlockedCrown = !!data.crown;
@@ -444,6 +460,8 @@ const Game = {
             19: { label: '1 SCHATTEN-MEISTER-STERN', coins: 0, jewels: 0, star: 'yellow' },
             20: { label: '3 BOESE STERNE', coins: 0, jewels: 0, starPack: 3 },
             21: { label: '500 MUENZEN', coins: 500, jewels: 0 },
+            22: { label: '1000 MUENZEN', coins: 1000, jewels: 0 },
+            23: { label: '100 JUWELEN', coins: 0, jewels: 100 },
         };
     },
 
@@ -866,6 +884,8 @@ const Game = {
             case 19: add(ShadowCrocodileRunner, 16); keyCarrier(ShadowCrocodileRunner); chests(7); break;
             case 20: add(FootballEnemy, 18); keyCarrier(FootballEnemy); chests(7); break;
             case 21: add(ScrapRaccoon, 16); keyCarrier(ScrapRaccoon); chests(7); break;
+            case 22: add(Zombie, 22); keyCarrier(Zombie); chests(7); break;
+            case 23: add(StarButterfly, 18); keyCarrier(StarButterfly); chests(7); break;
         }
     },
 
@@ -880,7 +900,7 @@ const Game = {
             6: BossMosquito, 7: BossSnowEagle, 8: BossFirePhoenix, 9: BossShadowMaster, 10: BossFruitKing,
             11: BossGhostChick, 12: BossKnightBat, 13: BossSkeletonRider, 14: BossHydra, 15: BossStoneDemon,
             16: BossFruitGiant, 17: BossStingRex, 18: BossTimeSphere, 19: BossShadowCrocodile,
-            20: BossFootball, 21: BossScrapRaccoon,
+            20: BossFootball, 21: BossScrapRaccoon, 22: BossGiantZombie, 23: BossTripleButterfly,
         };
         // Welt 11/12 bekommen eigene Boss-Varianten (Pixel-Roboter, Sternen-Ritter), falls vorhanden
         if (typeof BossPixelRobot !== 'undefined') bosses[11] = BossPixelRobot;
@@ -891,6 +911,7 @@ const Game = {
         if (this.currentWorld === 11) { boss.hp = 55; boss.maxHp = 55; }
         if (this.currentWorld === 12) { boss.hp = 65; boss.maxHp = 65; }
         if (!bosses[this.currentWorld]) { boss.hp = 50; boss.maxHp = 50; }
+        boss.toughness = BOSS_TOUGHNESS;
         this.enemies.push(boss);
     },
 
@@ -1174,7 +1195,7 @@ const Game = {
             }
             // Alle Gegner bekommen die Geschoss-Liste. Früher bekamen Bosse die Partikel-Liste –
             // Bosse aus Welt 5–8 legten ihre Geschosse dort ab, was das Spiel abstürzen ließ.
-            enemy.update(dt, this.world, this.player, this.enemies, this.projectiles);
+            enemy.update(enemy.isBoss ? dt * BOSS_TEMPO : dt, this.world, this.player, this.enemies, this.projectiles);
 
             // Berührungsschaden
             if (!enemy.dead && enemy.contactDamage && !this.player.dead &&
@@ -1265,6 +1286,8 @@ const Game = {
                         break;
                     }
                 }
+            } else if (proj.owner === 'enemy' && proj.hitsCompanions && this._hitCompanion(proj)) {
+                continue;
             } else if (proj.owner === 'enemy' && !this.player.dead) {
                 const dist = Math.hypot(proj.x - (this.player.x + this.player.w / 2), proj.y - (this.player.y + this.player.h / 2));
                 if (dist < proj.radius + this.player.w / 2) {
@@ -1403,6 +1426,23 @@ const Game = {
         for (const p of this.particles) p.update(dt);
         compactInPlace(this.particles, KEEP_ALIVE);
         FX.updateAmbient(dt, this.viewW, this.viewH, 0, 0);
+    },
+
+    // Gegnergeschoss mit hitsCompanions (z. B. Hammer des Riesen-Zombies) trifft einen Begleiter:
+    // der Begleiter ist kurz betäubt. Begleiter ohne stun() (Schlange auf Marks Schulter) werden nicht getroffen.
+    _hitCompanion(proj) {
+        for (const c of this.companions) {
+            if (c.dead || typeof c.stun !== 'function' || c.stunTimer > 0) continue;
+            const w = c.w || 20, h = c.h || 20;
+            if (Math.hypot(proj.x - (c.x + w / 2), proj.y - (c.y + h / 2)) < proj.radius + Math.max(w, h) / 2) {
+                c.stun(proj.stunTime || 3);
+                proj.dead = true;
+                FX.burst(proj.x, proj.y, ['#ffd23f', '#ffffff'], 8, 110, 0.4, { kind: 'star' });
+                Sound.hit();
+                return true;
+            }
+        }
+        return false;
     },
 
     // Öffentliche Schnittstelle für Gegner (gleich wie _hurtPlayer)

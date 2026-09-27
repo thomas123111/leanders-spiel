@@ -28,11 +28,14 @@ class Enemy {
 
     takeDamage(amount, knockbackAngle, knockbackForce) {
         if (this.iFrames > 0 || this.dead) return;
+        // Zähe Gegner (alle Bosse, siehe BOSS_TOUGHNESS in main.js) stecken Treffer besser weg
+        if (this.toughness > 1) amount /= this.toughness;
         this.hp -= amount;
         this.iFrames = 0.2;
         this.hitFlash = 0.12;
         if (typeof FX !== 'undefined' && amount > 0) {
-            FX.text(this.centerX(), this.y - 2, Math.round(amount * 10) / 10, this.isBoss ? '#ffd23f' : '#ffffff', this.isBoss ? 13 : 10);
+            const shown = this.toughness > 1 ? Math.max(1, Math.round(amount)) : Math.round(amount * 10) / 10;
+            FX.text(this.centerX(), this.y - 2, shown, this.isBoss ? '#ffd23f' : '#ffffff', this.isBoss ? 13 : 10);
         }
         if (knockbackAngle !== undefined && knockbackForce) {
             this.knockbackVx = Math.cos(knockbackAngle) * knockbackForce;

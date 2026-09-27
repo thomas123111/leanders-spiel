@@ -24,6 +24,8 @@ const WORLDS = [
     { name: 'Schatten-Sümpfe', theme: 'shadowswamp', accent: '#77f08d', emoji: '🐊', boss: 'Schatten-Krokodil' },
     { name: 'Fußball-Arena', theme: 'football', accent: '#ffb020', emoji: '⚽', boss: 'Riesen-Fußball' },
     { name: 'Schrottplatz', theme: 'scrap', accent: '#c7ced9', emoji: '🦝', boss: 'Riesen-Waschbär' },
+    { name: 'Zombie Academy', theme: 'zombie', accent: '#8ee86a', emoji: '🧟', boss: 'Riesen-Zombie' },
+    { name: 'Schmetterlingwelt', theme: 'butterfly', accent: '#ff8ad8', emoji: '🦋', boss: 'Drei-Kopf-Schmetterling' },
 ];
 
 const LAST_WORLD = WORLDS.length - 1;

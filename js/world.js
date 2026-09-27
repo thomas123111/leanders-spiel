@@ -3861,6 +3861,20 @@ function createScrapYardLevel() {
     return map;
 }
 
+// Welt 22: Zombie Academy
+function createZombieAcademyLevel() {
+    const map = generateLevel(56, 48, 16, 2222);
+    sprinkleSpecialTiles(map);
+    return map;
+}
+
+// Welt 23: Schmetterlingwelt
+function createButterflyLevel() {
+    const map = generateLevel(56, 48, 16, 2323);
+    sprinkleSpecialTiles(map);
+    return map;
+}
+
 const TUTORIAL_LEVEL = createTrainingLevel();
 const WORLD1_LEVEL = generateLevel(50, 45, 12, 101);
 const WORLD2_LEVEL = generateLevel(55, 45, 14, 202);
@@ -3881,3 +3895,5 @@ const WORLD18_LEVEL = createChronoLevel();
 const WORLD19_LEVEL = createShadowSwampLevel();
 const WORLD20_LEVEL = createFootballArenaLevel();
 const WORLD21_LEVEL = createScrapYardLevel();
+const WORLD22_LEVEL = createZombieAcademyLevel();
+const WORLD23_LEVEL = createButterflyLevel();

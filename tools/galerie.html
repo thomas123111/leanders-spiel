@@ -42,6 +42,8 @@ const Sound = new Proxy({}, { get: () => () => {} });
 <script src="../js/loot.js"></script>
 <script src="../js/entities.js"></script>
 <script src="../js/entities2.js"></script>
+<script src="../js/zombie.js"></script>
+<script src="../js/butterfly.js"></script>
 <script src="../js/player.js"></script>
 <script>
 const Game = {
@@ -73,6 +75,8 @@ const KLASSEN = [
     'AppleNinja', 'KiwiNinja', 'BossFruitGiant', 'MiniTRex', 'Triceratops', 'BossStingRex',
     'TimeClock', 'BossTimeSphere', 'ShadowCrocodileRunner', 'BossShadowCrocodile',
     'FootballEnemy', 'BossFootball', 'ScrapRaccoon', 'BossScrapRaccoon',
+    // Welt 22–23
+    'Zombie', 'BossGiantZombie', 'StarButterfly', 'BossTripleButterfly',
     // Training
     'TrainingTargetRobot', 'TrainingPatrolRobot', 'TrainingShooterRobot',
     // Mark & Freunde, Loot

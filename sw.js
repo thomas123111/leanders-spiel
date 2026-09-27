@@ -3,7 +3,7 @@
 // Dateien sind über ?v=… versioniert und damit unveränderlich: sie kommen aus dem Speicher, sonst
 // aus dem Netz. So entsteht nie eine Mischung aus alten und neuen Dateien.
 // Bei jedem Update: APP_VERSION hier UND die ?v=-Angaben in index.html gemeinsam erhöhen.
-const APP_VERSION = '9.0.0';
+const APP_VERSION = '9.1.0';
 const CACHE = 'mark-' + APP_VERSION;
 const V = '?v=' + APP_VERSION;
 const CORE = [
@@ -14,7 +14,7 @@ const CORE = [
     './icons/icon-512.png',
     './css/game.css' + V,
     ...['utils', 'art', 'fx', 'data', 'sound', 'music', 'input', 'camera', 'world', 'weapons', 'loot',
-        'entities', 'entities2', 'player', 'hud', 'ui', 'main'].map(n => './js/' + n + '.js' + V),
+        'entities', 'entities2', 'zombie', 'butterfly', 'player', 'hud', 'ui', 'main'].map(n => './js/' + n + '.js' + V),
     './frosty-burger/',
     './frosty-burger/styles.css?v=1.2.1',
     './frosty-burger/game.js?v=1.2.1',
