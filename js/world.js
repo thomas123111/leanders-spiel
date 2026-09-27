@@ -45,6 +45,86 @@ function reachableTiles(map, sx, sy) {
     return seen;
 }
 
+// ── Bewegung mit Wand-Kollision (für Spieler und Gegner gemeinsam) ──
+// Löst nur Wände auf, in die die Figur in diesem Schritt hineinläuft (früher wurde nach Laufrichtung
+// geschoben – Figuren in einer Wand flogen so durch Wände und aus der Karte). Große Schritte werden geteilt.
+function moveWithCollision(e, dx, dy, world) {
+    const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 12));
+    const sx = dx / steps;
+    const sy = dy / steps;
+    for (let i = 0; i < steps; i++) {
+        if (sx) _moveAxis(e, sx, 0, world);
+        if (sy) _moveAxis(e, 0, sy, world);
+    }
+    if (world.pixelWidth) {
+        e.x = clamp(e.x, 0, Math.max(0, world.pixelWidth - e.w));
+        e.y = clamp(e.y, 0, Math.max(0, world.pixelHeight - e.h));
+    }
+}
+
+function _moveAxis(e, dx, dy, world) {
+    const bx = e.x;
+    const by = e.y;
+    e.x += dx;
+    e.y += dy;
+    const cols = world.collideRect({ x: e.x, y: e.y, w: e.w, h: e.h });
+    if (!cols.length) return;
+    const before = { x: bx, y: by, w: e.w, h: e.h };
+    for (const wall of cols) {
+        if (rectOverlap(before, wall)) continue; // steckte schon drin → nicht quer durchschieben
+        if (dx > 0) e.x = Math.min(e.x, wall.x - e.w);
+        else if (dx < 0) e.x = Math.max(e.x, wall.x + wall.w);
+        if (dy > 0) e.y = Math.min(e.y, wall.y - e.h);
+        else if (dy < 0) e.y = Math.max(e.y, wall.y + wall.h);
+    }
+}
+
+// Steckt eine Figur in einer Wand, auf die nächste freie Position setzen (Suche in Kachelschritten).
+function escapeFromWalls(e, world, maxRadius = 8) {
+    if (!world.collideRect({ x: e.x, y: e.y, w: e.w, h: e.h }).length) return false;
+    const cx = e.x + e.w / 2;
+    const cy = e.y + e.h / 2;
+    let best = null;
+    let bestD = Infinity;
+    const step = TILE_SIZE / 2;
+    for (let r = 1; r <= maxRadius * 2 && !best; r++) {
+        for (let ix = -r; ix <= r; ix++) {
+            for (let iy = -r; iy <= r; iy++) {
+                if (Math.max(Math.abs(ix), Math.abs(iy)) !== r) continue;
+                const nx = cx + ix * step - e.w / 2;
+                const ny = cy + iy * step - e.h / 2;
+                if (nx < 0 || ny < 0 || nx + e.w > world.pixelWidth || ny + e.h > world.pixelHeight) continue;
+                if (world.collideRect({ x: nx, y: ny, w: e.w, h: e.h }).length) continue;
+                const d = ix * ix + iy * iy;
+                if (d < bestD) { bestD = d; best = { x: nx, y: ny }; }
+            }
+        }
+    }
+    if (best) {
+        e.x = best.x;
+        e.y = best.y;
+        return true;
+    }
+    return false;
+}
+
+// Mitte der nächsten freien Kachel (z. B. für Schlüssel, die sonst in der Wand liegen würden).
+function nearestFreeTileCenter(world, px, py) {
+    const sx = clamp(Math.floor(px / TILE_SIZE), 0, world.width - 1);
+    const sy = clamp(Math.floor(py / TILE_SIZE), 0, world.height - 1);
+    for (let r = 0; r < 12; r++) {
+        for (let ix = -r; ix <= r; ix++) {
+            for (let iy = -r; iy <= r; iy++) {
+                if (Math.max(Math.abs(ix), Math.abs(iy)) !== r) continue;
+                const x = sx + ix, y = sy + iy;
+                if (x < 1 || y < 1 || x >= world.width - 1 || y >= world.height - 1) continue;
+                if (!isSolidTile(world.tiles[y][x])) return { x: x * TILE_SIZE + TILE_SIZE / 2, y: y * TILE_SIZE + TILE_SIZE / 2 };
+            }
+        }
+    }
+    return { x: px, y: py };
+}
+
 function findTile(map, type) {
     for (let y = 0; y < map.length; y++) {
         for (let x = 0; x < map[0].length; x++) if (map[y][x] === type) return { x, y };

@@ -47,8 +47,10 @@ class Enemy {
 
     baseUpdate(dt, world) {
         if (this.iFrames > 0) this.iFrames -= dt;
+        // Steckt ein Gegner (z. B. nach einem Ansturm) in einer Wand, befreien statt durchschieben
+        if (!this.phasesThroughWalls && world && world.collideRect) escapeFromWalls(this, world);
 
-        // Apply knockback
+        // Apply knockback (klingt pro Zeit ab, nicht pro Bild – gleich auf 60- und 120-Hz-Handys)
         if (Math.abs(this.knockbackVx) > 1 || Math.abs(this.knockbackVy) > 1) {
             if (!this.phasesThroughWalls) {
                 this._moveWithCollision(this.knockbackVx * dt, this.knockbackVy * dt, world);
@@ -56,30 +58,14 @@ class Enemy {
                 this.x += this.knockbackVx * dt;
                 this.y += this.knockbackVy * dt;
             }
-            this.knockbackVx *= 0.85;
-            this.knockbackVy *= 0.85;
+            const damp = Math.exp(-9.75 * dt);
+            this.knockbackVx *= damp;
+            this.knockbackVy *= damp;
         }
     }
 
     _moveWithCollision(dx, dy, world) {
-        // Move X
-        this.x += dx;
-        const xCols = world.collideRect(this.rect());
-        for (const wall of xCols) {
-            if (rectOverlap(this.rect(), wall)) {
-                if (dx > 0) this.x = wall.x - this.w;
-                else if (dx < 0) this.x = wall.x + wall.w;
-            }
-        }
-        // Move Y
-        this.y += dy;
-        const yCols = world.collideRect(this.rect());
-        for (const wall of yCols) {
-            if (rectOverlap(this.rect(), wall)) {
-                if (dy > 0) this.y = wall.y - this.h;
-                else if (dy < 0) this.y = wall.y + wall.h;
-            }
-        }
+        moveWithCollision(this, dx, dy, world);
     }
 }
 
@@ -2222,153 +2208,6 @@ class BossKnightBat extends Enemy {
         ctx.fillStyle = hpPct > 0.4 ? '#A4F' : hpPct > 0.2 ? '#FA0' : '#F00';
         ctx.beginPath(); ctx.roundRect(barX + 1, barY + 1, (barW - 2) * hpPct, 5, 2); ctx.fill();
 
-        ctx.restore();
-    }
-}
-
-// ══════════════════════════════════════════
-// ── Tutorial Robots ──
-// ══════════════════════════════════════════
-
-class TutorialRobotSmall extends Enemy {
-    constructor(x, y) {
-        super(x, y, 20, 20);
-        this.hp = 2; this.maxHp = 2; this.speed = 30; this.damage = 1;
-        this.detectionRange = 120;
-    }
-    update(dt, world, player) {
-        this.baseUpdate(dt, world);
-        if (this.dead) return;
-        const dist = vecDist({x:this.centerX(),y:this.centerY()}, {x:player.x+player.w/2,y:player.y+player.h/2});
-        if (dist < this.detectionRange) {
-            const a = angleBetween({x:this.centerX(),y:this.centerY()}, {x:player.x+player.w/2,y:player.y+player.h/2});
-            this._moveWithCollision(Math.cos(a)*this.speed*dt, Math.sin(a)*this.speed*dt, world);
-        }
-    }
-    draw(ctx, camera) {
-        const pos = camera.worldToScreen(this.x, this.y);
-        const cx = pos.x+this.w/2, cy = pos.y+this.h/2;
-        if (this.dead) { const t=this.deathProgress(); ctx.save(); ctx.globalAlpha=(1-t); ctx.fillStyle='#888'; ctx.beginPath(); ctx.arc(cx,cy,10*(1-t),0,Math.PI*2); ctx.fill(); ctx.restore(); return; }
-        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
-        ctx.fillStyle='#AAA'; ctx.beginPath(); ctx.arc(cx,cy,10,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#F00'; ctx.beginPath(); ctx.arc(cx+3,cy-3,3,0,Math.PI*2); ctx.fill();
-        ctx.restore();
-    }
-}
-
-class TutorialRobotMedium extends Enemy {
-    constructor(x, y) {
-        super(x, y, 26, 26);
-        this.hp = 4; this.maxHp = 4; this.speed = 0; this.damage = 0;
-        this.contactDamage = false; this.isKeyGhost = true; this.droppedKey = false;
-    }
-    update(dt, world, player) { this.baseUpdate(dt, world); }
-    draw(ctx, camera) {
-        const pos = camera.worldToScreen(this.x, this.y);
-        const cx = pos.x+this.w/2, cy = pos.y+this.h/2;
-        if (this.dead) { const t=this.deathProgress(); ctx.save(); ctx.globalAlpha=(1-t); ctx.fillStyle='#888'; ctx.beginPath(); ctx.arc(cx,cy,13*(1-t),0,Math.PI*2); ctx.fill(); ctx.restore(); return; }
-        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
-        ctx.fillStyle='#999'; ctx.beginPath(); ctx.roundRect(cx-12,cy-12,24,24,4); ctx.fill();
-        ctx.fillStyle='#FFD700'; ctx.fillRect(cx-3,cy-14,6,4);
-        ctx.fillStyle='#F00'; ctx.beginPath(); ctx.arc(cx,cy,4,0,Math.PI*2); ctx.fill();
-        ctx.restore();
-    }
-}
-
-class TutorialRobotBig extends Enemy {
-    constructor(x, y) {
-        super(x, y, 36, 36);
-        this.hp = 6; this.maxHp = 6; this.speed = 0; this.damage = 0; this.contactDamage = false;
-    }
-    update(dt, world, player) { this.baseUpdate(dt, world); }
-    draw(ctx, camera) {
-        const pos = camera.worldToScreen(this.x, this.y);
-        const cx = pos.x+this.w/2, cy = pos.y+this.h/2;
-        if (this.dead) { const t=this.deathProgress(); ctx.save(); ctx.globalAlpha=(1-t); ctx.fillStyle='#666'; ctx.beginPath(); ctx.arc(cx,cy,18*(1-t),0,Math.PI*2); ctx.fill(); ctx.restore(); return; }
-        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
-        ctx.fillStyle='#777'; ctx.beginPath(); ctx.roundRect(cx-16,cy-16,32,32,6); ctx.fill();
-        ctx.fillStyle='#555'; ctx.beginPath(); ctx.roundRect(cx-12,cy-12,24,24,4); ctx.fill();
-        ctx.fillStyle='#F00'; ctx.beginPath(); ctx.arc(cx-5,cy-4,4,0,Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx+5,cy-4,4,0,Math.PI*2); ctx.fill();
-        ctx.restore();
-    }
-}
-
-class ShieldRobot extends Enemy {
-    constructor(x, y) {
-        super(x, y, 24, 24);
-        this.hp = 8; this.maxHp = 8; this.speed = 25; this.damage = 1; this.detectionRange = 100;
-    }
-    update(dt, world, player) {
-        this.baseUpdate(dt, world);
-        if (this.dead) return;
-        const dist = vecDist({x:this.centerX(),y:this.centerY()}, {x:player.x+player.w/2,y:player.y+player.h/2});
-        if (dist < this.detectionRange) {
-            const a = angleBetween({x:this.centerX(),y:this.centerY()}, {x:player.x+player.w/2,y:player.y+player.h/2});
-            this._moveWithCollision(Math.cos(a)*this.speed*dt, Math.sin(a)*this.speed*dt, world);
-        }
-    }
-    draw(ctx, camera) {
-        const pos = camera.worldToScreen(this.x, this.y);
-        const cx = pos.x+this.w/2, cy = pos.y+this.h/2;
-        if (this.dead) { const t=this.deathProgress(); ctx.save(); ctx.globalAlpha=(1-t); ctx.fillStyle='#44F'; ctx.beginPath(); ctx.arc(cx,cy,12*(1-t),0,Math.PI*2); ctx.fill(); ctx.restore(); return; }
-        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
-        ctx.fillStyle='#66F'; ctx.beginPath(); ctx.arc(cx,cy,12,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#88F'; ctx.beginPath(); ctx.arc(cx,cy-2,8,Math.PI,0); ctx.fill();
-        ctx.fillStyle='#FFF'; ctx.beginPath(); ctx.arc(cx,cy-2,3,0,Math.PI*2); ctx.fill();
-        ctx.restore();
-    }
-}
-
-class ShooterRobot extends Enemy {
-    constructor(x, y) {
-        super(x, y, 22, 22);
-        this.hp = 3; this.maxHp = 3; this.speed = 35; this.damage = 1;
-        this.detectionRange = 200; this.shootTimer = 0; this.shootCooldown = 1.5;
-    }
-    update(dt, world, player, enemies, projectiles) {
-        this.baseUpdate(dt, world);
-        if (this.dead) return;
-        const pc = {x:player.x+player.w/2,y:player.y+player.h/2};
-        const mc = {x:this.centerX(),y:this.centerY()};
-        const dist = vecDist(mc, pc);
-        if (dist < this.detectionRange) {
-            const a = angleBetween(mc, pc);
-            this._moveWithCollision(Math.cos(a)*this.speed*0.3*dt, Math.sin(a)*this.speed*0.3*dt, world);
-            this.shootTimer -= dt;
-            if (this.shootTimer <= 0 && typeof Game !== 'undefined') {
-                this.shootTimer = this.shootCooldown;
-                Game.projectiles.push(new Projectile(mc.x,mc.y, Math.cos(a)*150, Math.sin(a)*150, 1, 'enemy', 60));
-            }
-        }
-    }
-    draw(ctx, camera) {
-        const pos = camera.worldToScreen(this.x, this.y);
-        const cx = pos.x+this.w/2, cy = pos.y+this.h/2;
-        if (this.dead) { const t=this.deathProgress(); ctx.save(); ctx.globalAlpha=(1-t); ctx.fillStyle='#F44'; ctx.beginPath(); ctx.arc(cx,cy,11*(1-t),0,Math.PI*2); ctx.fill(); ctx.restore(); return; }
-        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
-        ctx.fillStyle='#C44'; ctx.beginPath(); ctx.arc(cx,cy,11,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#F66'; ctx.fillRect(cx+6,cy-2,8,4);
-        ctx.fillStyle='#FFF'; ctx.beginPath(); ctx.arc(cx-2,cy-3,3,0,Math.PI*2); ctx.fill();
-        ctx.restore();
-    }
-}
-
-class StandRobot extends Enemy {
-    constructor(x, y) {
-        super(x, y, 22, 22);
-        this.hp = 2; this.maxHp = 2; this.speed = 0; this.damage = 0; this.contactDamage = false;
-    }
-    update(dt, world, player) { this.baseUpdate(dt, world); }
-    draw(ctx, camera) {
-        const pos = camera.worldToScreen(this.x, this.y);
-        const cx = pos.x+this.w/2, cy = pos.y+this.h/2;
-        if (this.dead) { const t=this.deathProgress(); ctx.save(); ctx.globalAlpha=(1-t); ctx.fillStyle='#888'; ctx.beginPath(); ctx.arc(cx,cy,11*(1-t),0,Math.PI*2); ctx.fill(); ctx.restore(); return; }
-        ctx.save(); if(this.isFlashing()) ctx.globalAlpha=0.4;
-        ctx.fillStyle='#AAA'; ctx.beginPath(); ctx.arc(cx,cy,11,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#666'; ctx.fillRect(cx-4,cy+6,3,6); ctx.fillRect(cx+1,cy+6,3,6);
-        ctx.fillStyle='#FFF'; ctx.beginPath(); ctx.arc(cx-3,cy-2,2,0,Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx+3,cy-2,2,0,Math.PI*2); ctx.fill();
         ctx.restore();
     }
 }

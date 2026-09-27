@@ -30,6 +30,7 @@
 <script src="../js/utils.js"></script>
 <script src="../js/art.js"></script>
 <script src="../js/fx.js"></script>
+<script src="../js/data.js"></script>
 <script>
 // Ton und Spiel-Objekt als Attrappen, damit Figurencode ohne main.js läuft.
 const Sound = new Proxy({}, { get: () => () => {} });
@@ -74,9 +75,10 @@ const KLASSEN = [
     'FootballEnemy', 'BossFootball', 'ScrapRaccoon', 'BossScrapRaccoon',
     // Training
     'TrainingTargetRobot', 'TrainingPatrolRobot', 'TrainingShooterRobot',
-    'TutorialRobotSmall', 'TutorialRobotMedium', 'TutorialRobotBig', 'ShieldRobot', 'ShooterRobot', 'StandRobot',
     // Mark & Freunde, Loot
-    'Player', 'Juri', 'ShadowCrocodile', 'Chest', 'KeyDrop', 'CoinDrop', 'SkullProp', 'Projectile',
+    'Player', 'Juri', 'ShadowCrocodile', 'SnakeBuddy', 'Chest', 'KeyDrop', 'CoinDrop', 'SkullProp', 'Projectile',
+    // Neue Boss-Varianten (falls vorhanden)
+    'BossPixelRobot', 'BossStarKnight',
 ];
 const ZUSTAENDE = ['ruhig', 'getroffen', 'wenig HP', 'stirbt'];
 
@@ -108,7 +110,7 @@ function build() {
     cells = [];
     for (const name of names) {
         const K = klasse(name);
-        if (!K) { logErr(name, new Error('Klasse fehlt')); continue; }
+        if (!K) { if (filter.length) logErr(name, new Error('Klasse fehlt')); continue; }
         for (const zustand of ZUSTAENDE) {
             const isBossName = /^Boss/.test(name);
             const cw = isBossName ? 300 : 150;
@@ -156,10 +158,22 @@ function place(c) {
 }
 
 let last = performance.now();
+let loopRunning = true;
+// Zum Prüfen bei verdecktem Browser (dort pausiert requestAnimationFrame):
+// renderOnce(t) zeichnet sofort ein Bild zur Spielzeit t (Sekunden).
+window.renderOnce = function (t) {
+    if (typeof t === 'number') Art.time = t;
+    draw(0);
+    return cells.length + ' Zellen gezeichnet, Fehler: ' + (document.getElementById('err').textContent || 'keine');
+};
 function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     Art.time += dt;
+    draw(dt);
+    if (loopRunning) requestAnimationFrame(frame);
+}
+function draw(dt) {
     const cv = document.getElementById('c');
     const ctx = cv.getContext('2d');
     const s = Game.renderScale;
@@ -246,13 +260,13 @@ function frame(now) {
     }
     Game.particles = Game.particles.filter(p => !p.dead).slice(-200);
     Game.projectiles = Game.projectiles.filter(p => !p.dead).slice(-100);
-    requestAnimationFrame(frame);
 }
 
-for (const id of ['nur', 'zoom']) document.getElementById(id).addEventListener('change', () => { build(); });
-window.addEventListener('resize', layout);
+for (const id of ['nur', 'zoom']) document.getElementById(id).addEventListener('change', () => { build(); draw(0); });
+window.addEventListener('resize', () => { layout(); draw(0); });
 Input.init(document.getElementById('c'));
 build();
+draw(0);
 requestAnimationFrame(frame);
 </script>
 </body>

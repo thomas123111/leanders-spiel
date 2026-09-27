@@ -696,6 +696,13 @@ const Game = {
             ty <= this.world.height - 3;
     },
 
+    // Innenraum des Boss-Raums in Welt-Einheiten
+    _bossRoomRect() {
+        const w = this.world.width;
+        const h = this.world.height;
+        return { x: (w - 13) * TILE_SIZE, y: (h - 11) * TILE_SIZE, w: 11 * TILE_SIZE, h: 9 * TILE_SIZE };
+    },
+
     _spawnAt(EnemyClass, minDist) {
         const p = this._getSpawnPos(minDist || 150);
         return new EnemyClass(p.x, p.y);
@@ -767,6 +774,9 @@ const Game = {
             16: BossFruitGiant, 17: BossStingRex, 18: BossTimeSphere, 19: BossShadowCrocodile,
             20: BossFootball, 21: BossScrapRaccoon,
         };
+        // Welt 11/12 bekommen eigene Boss-Varianten (Pixel-Roboter, Sternen-Ritter), falls vorhanden
+        if (typeof BossPixelRobot !== 'undefined') bosses[11] = BossPixelRobot;
+        if (typeof BossStarKnight !== 'undefined') bosses[12] = BossStarKnight;
         const K = bosses[this.currentWorld] || BossGhost;
         const boss = new K(this.world.bossSpawn.x, this.world.bossSpawn.y);
         boss.isBoss = true;
@@ -836,8 +846,14 @@ const Game = {
     },
 
     // Für Tests: n Bilder simulieren, ohne auf requestAnimationFrame zu warten.
-    debugStep(n = 1, ms = 1000 / 60) {
-        for (let i = 0; i < n; i++) this._frame(ms);
+    debugStep(n = 1, ms = 1000 / 60, draw = false) {
+        const r = this.render;
+        if (!draw) this.render = () => {};
+        try {
+            for (let i = 0; i < n; i++) this._frame(ms);
+        } finally {
+            this.render = r;
+        }
     },
 
     _frame(rawMs) {
@@ -1031,6 +1047,21 @@ const Game = {
             }
         }
 
+        // Sicherheitsnetz im Bosskampf: Boss und Mark bleiben im Boss-Raum, niemand steckt in einer Wand
+        if (this.bossActive && !this.bossDefeated) {
+            const room = this._bossRoomRect();
+            for (const e of this.enemies) {
+                if (!e.isBoss || e.dead) continue;
+                e.x = clamp(e.x, room.x, Math.max(room.x, room.x + room.w - e.w));
+                e.y = clamp(e.y, room.y, Math.max(room.y, room.y + room.h - e.h));
+            }
+            if (!this.player.dead) {
+                this.player.x = clamp(this.player.x, room.x, room.x + room.w - this.player.w);
+                this.player.y = clamp(this.player.y, room.y, room.y + room.h - this.player.h);
+            }
+        }
+        if (!this.player.autoActive && !this.player.dead) escapeFromWalls(this.player, this.world, 4);
+
         // Effekt-Partikel, die Bosse in die Geschoss-Liste gelegt haben, gehören zu den Partikeln
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             if (this.projectiles[i] instanceof Particle) this.particles.push(this.projectiles.splice(i, 1)[0]);
@@ -1089,6 +1120,8 @@ const Game = {
                         }
                         // Welt 10: Orangen-Explosion trifft Gegner in der Nähe
                         if (this.player.orangeExplosion) this._orangeSplash(proj.x, proj.y, enemy);
+                        // Feuer-Geschosse (z. B. Schatten-Krokodil ab Welt 9) explodieren
+                        if (proj.explosive) this._orangeSplash(proj.x, proj.y, enemy, ['#ff5a1f', '#ffd23f', '#ff9f1c']);
                         break;
                     }
                 }
@@ -1132,7 +1165,9 @@ const Game = {
         for (const enemy of this.enemies) {
             if (enemy.isKeyGhost && enemy.dead && !enemy.droppedKey) {
                 enemy.droppedKey = true;
-                this.keyDrops.push(new KeyDrop(enemy.centerX() - 8, enemy.centerY() - 8));
+                // Schlüssel immer auf eine freie Kachel legen (nie in eine Wand)
+                const spot = nearestFreeTileCenter(this.world, enemy.centerX(), enemy.centerY());
+                this.keyDrops.push(new KeyDrop(spot.x - 8, spot.y - 8));
             }
         }
 
@@ -1288,8 +1323,8 @@ const Game = {
         }
     },
 
-    _orangeSplash(x, y, except) {
-        FX.burst(x, y, ['#ff9f1c', '#ffd23f', '#ffe9a8'], 8, 120, 0.35);
+    _orangeSplash(x, y, except, colors = ['#ff9f1c', '#ffd23f', '#ffe9a8']) {
+        FX.burst(x, y, colors, 8, 120, 0.35);
         FX.ring(x, y, '#ffb347', 34, 0.25, 3);
         for (const e of this.enemies) {
             if (e === except || e.dead) continue;

@@ -296,24 +296,7 @@ class Player {
     }
 
     _moveWithCollision(dx, dy, world) {
-        // Move X
-        this.x += dx;
-        const xCols = world.collideRect({ x: this.x, y: this.y, w: this.w, h: this.h });
-        for (const wall of xCols) {
-            if (rectOverlap({ x: this.x, y: this.y, w: this.w, h: this.h }, wall)) {
-                if (dx > 0) this.x = wall.x - this.w;
-                else if (dx < 0) this.x = wall.x + wall.w;
-            }
-        }
-        // Move Y
-        this.y += dy;
-        const yCols = world.collideRect({ x: this.x, y: this.y, w: this.w, h: this.h });
-        for (const wall of yCols) {
-            if (rectOverlap({ x: this.x, y: this.y, w: this.w, h: this.h }, wall)) {
-                if (dy > 0) this.y = wall.y - this.h;
-                else if (dy < 0) this.y = wall.y + wall.h;
-            }
-        }
+        moveWithCollision(this, dx, dy, world);
     }
 
     draw(ctx, camera) {

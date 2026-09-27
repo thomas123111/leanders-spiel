@@ -256,19 +256,31 @@ const FX = {
 
     // ── Umgebungspartikel je Thema (Bildschirmraum, leichte Parallaxe) ──
     AMBIENT: {
+        training: { color: '#fff3b0', kind: 'mote', n: 14 },
         castle: { color: '#c9b8ff', kind: 'mote', n: 22 },
         factory: { color: '#ffb347', kind: 'spark', n: 16 },
+        slime: { color: '#9dff8a', kind: 'bubble', n: 20 },
+        shadowcastle: { color: '#ff7a9c', kind: 'ember', n: 20 },
         cave: { color: '#8ff7d4', kind: 'mote', n: 20 },
         dark: { color: '#b28cff', kind: 'mote', n: 26 },
         mushroom: { color: '#ffe38a', kind: 'mote', n: 26 },
         swamp: { color: '#b6ff7a', kind: 'bubble', n: 18 },
         ice: { color: '#ffffff', kind: 'snow', n: 40 },
         volcano: { color: '#ff8a3d', kind: 'ember', n: 34 },
+        shadow: { color: '#c08cff', kind: 'mote', n: 30 },
+        orchard: { color: '#ffd6f2', kind: 'petal', n: 22 },
         pixel: { color: '#6cf0ff', kind: 'pixel', n: 22 },
         space: { color: '#ffffff', kind: 'twinkle', n: 34 },
+        bones: { color: '#ffe7b8', kind: 'mote', n: 16 },
+        poison: { color: '#9dff5a', kind: 'bubble', n: 24 },
+        stone: { color: '#dfe7f5', kind: 'mote', n: 14 },
+        dojo: { color: '#ffc2dc', kind: 'petal', n: 26 },
         fruit: { color: '#ffd6f2', kind: 'petal', n: 22 },
         dino: { color: '#e9ff9a', kind: 'mote', n: 20 },
+        chrono: { color: '#7ff0ff', kind: 'twinkle', n: 26 },
+        shadowswamp: { color: '#7dff9e', kind: 'mote', n: 26 },
         football: { color: '#ffffff', kind: 'confetti', n: 22 },
+        scrap: { color: '#ffc46b', kind: 'spark', n: 18 },
     },
 
     setAmbient(theme, w, h) {
