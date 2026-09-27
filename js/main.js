@@ -1439,7 +1439,7 @@ const Game = {
     // der Begleiter ist kurz betäubt. Begleiter ohne stun() (Schlange auf Marks Schulter) werden nicht getroffen.
     _hitCompanion(proj) {
         for (const c of this.companions) {
-            if (c.dead || typeof c.stun !== 'function' || c.stunTimer > 0) continue;
+            if (c.dead || typeof c.stun !== 'function' || c.stunTimer > 0 || c.koTimer > 0) continue;
             const w = c.w || 20, h = c.h || 20;
             if (Math.hypot(proj.x - (c.x + w / 2), proj.y - (c.y + h / 2)) < proj.radius + Math.max(w, h) / 2) {
                 c.stun(proj.stunTime || 3);
