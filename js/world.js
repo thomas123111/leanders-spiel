@@ -721,7 +721,12 @@ class World {
 
     _renderBlock(bx, by, rs) {
         const T = TILE_SIZE;
-        const size = Math.ceil(WORLD_BLOCK * T * rs) + 1;
+        // Inhalt auf ganze Pixel strecken: bei krummen Maßstäben (z. B. 2,04) wäre die letzte Pixelspalte
+        // sonst nur teilweise bemalt und mit dem Hintergrund gemischt -> feine Linien alle 6 Kacheln.
+        // Die Streckung ist kleiner als ein Pixel pro Block und nicht zu sehen.
+        const px = Math.ceil(WORLD_BLOCK * T * rs);
+        const sc = px / (WORLD_BLOCK * T);
+        const size = px + 1;
         const canvas = W_POOL.pop() || document.createElement('canvas');
         if (canvas.width !== size || canvas.height !== size) {
             canvas.width = size;
@@ -733,7 +738,7 @@ class World {
         const x1 = Math.min(this.width, x0 + WORLD_BLOCK), y1 = Math.min(this.height, y0 + WORLD_BLOCK);
         const b = { canvas, scale: rs, used: this._frameNo, anim: [] };
         c.save();
-        c.scale(rs, rs);
+        c.scale(sc, sc);
         c.translate(-x0 * T, -y0 * T);
         try {
             WorldPaint.block(this, c, b, x0, y0, x1, y1);
