@@ -93,8 +93,35 @@ class Player {
         if (!this.autoReady) return;
         this.autoActive = true;
         this.autoTimer = this.autoDuration;
+        // Danach muss das Auto neu aufgeladen werden (5 besiegte Gegner) – sonst wäre Mark dauerhaft unverwundbar.
         this.autoCharges = 0;
-        this.autoReady = true; // will be set false in W3 after use
+        this.autoReady = false;
+        if (typeof Sound !== 'undefined' && Sound.powerUp) Sound.powerUp();
+    }
+
+    // Nach dem Auto-Modus: steckt Mark in einer Wand oder außerhalb, auf die nächste freie Kachel setzen.
+    _escapeWalls(world) {
+        const inside = world.collideRect({ x: this.x, y: this.y, w: this.w, h: this.h }).length > 0;
+        if (!inside) return;
+        const sx = clamp(Math.floor((this.x + this.w / 2) / TILE_SIZE), 0, world.width - 1);
+        const sy = clamp(Math.floor((this.y + this.h / 2) / TILE_SIZE), 0, world.height - 1);
+        const seen = new Set([sy * world.width + sx]);
+        const queue = [[sx, sy]];
+        while (queue.length) {
+            const [x, y] = queue.shift();
+            if (!isSolidTile(world.tiles[y][x])) {
+                this.x = x * TILE_SIZE + TILE_SIZE / 2 - this.w / 2;
+                this.y = y * TILE_SIZE + TILE_SIZE / 2 - this.h / 2;
+                return;
+            }
+            for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+                if (nx < 0 || ny < 0 || nx >= world.width || ny >= world.height) continue;
+                const k = ny * world.width + nx;
+                if (seen.has(k)) continue;
+                seen.add(k);
+                queue.push([nx, ny]);
+            }
+        }
     }
 
     addAutoCharge() {
@@ -156,6 +183,8 @@ class Player {
             this.autoTimer -= dt;
             if (this.autoTimer <= 0) {
                 this.autoActive = false;
+                this._escapeWalls(world);
+                this.iFrames = Math.max(this.iFrames, 1);
             }
         }
 
@@ -213,9 +242,15 @@ class Player {
         const dx = dir.x * this.speed * this.slowFactor * dt;
         const dy = dir.y * this.speed * this.slowFactor * dt;
         if (this.autoActive) {
-            // Auto: drive through walls!
-            this.x += dx;
-            this.y += dy;
+            // Auto: fährt durch Wände, aber nie aus der Karte hinaus und nicht in den/aus dem Boss-Raum
+            const nx = clamp(this.x + dx, TILE_SIZE, world.pixelWidth - TILE_SIZE - this.w);
+            const ny = clamp(this.y + dy, TILE_SIZE, world.pixelHeight - TILE_SIZE - this.h);
+            const inBoss = (px, py) => typeof Game !== 'undefined' && Game._isBossRoomTile &&
+                Game._isBossRoomTile(Math.floor((px + this.w / 2) / TILE_SIZE), Math.floor((py + this.h / 2) / TILE_SIZE));
+            if (inBoss(nx, ny) === inBoss(this.x, this.y)) {
+                this.x = nx;
+                this.y = ny;
+            }
         } else {
             this._moveWithCollision(dx, dy, world);
         }

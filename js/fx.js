@@ -207,7 +207,7 @@ const FX = {
     },
 
     // Treffer-Blitz: Figur wird weiß überblendet. Zeichnet die Figur in eine Hilfsfläche und färbt sie dort ein.
-    drawFlashing(ctx, e, camera, scale, strength = 0.75) {
+    drawFlashing(ctx, e, camera, scale, strength = 0.75, color = '#ffffff') {
         const margin = Math.max(e.w, e.h) * 0.9 + 14;
         const lw = e.w + margin * 2;
         const lh = e.h + margin * 2;
@@ -246,7 +246,7 @@ const FX = {
         sc.setTransform(1, 0, 0, 1, 0, 0);
         sc.globalCompositeOperation = 'source-atop';
         sc.globalAlpha = strength;
-        sc.fillStyle = '#ffffff';
+        sc.fillStyle = color;
         sc.fillRect(0, 0, pw, ph);
         sc.globalAlpha = 1;
         sc.globalCompositeOperation = 'source-over';

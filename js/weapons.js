@@ -37,14 +37,26 @@ class BaseballBat {
         }
     }
 
+    // Trifft alle Gegner, deren Hitbox den Schwungbogen berührt (nicht nur deren Mittelpunkt –
+    // sonst waren große Bosse nur „von innen“ treffbar).
     getHitEntities(playerPos, enemies) {
         if (!this.swinging) return [];
         const hit = [];
-        const center = { x: playerPos.x + playerPos.w / 2, y: playerPos.y + playerPos.h / 2 };
+        const cx = playerPos.x + playerPos.w / 2;
+        const cy = playerPos.y + playerPos.h / 2;
         for (const enemy of enemies) {
             if (enemy.dead) continue;
-            const eCenter = { x: enemy.x + enemy.w / 2, y: enemy.y + enemy.h / 2 };
-            if (pointInArc(eCenter, center, this.swingAngle, this.arcWidth, this.range)) {
+            // nächster Punkt der Gegner-Box zu Mark
+            const nx = clamp(cx, enemy.x, enemy.x + enemy.w);
+            const ny = clamp(cy, enemy.y, enemy.y + enemy.h);
+            const dist = Math.hypot(nx - cx, ny - cy);
+            if (dist > this.range) continue;
+            if (dist < 6) { hit.push(enemy); continue; }
+            const ex = enemy.x + enemy.w / 2;
+            const ey = enemy.y + enemy.h / 2;
+            // Winkel zum nächsten Punkt oder zur Mitte – beides zählt
+            if (pointInArc({ x: nx, y: ny }, { x: cx, y: cy }, this.swingAngle, this.arcWidth, this.range + 1) ||
+                pointInArc({ x: ex, y: ey }, { x: cx, y: cy }, this.swingAngle, this.arcWidth, Infinity)) {
                 hit.push(enemy);
             }
         }

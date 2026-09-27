@@ -16,6 +16,51 @@ const TILE_WATER = 9;
 const TILE_SKULL = 10;
 const TILE_JUMP_PAD = 11;
 
+// Undurchdringliche Kacheln (Fenster sitzen in Wänden und sind deshalb auch fest).
+function isSolidTile(t) {
+    return t === TILE_WALL || t === TILE_BOSS_DOOR || t === TILE_WATER || t === TILE_WINDOW;
+}
+
+// Breitensuche über begehbare Kacheln. Liefert ein Array „erreichbar“ (Index y * breite + x).
+function reachableTiles(map, sx, sy) {
+    const h = map.length;
+    const w = map[0].length;
+    const seen = new Uint8Array(w * h);
+    if (sx < 0 || sy < 0 || sx >= w || sy >= h) return seen;
+    const q = [sy * w + sx];
+    seen[sy * w + sx] = 1;
+    while (q.length) {
+        const i = q.pop();
+        const x = i % w;
+        const y = (i - x) / w;
+        const next = [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]];
+        for (const [nx, ny] of next) {
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            const j = ny * w + nx;
+            if (seen[j] || isSolidTile(map[ny][nx])) continue;
+            seen[j] = 1;
+            q.push(j);
+        }
+    }
+    return seen;
+}
+
+function findTile(map, type) {
+    for (let y = 0; y < map.length; y++) {
+        for (let x = 0; x < map[0].length; x++) if (map[y][x] === type) return { x, y };
+    }
+    return null;
+}
+
+// Ist das Feld vor der Boss-Tür vom Start aus erreichbar?
+function bossDoorReachable(map) {
+    const s = findTile(map, TILE_SPAWN);
+    const d = findTile(map, TILE_BOSS_DOOR);
+    if (!s || !d) return false;
+    const seen = reachableTiles(map, s.x, s.y);
+    return !!seen[(d.y - 1) * map[0].length + d.x];
+}
+
 class World {
     constructor() {
         this.tiles = [];
@@ -67,16 +112,27 @@ class World {
     openBossDoor() {
         this.bossDoorOpen = true;
         for (const pos of this.bossDoorTiles) {
-            this.tiles[pos.y][pos.x] = TILE_DOOR;
+            this.setTile(pos.x, pos.y, TILE_DOOR);
         }
+    }
+
+    // Kachel ändern (z. B. Boss-Tür). Immer diese Methode benutzen, damit vorgerenderte Bereiche neu gezeichnet werden.
+    setTile(x, y, type) {
+        if (y < 0 || x < 0 || y >= this.height || x >= this.width) return;
+        this.tiles[y][x] = type;
+        this.invalidateCache(x, y);
+    }
+
+    // Vorgerenderte Bereiche verwerfen (ohne Koordinaten: alles). Wird auch bei Größenänderung aufgerufen.
+    invalidateCache(x, y) {
+        // Platzhalter: der Welt-Renderer mit Zwischenspeicher füllt das aus.
     }
 
     isWall(px, py) {
         const tx = Math.floor(px / TILE_SIZE);
         const ty = Math.floor(py / TILE_SIZE);
         if (tx < 0 || ty < 0 || tx >= this.width || ty >= this.height) return true;
-        const t = this.tiles[ty][tx];
-        return t === TILE_WALL || t === TILE_BOSS_DOOR || t === TILE_WATER;
+        return isSolidTile(this.tiles[ty][tx]);
     }
 
     isBush(px, py) {
@@ -107,8 +163,7 @@ class World {
                     collisions.push({ x: tx * TILE_SIZE, y: ty * TILE_SIZE, w: TILE_SIZE, h: TILE_SIZE });
                     continue;
                 }
-                const t = this.tiles[ty][tx];
-                if (t === TILE_WALL || t === TILE_BOSS_DOOR || t === TILE_WATER) {
+                if (isSolidTile(this.tiles[ty][tx])) {
                     collisions.push({ x: tx * TILE_SIZE, y: ty * TILE_SIZE, w: TILE_SIZE, h: TILE_SIZE });
                 }
             }
@@ -767,25 +822,43 @@ function generateLevel(width, height, numRooms, seed) {
         }
     }
 
-    // Corridor from nearest regular room to antechamber
-    let nearestRoom = rooms[0];
+    // Corridor from nearest regular room to antechamber.
+    // Räume, deren Mitte im Boss-Bereich liegt, zählen nicht: ihr Gang würde beim
+    // Nachziehen der Bossraum-Wände wieder zugemauert (so war Welt 21 unschaffbar).
+    const inBossArea = r => r.cx >= bx1 - 1 && r.cx <= bx2 + 1 && r.cy >= by1 - 1 && r.cy <= by2 + 1;
+    let nearestRoom = rooms.find(r => !inBossArea(r)) || rooms[0];
     let nearestDist = 99999;
     for (const r of rooms) {
+        if (inBossArea(r)) continue;
         const d = Math.abs(r.cx - doorX) + Math.abs(r.cy - (doorY - 3));
         if (d < nearestDist) { nearestDist = d; nearestRoom = r; }
     }
     carveCorridor(nearestRoom.cx, nearestRoom.cy, doorX, doorY - 3);
 
-    // Re-enforce boss door and spawn (corridor may have overwritten them)
-    map[doorY][doorX] = B;
-    map[bossCy][bossCx] = BS;
-    // Re-enforce boss room walls (corridor may have broken through)
-    for (let y = by1; y <= by2; y++) {
-        for (let x = bx1; x <= bx2; x++) {
-            if (y === by1 || y === by2 || x === bx1 || x === bx2) {
-                if (map[y][x] !== B) map[y][x] = W;
+    const enforceBossRoom = () => {
+        // Re-enforce boss door and spawn (corridor may have overwritten them)
+        map[doorY][doorX] = B;
+        map[bossCy][bossCx] = BS;
+        // Re-enforce boss room walls (corridor may have broken through)
+        for (let y = by1; y <= by2; y++) {
+            for (let x = bx1; x <= bx2; x++) {
+                if (y === by1 || y === by2 || x === bx1 || x === bx2) {
+                    if (map[y][x] !== B) map[y][x] = W;
+                } else if (map[y][x] !== BS) {
+                    map[y][x] = F;
+                }
             }
         }
+    };
+    enforceBossRoom();
+
+    // Sicherheitsnetz: ist die Boss-Tür vom Start aus nicht erreichbar, direkten Gang vom
+    // Startraum zur Vorkammer graben (am Boss-Raum vorbei über dessen Oberkante).
+    if (!bossDoorReachable(map)) {
+        carveCorridor(rooms[0].cx, rooms[0].cy, doorX, Math.max(1, by1 - 3));
+        carveCorridor(doorX, Math.max(1, by1 - 3), doorX, doorY - 1);
+        map[rooms[0].cy][rooms[0].cx] = S;
+        enforceBossRoom();
     }
 
     return map;
@@ -797,6 +870,7 @@ function sprinkleSpecialTiles(map) {
     const height = map.length;
     const width = map[0].length;
     const randI = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+    const door = findTile(map, TILE_BOSS_DOOR);
     const place = (type, count, edgeSafe) => {
         let placed = 0;
         let guard = 0;
@@ -807,8 +881,15 @@ function sprinkleSpecialTiles(map) {
             if (x > width - 14 && y > height - 12) continue;
             if (x < 6 && y < 6) continue;
             if (edgeSafe && (x < 4 || y < 4 || x > width - 5 || y > height - 5)) continue;
+            // Vorkammer der Boss-Tür frei lassen
+            if (door && Math.abs(x - door.x) <= 4 && y >= door.y - 6 && y < door.y) continue;
             if (map[y][x] !== TILE_FLOOR) continue;
             map[y][x] = type;
+            // Feste Kacheln (Wasser) dürfen keinen Weg abschneiden
+            if (isSolidTile(type) && !bossDoorReachable(map)) {
+                map[y][x] = TILE_FLOOR;
+                continue;
+            }
             placed++;
         }
     };
