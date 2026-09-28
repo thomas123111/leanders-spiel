@@ -255,6 +255,11 @@ button { font-family: inherit; color: inherit; border: 0; background: none; curs
 .toggle .sw::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 999px; background: #fff; transition: transform 0.15s; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
 .toggle.on .sw { background: #22c476; }
 .toggle.on .sw::after { transform: translateX(18px); }
+.seg { display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px; border-radius: 16px; background: rgba(10,4,26,0.4); flex-wrap: wrap; }
+.seg-label { font-weight: 800; font-size: 14px; padding: 0 6px; flex: 1 1 auto; text-align: left; }
+.seg-btn { min-height: 40px; padding: 6px 12px; border-radius: 12px; font-weight: 900; font-size: 14px; background: #3a3170; color: #d9d2ff; }
+.seg-btn.on { background: #22c476; color: #fff; box-shadow: 0 2px 0 rgba(0,0,0,0.3); }
+.seg-btn[data-v="extrem"].on { background: #ff4d4d; }
 
 /* ── Drehen-Hinweis ── */
 #rotate {

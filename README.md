@@ -18,7 +18,9 @@ Auf dem Handy quer halten. Über „Zum Startbildschirm hinzufügen“ wird es e
 | Auto | Taste rechts oben (lädt sich mit 5 besiegten Gegnern auf) | E |
 | Pause | Taste oben rechts | P / Esc |
 
-Zielhilfe und Auto-Angriff lassen sich in der Pause bzw. in den Einstellungen ein- und ausschalten.
+In der Pause und in den Einstellungen: Schwierigkeit (Normal, Schwer, Extrem; gilt ab dem nächsten Weltstart),
+Zielhilfe, Geräusche, Musik und Vibration. Einen Auto-Angriff gibt es nicht mehr: Mark greift nur an, wenn man
+selbst tippt, zieht oder klickt. Die Werte der Schwierigkeiten stehen in `DIFFICULTY` oben in `js/main.js`.
 
 ## Technik
 

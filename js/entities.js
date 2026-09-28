@@ -49,7 +49,8 @@ class Enemy {
     }
 
     baseUpdate(dt, world) {
-        if (this.iFrames > 0) this.iFrames -= dt;
+        // Schutzzeit nach Treffern in echter Zeit, auch wenn der Gegner schneller läuft (tempo, siehe main.js)
+        if (this.iFrames > 0) this.iFrames -= dt / (this.tempo || 1);
         // Steckt ein Gegner (z. B. nach einem Ansturm) in einer Wand, befreien statt durchschieben
         if (!this.phasesThroughWalls && world && world.collideRect) escapeFromWalls(this, world);
 

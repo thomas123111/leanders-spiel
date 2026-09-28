@@ -19,6 +19,16 @@ const LEVELS = [TUTORIAL_LEVEL, WORLD1_LEVEL, WORLD2_LEVEL, WORLD3_LEVEL, WORLD4
 const BOSS_TOUGHNESS = 1.5;
 const BOSS_TEMPO = 1.15;
 
+// Schwierigkeit (Einstellung; „Extrem“ sind Leanders Wunschwerte). Gilt für normale Gegner, nicht für Bosse
+// und nicht fürs Training. anzahl = Vielfaches der Gegner, tempo = Laufgeschwindigkeit,
+// treffer = Würfe/Schläge, die ein durchschnittlicher Gegner mit Marks Waffe dieser Welt aushält
+// (Welt 1–8, 9–16, 17 und höher); null = Lebenspunkte wie gebaut.
+const DIFFICULTY = {
+    normal: { name: 'Normal', anzahl: 1, tempo: 1, treffer: null },
+    schwer: { name: 'Schwer', anzahl: 2, tempo: 1.5, treffer: [3, 3, 4] },
+    extrem: { name: 'Extrem', anzahl: 5, tempo: 3, treffer: [3, 4, 5] },
+};
+
 const KEEP_ALIVE = o => !o.dead;
 const KEEP_ENEMY = e => !(e.dead && e.deathTimer <= 0 && !e.isBoss);
 const KEEP_COIN = c => !c.collected;
@@ -77,7 +87,7 @@ const Game = {
     rewardValues: {},
     activeMode: null,
 
-    settings: { sound: true, music: true, vibration: true, aimAssist: true, autoFire: false },
+    settings: { sound: true, music: true, vibration: true, aimAssist: true, difficulty: 'normal' },
 
     // Epischer Stillstand beim Boss-Sieg
     epicFreezeActive: false,
@@ -294,6 +304,13 @@ const Game = {
             const s = JSON.parse(localStorage.getItem(SETTINGS_KEY));
             if (s && typeof s === 'object') Object.assign(this.settings, s);
         } catch (e) { /* Standardwerte */ }
+        // Auto-Angriff gibt es nicht mehr (Wunsch: keine automatischen Attacken)
+        delete this.settings.autoFire;
+        if (!DIFFICULTY[this.settings.difficulty]) this.settings.difficulty = 'normal';
+    },
+
+    difficulty() {
+        return DIFFICULTY[this.settings.difficulty] || DIFFICULTY.normal;
     },
 
     saveSettings() {
@@ -839,7 +856,11 @@ const Game = {
 
     // Gegner, Schlüsselträger und Truhen je Welt
     _spawnWorldContent(worldNum) {
-        const add = (K, n, minDist) => { for (let i = 0; i < n; i++) this.enemies.push(this._spawnAt(K, minDist)); };
+        const diff = worldNum === 0 ? DIFFICULTY.normal : this.difficulty();
+        const add = (K, n, minDist) => {
+            const count = Math.round(n * diff.anzahl);
+            for (let i = 0; i < count; i++) this.enemies.push(this._spawnAt(K, minDist));
+        };
         const chests = n => { for (let i = 0; i < n; i++) this.chests.push(this._spawnChestAt()); };
         const keyCarrier = K => {
             const e = this._spawnAt(K, 300);
@@ -893,6 +914,26 @@ const Game = {
                 this.props.push(new DragonFatherShadow());
                 break;
         }
+        this._applyDifficulty(worldNum, diff);
+    },
+
+    // Zähere und schnellere Gegner je nach Schwierigkeit. Zähigkeit über den Schadensteiler (wie bei Bossen),
+    // bemessen an Marks Waffe in dieser Welt: ein durchschnittlicher Gegner hält „treffer“ Treffer aus,
+    // stärkere Gegnerarten entsprechend mehr, schwächere weniger.
+    _applyDifficulty(worldNum, diff) {
+        if (!diff.treffer || worldNum === 0) return;
+        const foes = this.enemies.filter(e => !e.isBoss);
+        if (!foes.length) return;
+        const target = diff.treffer[worldNum <= 8 ? 0 : worldNum <= 16 ? 1 : 2];
+        const dmg = (this.player.activeWeapon && this.player.activeWeapon.damage) || 3;
+        const avgHp = foes.reduce((s, e) => s + (e.maxHp || 4), 0) / foes.length;
+        const tough = Math.max(1, (target - 0.5) * dmg / avgHp);
+        for (const e of foes) {
+            e.toughness = tough;
+            // Schneller über die Zeit (wie BOSS_TEMPO), nicht über e.speed: viele Gegner bewegen sich mit
+            // eigenen Sprüngen, Schritten und Abständen, dort käme ein größeres speed kaum an (gemessen).
+            e.tempo = diff.tempo;
+        }
     },
 
     _spawnBoss() {
@@ -919,6 +960,7 @@ const Game = {
         if (this.currentWorld === 12) { boss.hp = 65; boss.maxHp = 65; }
         if (!bosses[this.currentWorld]) { boss.hp = 50; boss.maxHp = 50; }
         boss.toughness = BOSS_TOUGHNESS;
+        boss.tempo = BOSS_TEMPO;
         this.enemies.push(boss);
     },
 
@@ -1202,7 +1244,8 @@ const Game = {
             }
             // Alle Gegner bekommen die Geschoss-Liste. Früher bekamen Bosse die Partikel-Liste –
             // Bosse aus Welt 5–8 legten ihre Geschosse dort ab, was das Spiel abstürzen ließ.
-            enemy.update(enemy.isBoss ? dt * BOSS_TEMPO : dt, this.world, this.player, this.enemies, this.projectiles);
+            // tempo: Bosse BOSS_TEMPO, normale Gegner je nach Schwierigkeit (für sie läuft die Zeit schneller)
+            enemy.update(dt * (enemy.tempo || 1), this.world, this.player, this.enemies, this.projectiles);
 
             // Berührungsschaden
             if (!enemy.dead && enemy.contactDamage && !this.player.dead &&
@@ -1512,10 +1555,8 @@ const Game = {
             }
         } else if (best !== null && (Input.attackPressed || Input.attackHeld)) {
             if (this.settings.aimAssist) p.assistAim = best;
-        } else if (best !== null && this.settings.autoFire && !p.autoActive) {
-            p.assistAim = best;
-            p.autoAttack = true;
         }
+        // Kein Auto-Angriff mehr: Mark greift nur an, wenn Leander es selbst auslöst (p.autoAttack bleibt aus)
     },
 
     _orangeSplash(x, y, except, colors = ['#ff9f1c', '#ffd23f', '#ffe9a8']) {

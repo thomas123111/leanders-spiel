@@ -62,6 +62,7 @@ const UI = {
             <span class="chip coin"><i>🪙</i><b>${Game.coins | 0}</b></span>
             <span class="chip gem"><i>💎</i><b>${Game.jewels | 0}</b></span>
             ${stars ? `<span class="chip star"><i>😈</i><b>${stars}</b></span>` : ''}
+            ${Game.settings.difficulty !== 'normal' ? `<span class="chip"><i>${Game.settings.difficulty === 'extrem' ? '🔥' : '💪'}</i><b>${Game.difficulty().name}</b></span>` : ''}
         </div>`;
     },
 
@@ -301,10 +302,14 @@ const UI = {
     _toggles() {
         const s = Game.settings;
         const t = (key, label) => `<button class="toggle${s[key] ? ' on' : ''}" data-act="toggle" data-key="${key}">${label}<span class="sw"></span></button>`;
-        return `<div class="toggles">
+        const d = (key, label) => `<button class="seg-btn${s.difficulty === key ? ' on' : ''}" data-act="difficulty" data-v="${key}">${label}</button>`;
+        return `<div class="seg" role="group" aria-label="Schwierigkeit">
+            <span class="seg-label">Schwierigkeit</span>
+            ${d('normal', 'Normal')}${d('schwer', 'Schwer')}${d('extrem', '🔥 Extrem')}
+        </div>
+        <div class="toggles">
             ${t('sound', '🔊 Geräusche')}${t('music', '🎵 Musik')}
-            ${t('aimAssist', '🎯 Zielhilfe')}${t('autoFire', '🔥 Auto-Angriff')}
-            ${t('vibration', '📳 Vibration')}
+            ${t('aimAssist', '🎯 Zielhilfe')}${t('vibration', '📳 Vibration')}
         </div>`;
     },
 
@@ -330,7 +335,9 @@ const UI = {
         el.innerHTML = `<div class="dialog">
             <h2>Einstellungen</h2>
             ${this._toggles()}
-            <div class="sub">Zielhilfe: Würfe und Schläge gehen leichter auf Gegner.<br>Auto-Angriff: Mark greift von selbst an, wenn Gegner nah sind.</div>
+            <div class="sub">Schwer: doppelt so viele Gegner, schneller, jeder hält etwa 3 Treffer aus.<br>
+                Extrem: fünfmal so viele Gegner, dreimal so schnell, 3 bis 5 Treffer. Gilt ab dem nächsten Weltstart.<br>
+                Zielhilfe: Würfe und Schläge gehen leichter auf Gegner.</div>
             <div class="row"><button class="btn" data-act="closesettings">Fertig</button></div>
         </div>`;
         this.show('settings');
@@ -423,6 +430,15 @@ const UI = {
             case 'resume': g.pause(false); break;
             case 'restart': g.paused = false; g.startWorld(g.currentWorld); break;
             case 'next': g._advanceToNextWorld(); break;
+            case 'difficulty': {
+                const v = btn.dataset.v;
+                if (!DIFFICULTY[v] || g.settings.difficulty === v) break;
+                g.settings.difficulty = v;
+                g.saveSettings();
+                for (const b of btn.parentElement.querySelectorAll('.seg-btn')) b.classList.toggle('on', b.dataset.v === v);
+                if (g.state === 'PLAYING' || g.paused) this.flashMessage(DIFFICULTY[v].name + ': gilt ab dem nächsten Weltstart');
+                break;
+            }
             case 'toggle': {
                 const key = btn.dataset.key;
                 g.settings[key] = !g.settings[key];
