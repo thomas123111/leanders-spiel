@@ -80,7 +80,7 @@ const Game = {
     boseStarUses: 0,
     shopRandomStarActive: false,
     shopRandomStarTier: 0,
-    shopRandomStarAttempts: 5,
+    shopRandomStarAttempts: 5, // STAR_TRIES (ui.js)
     shopRandomStarFinished: false,
     shopRandomStarRevealReady: false,
     worldRewardClaims: {},
@@ -430,8 +430,8 @@ const Game = {
                 this.unlockedPetrifyStone = !!data.petrify;
                 if (data.star && typeof data.star === 'object') {
                     this.shopRandomStarActive = true;
-                    this.shopRandomStarTier = clamp(data.star.tier | 0, 0, 3);
-                    this.shopRandomStarAttempts = clamp(data.star.tries | 0, 0, 5);
+                    this.shopRandomStarTier = clamp(data.star.tier | 0, 0, STAR_RARITIES.length - 1);
+                    this.shopRandomStarAttempts = clamp(data.star.tries | 0, 0, STAR_TRIES);
                     this.shopRandomStarFinished = !!data.star.done;
                     this.shopRandomStarRevealReady = !!data.star.done;
                     this.shopRandomStarWithStar = !!data.star.earned;
@@ -590,64 +590,79 @@ const Game = {
         }
         this.shopRandomStarActive = true;
         this.shopRandomStarTier = 0;
-        this.shopRandomStarAttempts = 5;
+        this.shopRandomStarAttempts = STAR_TRIES;
         this.shopRandomStarFinished = false;
         this.shopRandomStarRevealReady = false;
         this.save();
         return true;
     },
 
+    // Ein Versuch: mit etwas Glück steigt der Stern eine Seltenheit auf. Liefert true bei Aufstieg.
     _advanceRandomStarStep() {
-        if (this.shopRandomStarFinished) return;
+        if (this.shopRandomStarFinished) return false;
+        const max = STAR_RARITIES.length - 1;
         this.shopRandomStarAttempts--;
-        const chances = [0.65, 0.5, 0.35];
-        const chance = chances[Math.min(this.shopRandomStarTier, chances.length - 1)];
-        if (Math.random() < chance && this.shopRandomStarTier < 3) this.shopRandomStarTier++;
-        if (this.shopRandomStarTier >= 3 || this.shopRandomStarAttempts <= 0) {
+        const chance = STAR_UPGRADE_CHANCES[Math.min(this.shopRandomStarTier, STAR_UPGRADE_CHANCES.length - 1)];
+        const up = this.shopRandomStarTier < max && Math.random() < chance;
+        if (up) this.shopRandomStarTier++;
+        if (this.shopRandomStarTier >= max || this.shopRandomStarAttempts <= 0) {
             this.shopRandomStarFinished = true;
             this.shopRandomStarRevealReady = true;
         }
         this.save();
+        return up;
     },
 
+    // Stern öffnen: Belohnung je Seltenheit. Liefert { tier, coins, jewels, upgrades, owned, text }
+    // (upgrades = Namen der Game-Flags, owned = Name eines Upgrades, das man schon hatte).
     openBadStar() {
-        const tier = Math.min(this.shopRandomStarTier || 0, 3);
-        // Mit Münzen gekaufte Sterne zahlen weniger aus als verdiente – sonst wäre der Stern eine
-        // Gelddruckmaschine (Stufe 3 kommt in fast jeder zweiten Runde).
+        const max = STAR_RARITIES.length - 1;
+        const tier = clamp(this.shopRandomStarTier || 0, 0, max);
+        const rar = STAR_RARITIES[tier];
+        // Mit Münzen gekaufte Sterne zahlen weniger aus als verdiente, sonst wäre der Stern eine
+        // Gelddruckmaschine: beim Kauf bleibt der Erwartungswert unter dem Preis (siehe STAR_UPGRADE_CHANCES).
         const earned = !!this.shopRandomStarWithStar;
-        let text;
-        const upgrade = (flag, name) => {
-            if (this[flag]) {
-                const bonus = earned ? 150 : 20;
-                this._grantCoins(bonus);
-                return name + ' hast du schon: +' + bonus + ' Münzen';
-            }
-            this[flag] = true;
-            return name + '!';
-        };
-        if (tier >= 3) {
-            // Erwartungswert bei Münz-Kauf: 0,458 × 180 + 0,542 × 20 ≈ 93 < 100 Einsatz
-            const coins = earned ? 1000 : 180;
-            this._grantCoins(coins);
-            this.unlockedTripleShot = true;
-            this.unlockedShadowCaster = true;
-            this.unlockedGamerPistol = true;
-            this.unlockedFruitUpgrades = true;
-            text = `ULTRA! ${coins} Münzen + alle Werfer-Upgrades! 🔥`;
-        } else if (tier === 2) {
-            text = 'Mega Scharf: ' + upgrade('unlockedGamerPistol', 'Gamer-Pistole') + ' 🟠';
-        } else if (tier === 1) {
-            text = 'Super Scharf: ' + upgrade('unlockedShadowCaster', 'Schatten-Werfer') + ' 🟡';
+        const pick = v => (Array.isArray(v) ? v[earned ? 0 : 1] : v) || 0;
+        // [verdient, gekauft]; Erwartungswert gekauft ≈ 89 Münzen (Juwel = 10 Münzen), verdient ≈ 158
+        const rewards = [
+            { coins: [40, 30] },                                                        // Selten
+            { upgrade: ['unlockedTripleShot', 'Schnell-Wurf'], coins: [80, 60] },       // Superselten
+            { upgrade: ['unlockedShadowCaster', 'Schatten-Werfer'], coins: [150, 90] }, // Episch
+            { upgrade: ['unlockedGamerPistol', 'Gamer-Pistole'], coins: [300, 140] },   // Mythisch
+            { coins: [600, 300], jewels: [30, 5] },                                     // Legendär
+            { coins: [1500, 600], jewels: [100, 20], all: true },                       // Ultralegendär
+        ];
+        const r = rewards[Math.min(tier, rewards.length - 1)];
+        const res = { tier, coins: 0, jewels: 0, upgrades: [], owned: null };
+        if (r.upgrade && !this[r.upgrade[0]]) {
+            // Neues Upgrade statt Münzen
+            this[r.upgrade[0]] = true;
+            res.upgrades.push(r.upgrade[0]);
         } else {
-            text = 'Scharf: ' + upgrade('unlockedTripleShot', 'Schnell-Wurf') + ' 🟢';
+            res.coins = pick(r.coins);
+            if (r.upgrade) res.owned = r.upgrade[1];
         }
+        res.jewels = pick(r.jewels);
+        if (r.all) {
+            for (const flag of ['unlockedTripleShot', 'unlockedShadowCaster', 'unlockedGamerPistol', 'unlockedFruitUpgrades']) {
+                this[flag] = true;
+                if (!res.upgrades.includes(flag)) res.upgrades.push(flag);
+            }
+        }
+        if (res.coins) this._grantCoins(res.coins);
+        if (res.jewels) this._grantJewels(res.jewels);
+        const parts = [];
+        if (res.coins) parts.push('+' + res.coins + ' Münzen');
+        if (res.jewels) parts.push('+' + res.jewels + ' Juwelen');
+        if (res.upgrades.length) parts.push(res.upgrades.length > 1 ? 'alle Werfer-Upgrades' : UPGRADE_INFO[res.upgrades[0]].name);
+        res.text = rar.name + '! ' + parts.join(', ') + ' ' + rar.emoji;
         this.shopRandomStarActive = false;
         this.shopRandomStarFinished = false;
         this.shopRandomStarRevealReady = false;
         this.shopRandomStarTier = 0;
-        this.shopRandomStarAttempts = 5;
+        this.shopRandomStarAttempts = STAR_TRIES;
         this.save();
-        return text;
+        return res;
     },
 
     // ── Kleine Effekte ──
@@ -1125,7 +1140,8 @@ const Game = {
         // Menüs: nur Tastatur-Kürzel, Rest läuft über die Oberfläche
         if (['TITLE', 'WORLD_SELECT', 'EXTRA_MENU', 'SHOP'].includes(this.state)) {
             if (this.state === 'TITLE' && Input.keyPressed('Enter')) this.openWorldSelect();
-            else if (this.state !== 'TITLE' && Input.keyPressed('Escape')) this.returnToTitle();
+            // Beim Bösen Stern gibt es kein Zurück (Wunsch von Leander), auch nicht per Escape
+            else if (this.state !== 'TITLE' && Input.keyPressed('Escape') && UI.current !== 'star') this.returnToTitle();
             if (this.state === 'TITLE' && Input.keyPressed('KeyF')) this.enterFullscreen();
             Input.postUpdate();
             return;
