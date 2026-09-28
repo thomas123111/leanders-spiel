@@ -43,6 +43,11 @@ const UI = {
     screens: {},
     current: null,
     _starRaf: 0,
+    // Bewegungswerte des Bösen Sterns (0 = Ruhe)
+    _starShake: 0,
+    _starBump: 0,
+    _starSpin: 0,
+    _starFlash: 0,
 
     init() {
         this.root = document.getElementById('ui');
@@ -440,15 +445,16 @@ const UI = {
             const ang = Math.sin(t * 0.9) * 0.5 + spinExtra;       // Drehung um die senkrechte Achse
             const sx = Math.cos(ang);
             const front = sx >= 0;
-            const shake = this._starShake * Math.sin(t * 60) * 5;
-            const s = (1 + Math.sin(t * 2.6) * 0.025 + this._starBump * 0.18) * (1 + (1 - bk) * 0.55);
+            // (|| 0: vor dem ersten Antippen sind die Werte noch leer; NaN würde translate/scale still ignorieren)
+            const shake = (this._starShake || 0) * Math.sin(t * 60) * 5;
+            const s = (1 + Math.sin(t * 2.6) * 0.025 + (this._starBump || 0) * 0.18) * (1 + (1 - bk) * 0.55);
             const R = 74;
             const cx = 100 + shake, cy = 100 + Math.sin(t * 1.7) * 2.5;
             // Strahlen und Leuchten hinter dem Stern (ab Mythisch mit Strahlen)
             ctx.save();
             ctx.translate(cx, cy);
             ctx.globalAlpha = bk * bk;
-            Art.glow(ctx, 0, 0, 112, rar.c, 0.45 + tier * 0.07 + this._starFlash * 0.4);
+            Art.glow(ctx, 0, 0, 112, rar.c, 0.45 + tier * 0.07 + (this._starFlash || 0) * 0.4);
             if (tier >= 3) {
                 ctx.save();
                 ctx.rotate(t * 0.35);
