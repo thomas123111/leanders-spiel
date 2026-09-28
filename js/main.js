@@ -59,6 +59,8 @@ const Game = {
     lastUnlockText: '',
     lastDailyText: '',
     titleSpin: 0,
+    titleIndex: 0,      // vordere Figur im Karussell der Startseite (zählt weiter, Auswahl = Rest durch Anzahl)
+    _titleRot: 0,       // gezeichnete Drehung, läuft titleIndex weich hinterher
 
     // Dauerhafte Freischaltungen
     unlockedRanged: false,
@@ -1140,6 +1142,8 @@ const Game = {
         // Menüs: nur Tastatur-Kürzel, Rest läuft über die Oberfläche
         if (['TITLE', 'WORLD_SELECT', 'EXTRA_MENU', 'SHOP'].includes(this.state)) {
             if (this.state === 'TITLE' && Input.keyPressed('Enter')) this.openWorldSelect();
+            if (this.state === 'TITLE' && Input.keyPressed('ArrowRight')) UI.titleTurn(1);
+            if (this.state === 'TITLE' && Input.keyPressed('ArrowLeft')) UI.titleTurn(-1);
             // Beim Bösen Stern gibt es kein Zurück (Wunsch von Leander), auch nicht per Escape
             else if (this.state !== 'TITLE' && Input.keyPressed('Escape') && UI.current !== 'star') this.returnToTitle();
             if (this.state === 'TITLE' && Input.keyPressed('KeyF')) this.enterFullscreen();
@@ -1742,14 +1746,13 @@ const Game = {
         const my = H * 0.6;
         const scale = H / 112;
         Art.glow(ctx, mx, my - 20 * scale, 95 * scale / 2.4, '#7b4dff', 0.55);
-        // Bühne
+        // Bühne (breit genug für den Figurenkreis)
         ctx.fillStyle = 'rgba(123,77,255,0.18)';
         ctx.beginPath();
-        ctx.ellipse(mx, my + 17 * scale, 36 * scale, 9 * scale, 0, 0, TAU);
+        ctx.ellipse(mx, my + 13 * scale, 44 * scale, 11 * scale, 0, 0, TAU);
         ctx.fill();
-        Art.groundShadow(ctx, mx, my + 16 * scale, 16 * scale, 5 * scale, 0.5);
 
-        // Umherschwebende Geister
+        // Umherschwebende Geister im Hintergrund
         if (!this._titleGhosts) {
             this._titleGhosts = [];
             for (let i = 0; i < 3; i++) {
@@ -1759,11 +1762,12 @@ const Game = {
         const ghostCam = { x: 0, y: 0, width: W, height: H, shakeX: 0, shakeY: 0, worldToScreen(x, y) { return { x, y }; } };
         this._titleGhosts.forEach((gh, i) => {
             const a = Art.time * 0.5 + i * 2.1;
-            gh.x = mx + Math.cos(a) * 34 * scale - gh.w / 2;
-            gh.y = my - 26 * scale + Math.sin(a * 1.3) * 12 * scale - gh.h / 2;
+            gh.x = mx + Math.cos(a) * 46 * scale - gh.w / 2;
+            gh.y = my - 34 * scale + Math.sin(a * 1.3) * 10 * scale - gh.h / 2;
             gh.chasing = false;
             ctx.save();
-            const k = 0.9 + (i % 2) * 0.35;
+            const k = 0.8 + (i % 2) * 0.3;
+            ctx.globalAlpha = 0.8;
             ctx.translate(gh.x + gh.w / 2, gh.y + gh.h / 2);
             ctx.scale(k, k);
             ctx.translate(-(gh.x + gh.w / 2), -(gh.y + gh.h / 2));
@@ -1771,21 +1775,66 @@ const Game = {
             ctx.restore();
         });
 
-        // Mark
-        if (!this._titlePlayer) this._titlePlayer = new Player(0, 0);
-        const p = this._titlePlayer;
-        const spin = this.titleSpin;
-        const jump = Math.sin((1 - spin) * Math.PI) * (spin > 0 ? 22 : 0);
-        p.facingAngle = spin > 0 ? (1 - spin) * TAU * 2 : Math.sin(Art.time * 0.8) * 0.5 + Math.PI * 0.12;
-        p.aimAngle = p.facingAngle;
-        p.x = -p.w / 2;
-        p.y = -p.h / 2;
+        this._drawTitleCarousel(ctx, mx, my, scale);
+    },
+
+    // Figurenkreis der Startseite (Wunsch von Leander): die vordere Figur groß und kräftig, die anderen
+    // stehen dahinter im Kreis, kleiner und etwas blasser. Alle schauen immer nach vorne.
+    // Wischen dreht den Kreis (UI.titleTurn), Tippen lässt die vordere Figur springen.
+    _drawTitleCarousel(ctx, mx, my, scale) {
+        if (!this._titleChars) {
+            this._titleChars = TITLE_CHARS.map(c => {
+                let obj = null;
+                try {
+                    if (c.id === 'mark') obj = new Player(0, 0);
+                    else if (c.id === 'juri') obj = new Juri(0, 0);
+                    else if (c.id === 'croc') obj = new ShadowCrocodile(0, 0);
+                } catch (e) { /* Figur fehlt: Platz bleibt leer */ }
+                return { id: c.id, obj };
+            });
+        }
+        const chars = this._titleChars;
+        const n = chars.length;
+        // Drehung weich nachführen (bildratenunabhängig über die Zeit seit dem letzten Bild)
+        const now = performance.now();
+        const dt = Math.min(0.05, (now - (this._titleLast || now)) / 1000);
+        this._titleLast = now;
+        this._titleRot += (this.titleIndex - this._titleRot) * (1 - Math.exp(-dt * 9));
+        if (Math.abs(this.titleIndex - this._titleRot) < 0.001) this._titleRot = this.titleIndex;
+        const front = ((this.titleIndex % n) + n) % n;
+        const RX = 30 * scale, RY = 7 * scale;
+        const list = chars.map((c, i) => {
+            const th = (i - this._titleRot) * TAU / n;
+            const z = Math.cos(th);                    // 1 = ganz vorne, -1 = ganz hinten
+            return { c, i, x: mx + Math.sin(th) * RX, y: my - (1 - z) * RY, z };
+        }).sort((a, b) => a.z - b.z);
         const cam = { x: 0, y: 0, width: 100, height: 100, shakeX: 0, shakeY: 0, worldToScreen(x, y) { return { x, y }; } };
-        ctx.save();
-        ctx.translate(mx, my - jump * scale * 0.4);
-        ctx.scale(scale, scale);
-        try { p.draw(ctx, cam); } catch (e) { /* egal */ }
-        ctx.restore();
+        const spin = this.titleSpin;
+        for (const e of list) {
+            const o = e.c.obj;
+            if (!o) continue;
+            const k = (e.z + 1) / 2;                   // 0 hinten … 1 vorne
+            const s = scale * (0.62 + 0.38 * k);
+            const isFront = e.i === front;
+            const jump = isFront && spin > 0 ? Math.sin((1 - spin) * Math.PI) * 22 : 0;
+            ctx.save();
+            ctx.globalAlpha = 0.42 + 0.58 * k;         // hinten etwas blasser
+            Art.groundShadow(ctx, e.x, e.y + 15 * s, 14 * s, 4.5 * s, 0.45 * ctx.globalAlpha);
+            ctx.translate(e.x, e.y - jump * s * 0.4);
+            ctx.scale(s, s);
+            o.x = -o.w / 2;
+            o.y = -o.h / 2;
+            if (e.c.id === 'mark') {
+                o.facingAngle = isFront && spin > 0 ? (1 - spin) * TAU * 2 : Math.sin(Art.time * 0.8) * 0.5 + Math.PI * 0.12;
+                o.aimAngle = o.facingAngle;
+            } else {
+                o.faceX = 1;
+                o.moving = false;
+                o.target = null;
+            }
+            try { o.draw(ctx, cam); } catch (err) { /* egal */ }
+            ctx.restore();
+        }
     },
 
     _drawMenuBackdrop(ctx) {

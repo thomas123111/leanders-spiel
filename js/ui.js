@@ -22,6 +22,14 @@ const STAR_RARITIES = [
 // Ergibt am Ende: Selten 8 %, Superselten 36 %, Episch 38 %, Mythisch 15 %, Legendär 2 %, Ultralegendär 0,1 %.
 const STAR_UPGRADE_CHANCES = [0.4, 0.3, 0.25, 0.2, 0.15];
 const STAR_TRIES = 5;
+// Figuren im Karussell der Startseite (Wunsch von Leander: wischen → nächste Figur und ihr Text).
+// Die Reihenfolge ist die im Kreis; gezeichnet werden sie in main.js (_drawTitleScene).
+const TITLE_CHARS = [
+    { id: 'mark', name: 'Mark', text: 'Mark ist Baseballspieler und Geisterjäger. Seit er bestohlen wurde, hat er sich verwandelt … Findet es selbst heraus!' },
+    { id: 'juri', name: 'Juri', text: 'Juri ist Marks bester Freund. Er haut mit seinem Hammer auf die Gegner und kämpft ab Welt 7 an deiner Seite, ab Welt 8 sogar mit einem Feuerkreis.' },
+    { id: 'croc', name: 'Schatten-Krokodil', text: 'Das Schatten-Krokodil spuckt auf alle Gegner in der Nähe. Es hilft dir ab Welt 8, ab Welt 9 explodieren seine Schüsse in Feuer.' },
+];
+
 // Werfer-Upgrades (Game-Flag → Name), mit Bild auf der Belohnungsseite der Bösen Sterne
 const UPGRADE_INFO = {
     unlockedTripleShot: { name: 'Schnell-Wurf' },
@@ -98,10 +106,10 @@ const UI = {
                 ${canFs ? '<button class="icon-btn" data-act="fullscreen" aria-label="Vollbild">⛶</button>' : ''}
                 <button class="icon-btn" data-act="settings" aria-label="Einstellungen">⚙️</button>
             </div>
-            <div class="hero" data-act="spin"><div class="tap-hint">Tipp auf Mark!</div></div>
+            <div class="hero" aria-label="Figuren: zur Seite wischen"><div class="tap-hint">◀ wischen ▶</div></div>
             <div class="menu">
                 <div class="logo"><span class="l1">Mark</span><span class="l2">und die geklauten Erfindungen</span></div>
-                <p class="story">Mark ist Baseballspieler und Geisterjäger. Seit er bestohlen wurde, hat er sich verwandelt … Findet es selbst heraus!</p>
+                <p class="story">${this._titleCharText()}</p>
                 <button class="btn big pulse" data-act="play">▶ SPIELEN</button>
                 <div class="menu-row">
                     <button class="btn blue" data-act="shop">🛒 Shop</button>
@@ -110,6 +118,39 @@ const UI = {
                 </div>
             </div>`;
         this.show('title');
+        // Karussell: waagerecht wischen dreht die Figuren weiter, Tippen lässt die vordere Figur springen
+        const hero = el.querySelector('.hero');
+        let sx = null, sy = 0;
+        hero.addEventListener('pointerdown', e => { sx = e.clientX; sy = e.clientY; });
+        hero.addEventListener('pointercancel', () => { sx = null; });
+        hero.addEventListener('pointerup', e => {
+            if (sx === null) return;
+            const dx = e.clientX - sx, dy = e.clientY - sy;
+            sx = null;
+            Sound.resume();
+            if (Math.abs(dx) > 28 && Math.abs(dx) > Math.abs(dy)) this.titleTurn(dx < 0 ? 1 : -1);
+            else { Game.titleSpin = 1; Sound.dodge(); }
+        });
+    },
+
+    // Text der vorderen Figur im Karussell
+    _titleCharText() {
+        const n = TITLE_CHARS.length;
+        const c = TITLE_CHARS[((Game.titleIndex || 0) % n + n) % n];
+        return `<b>${c.name}:</b> ${c.text}`;
+    },
+
+    // Karussell eine Figur weiterdrehen (dir = 1 nach links wischen, -1 nach rechts)
+    titleTurn(dir) {
+        Game.titleIndex = (Game.titleIndex || 0) + dir;
+        Sound.ui();
+        const story = this.screens.title.querySelector('.story');
+        if (story) {
+            story.innerHTML = this._titleCharText();
+            story.classList.remove('swap');
+            void story.offsetWidth;                  // Animation neu starten
+            story.classList.add('swap');
+        }
     },
 
     // ── Weltkarte ──
