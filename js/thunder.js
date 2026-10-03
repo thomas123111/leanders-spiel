@@ -163,8 +163,10 @@ class SpikeShot extends Projectile {
         this.lifetime = o.life || 3.2;
         this.color = color || ThunderKit.ZAP;
         this.fromBoss = true;
-        this.hitsCompanions = true;
-        this.stunTime = o.stun || 0.7;   // Salve/Spirale nur kurz, die gezielte Reihe länger
+        // Nur die gezielte Reihe (o.stun) trifft Juri und das Krokodil; Salve und Spirale fliegen durch sie
+        // hindurch, sonst lagen die Freunde in Phase 2 ein Drittel der Zeit betäubt herum (gemessen 03.10.)
+        this.hitsCompanions = !!o.stun;
+        this.stunTime = o.stun || 0;
         this.ang = angle;
         this.size = o.size || 1;
     }

@@ -513,12 +513,12 @@ const WORLD_THEMES = {
     },
     // Welt 30: Hexenwald mit Dornen, Zaubertrank-Teichen und Pilzen
     witch: {
-        void: '#0c0614', vignette: 0.45, shade: '#0a0414', fs: 'blotch', floor: ['#3e2e56', '#392a50'],
+        void: '#0c0614', vignette: 0.45, shade: '#0a0414', fs: 'blotch', floor: ['#56447a', '#504072'],
         ws: 'bramble', wall: '#5a3a7a', wallF: '#2e1a46', accent: '#b884ff',
         bush: ['#2a1a48', '#4a2a7a', '#b884ff'], bx: 'glow', bxc: ['#7fffd0'],
         water: 'potion', wc: ['#4f1aa6', '#8a3cff', '#e8c6ff'], bone: '#f0e6ff', pad: '#7fffd0',
         deco: [['mushroom', 1.5], ['glowshroom', 1.2], ['candle', 0.7], ['rune', 0.8], ['bone', 0.5], ['crack', 1]], rate: 0.28,
-        win: 'rune', glow: '#b884ff', dark: 0.45, darkCol: '#0a0418',
+        win: 'rune', glow: '#b884ff', dark: 0.28, darkCol: '#0a0418',
     },
 };
 
