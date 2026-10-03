@@ -628,35 +628,40 @@ const Game = {
         const max = STAR_RARITIES.length - 1;
         const tier = clamp(this.shopRandomStarTier || 0, 0, max);
         const rar = STAR_RARITIES[tier];
-        // Mit Münzen gekaufte Sterne zahlen weniger aus als verdiente, sonst wäre der Stern eine
-        // Gelddruckmaschine: beim Kauf bleibt der Erwartungswert unter dem Preis (siehe STAR_UPGRADE_CHANCES).
+        // Jeder Stern bringt EINE Belohnung: Münzen, Juwelen oder ein Upgrade (Wunsch von Leander, 03.10.2026).
+        // Die Menge ist zufällig zwischen min und max, kleine Mengen häufig, die Höchstmenge sehr selten.
+        // Verdiente Sterne würfeln großzügiger (hoch 2) als gekaufte (hoch 3): gekauft liegt der Erwartungswert
+        // bei ca. 71 Münzen ohne Upgrades (Juwel = 10 Münzen), also unter dem Preis von 100 → keine Gelddruckmaschine.
         const earned = !!this.shopRandomStarWithStar;
-        const pick = v => (Array.isArray(v) ? v[earned ? 0 : 1] : v) || 0;
-        // [verdient, gekauft]; Erwartungswert gekauft ≈ 89 Münzen (Juwel = 10 Münzen), verdient ≈ 158
+        const roll = (min, max) => {
+            const u = Math.pow(Math.random(), earned ? 2 : 3);
+            return Math.max(min, Math.round((min + (max - min) * u) / 5) * 5);
+        };
+        // p = Anteil je Art (Münzen, Juwelen, Upgrade); ups = mögliche Upgrades dieser Seltenheit
+        const ALL_UPS = ['unlockedTripleShot', 'unlockedShadowCaster', 'unlockedGamerPistol', 'unlockedFruitUpgrades'];
         const rewards = [
-            { coins: [40, 30] },                                                        // Selten
-            { upgrade: ['unlockedTripleShot', 'Schnell-Wurf'], coins: [80, 60] },       // Superselten
-            { upgrade: ['unlockedShadowCaster', 'Schatten-Werfer'], coins: [150, 90] }, // Episch
-            { upgrade: ['unlockedGamerPistol', 'Gamer-Pistole'], coins: [300, 140] },   // Mythisch
-            { coins: [600, 300], jewels: [30, 5] },                                     // Legendär
-            { coins: [1500, 600], jewels: [100, 20], all: true },                       // Ultralegendär
+            { coins: [5, 30], jewels: [5, 5], p: [0.95, 0.05, 0] },                          // Selten
+            { coins: [5, 100], jewels: [5, 15], p: [0.6, 0.25, 0.15], ups: ALL_UPS.slice(0, 1) }, // Superselten
+            { coins: [5, 250], jewels: [5, 50], p: [0.5, 0.3, 0.2], ups: ALL_UPS.slice(0, 2) },   // Episch
+            { coins: [5, 450], jewels: [5, 100], p: [0.5, 0.3, 0.2], ups: ALL_UPS.slice(0, 3) },  // Mythisch
+            { coins: [5, 1000], p: [0.7, 0, 0.3], ups: ALL_UPS },                                // Legendär
+            { coins: [5, 1500], jewels: [5, 250], p: [0.45, 0.35, 0.2], ups: ALL_UPS, all: true }, // Ultralegendär
         ];
         const r = rewards[Math.min(tier, rewards.length - 1)];
         const res = { tier, coins: 0, jewels: 0, upgrades: [], owned: null };
-        if (r.upgrade && !this[r.upgrade[0]]) {
-            // Neues Upgrade statt Münzen
-            this[r.upgrade[0]] = true;
-            res.upgrades.push(r.upgrade[0]);
+        const x = Math.random();
+        const kind = x < r.p[0] ? 'coins' : x < r.p[0] + r.p[1] ? 'jewels' : 'upgrade';
+        const missing = (r.ups || []).filter(f => !this[f]);
+        if (kind === 'upgrade' && missing.length) {
+            // Ultralegendär: alle fehlenden Upgrades auf einmal, sonst eines davon
+            const got = r.all ? missing : [missing[randInt(0, missing.length - 1)]];
+            for (const f of got) { this[f] = true; res.upgrades.push(f); }
+        } else if (kind === 'jewels') {
+            res.jewels = roll(r.jewels[0], r.jewels[1]);
         } else {
-            res.coins = pick(r.coins);
-            if (r.upgrade) res.owned = r.upgrade[1];
-        }
-        res.jewels = pick(r.jewels);
-        if (r.all) {
-            for (const flag of ['unlockedTripleShot', 'unlockedShadowCaster', 'unlockedGamerPistol', 'unlockedFruitUpgrades']) {
-                this[flag] = true;
-                if (!res.upgrades.includes(flag)) res.upgrades.push(flag);
-            }
+            // Münzen, auch wenn ein Upgrade gezogen wurde, das man schon alle hat
+            res.coins = roll(r.coins[0], r.coins[1]);
+            if (kind === 'upgrade') res.owned = r.ups.length > 1 ? 'Alle Upgrades' : UPGRADE_INFO[r.ups[0]].name;
         }
         if (res.coins) this._grantCoins(res.coins);
         if (res.jewels) this._grantJewels(res.jewels);

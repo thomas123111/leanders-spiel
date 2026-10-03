@@ -3,7 +3,7 @@
 // Dateien sind über ?v=… versioniert und damit unveränderlich: sie kommen aus dem Speicher, sonst
 // aus dem Netz. So entsteht nie eine Mischung aus alten und neuen Dateien.
 // Bei jedem Update: APP_VERSION hier UND die ?v=-Angaben in index.html gemeinsam erhöhen.
-const APP_VERSION = '9.3.0';
+const APP_VERSION = '9.3.1';
 const CACHE = 'mark-' + APP_VERSION;
 const V = '?v=' + APP_VERSION;
 const CORE = [
