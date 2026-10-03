@@ -1,1 +1,75 @@
-/* Glücksboxen (wird gebaut) */
+/* ── Glücksboxen: alle Regeln beginnen mit #scr-box oder .box- (nichts Fremdes wird umgestylt) ── */
+#scr-box {
+    --c: #ff8ad8;
+    flex-direction: column; align-items: center; justify-content: center; gap: min(1.6vh, 10px);
+    overflow: hidden;
+    background: radial-gradient(90% 95% at 50% 45%, #ff7ad9, #8a3cff 70%, #2a0f4a 100%);
+}
+/* Seltenheitsname oben (wie .rarity beim Stern), Ultragroß in Regenbogen */
+#scr-box .rarity {
+    font-size: clamp(24px, 8vh, 48px); font-weight: 900; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase;
+    color: #ffffff; text-shadow: 0 3px 0 var(--ink); text-align: center;
+    /* Schild in der Stufenfarbe: weiße Schrift hebt sich so auch auf dem pink-lila Grund ab */
+    padding: 6px 22px 8px; border-radius: 999px; background: rgba(42, 15, 74, 0.6);
+    border: 4px solid var(--c); box-shadow: 0 0 22px var(--c), 0 4px 0 rgba(0, 0, 0, 0.35);
+}
+#scr-box .rarity.up { animation: rarity-up 0.6s cubic-bezier(.2, 1.4, .4, 1); }
+#scr-box .rarity.rainbow {
+    background: linear-gradient(90deg, #ff5f5f, #ffd23f, #4fd46a, #3d9bff, #b45cff, #ff7af5);
+    -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none;
+    filter: drop-shadow(0 3px 0 var(--ink));
+}
+#scr-box .box-fertig { color: #ffe14d; }
+/* Die Box füllt die Mitte; quadratische Leinwand, damit alles auch quer (740×360) ohne Scrollen passt */
+#scr-box .box-btn { position: relative; width: min(52vh, 58vw); aspect-ratio: 1; flex: 0 0 auto; }
+#scr-box .box-btn canvas { width: 100%; height: 100%; display: block; }
+/* Je Versuch ein Kreis mit „?“; der verbrauchte plopp, die übrigen rutschen in die Mitte */
+#scr-box .tries { display: flex; gap: 10px; }
+#scr-box .tries .q {
+    width: 34px; height: 34px; border-radius: 999px; display: grid; place-items: center;
+    font-size: 18px; font-weight: 900; color: #fff; background: rgba(255,255,255,0.14);
+    border: 2px solid rgba(255,255,255,0.5); box-shadow: 0 3px 0 rgba(0,0,0,0.35);
+}
+#scr-box .tries .q.gone { display: none; }
+#scr-box .tries .q.pop { animation: q-pop 0.4s ease-in forwards; }
+#scr-box .msg { font-size: 15px; font-weight: 800; color: #ffe3f6; text-align: center; }
+#scr-box .msg.small { font-size: 13px; opacity: 0.85; }
+#scr-box .reward-label {
+    font-size: clamp(20px, 7vh, 34px); font-weight: 900; text-align: center; max-width: 92vw; line-height: 1.1;
+    text-shadow: 0 3px 0 var(--ink); animation: rarity-up 0.5s cubic-bezier(.2, 1.4, .4, 1);
+}
+/* Auf Belohnungs- und Übersichtsseite führt Tippen irgendwo weiter (kein Knopf) */
+#scr-box .box-tap { position: absolute; inset: 0; z-index: 2; background: transparent; }
+/* Großes rundes Abzeichen unten rechts: Zahl der noch kommenden Belohnungen, zählt beim Weitertippen herunter */
+#scr-box .box-badge {
+    position: absolute; right: calc(14px + var(--safe-r)); bottom: calc(12px + var(--safe-b)); z-index: 3;
+    width: clamp(76px, 21vh, 96px); aspect-ratio: 1; border-radius: 999px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; line-height: 1;
+    background: radial-gradient(80% 80% at 35% 30%, #ffe14d, #ff9f1c);
+    border: 3px solid #fff; box-shadow: 0 5px 0 rgba(122,42,208,0.85), 0 10px 20px rgba(0,0,0,0.4);
+    pointer-events: none;
+}
+#scr-box .box-badge b { font-size: clamp(20px, 5.2vh, 30px); font-weight: 900; color: #5a1450; }
+#scr-box .box-badge span { font-size: 9px; font-weight: 900; color: #7a2a4a; }
+/* Beim ersten Belohnungsbild nach der Explosion steht die Gesamtzahl und das Abzeichen hüpft einmal */
+#scr-box .box-badge.hop { animation: box-hop 0.6s cubic-bezier(.2, 1.5, .4, 1); }
+@keyframes box-hop { 0% { transform: scale(0.3) translateY(30px); } 60% { transform: scale(1.2); } 100% { transform: none; } }
+/* Übersichtsseite „Fertig!“: alle Belohnungen als kleine Kacheln (Icon + Zahl) */
+#scr-box .box-tiles {
+    display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 8px;
+    max-width: 86vw; max-height: 56vh; overflow: hidden;
+}
+#scr-box .box-tile {
+    display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 14px;
+    background: rgba(255,255,255,0.14); border: 2px solid rgba(255,255,255,0.45); box-shadow: 0 3px 0 rgba(0,0,0,0.3);
+    font-weight: 900; font-size: 15px; color: #fff;
+}
+#scr-box .box-tile span { font-size: 20px; }
+/* Quer auf dem Handy: Namen und Kacheln kleiner, damit nichts scrollt */
+@media (orientation: landscape) and (max-height: 430px) {
+    #scr-box .rarity { font-size: clamp(20px, 8vh, 32px); }
+    #scr-box .box-btn { width: min(52vh, 44vw); }
+    #scr-box .reward-label { font-size: clamp(18px, 6.5vh, 26px); }
+    #scr-box .box-tile { padding: 4px 10px; font-size: 13px; }
+    #scr-box .box-tile span { font-size: 16px; }
+}

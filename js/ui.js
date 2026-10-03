@@ -188,7 +188,7 @@ const UI = {
                 <div class="num">WELT ${i}</div>
                 <div class="emoji">${info.emoji}</div>
                 ${locked ? '<div class="lock">🔒</div>' : ''}
-                <div class="name">${info.name}</div>
+                <div class="name">${this._shy(info.name)}</div>
                 <div class="boss">Boss: ${locked ? '???' : info.boss}</div>
                 <div class="reward${done ? ' done' : ''}">${done ? '✓ geschafft' : '🎁 ' + this._rewardText(reward)}</div>
             </button>`;
@@ -208,6 +208,12 @@ const UI = {
             const target = el.querySelector(`[data-n="${Math.max(1, max)}"]`);
             if (strip && target) strip.scrollLeft = Math.max(0, target.offsetLeft - strip.clientWidth / 2 + target.clientWidth / 2);
         });
+    },
+
+    // Weiche Trennstellen in langen Weltnamen: Chrome trennt Deutsch nicht selbst und brach sonst mitten
+    // im Wort ohne Bindestrich um („Wolkenfestun|g“)
+    _shy(name) {
+        return name.replace(/(Wolken|Pyramiden|Gewitter|Schmetterling|Glut|Vollmond|Drachen|Maschinen|Sternen|Schatten|Knochen)(?=\p{L}{3})/gu, '$1­');
     },
 
     _rewardText(r) {

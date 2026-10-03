@@ -1,1 +1,265 @@
-/* Quests, Power-Pfad, Upgrades, Tagesleiste (wird gebaut) */
+/* ── Quests, Power-Pfad, Upgrades mit Powerpunkten, Tagesleiste (zu js/ui-progress.js) ── */
+
+/* ── Startseite: drei runde Knöpfe am linken Rand, senkrecht mittig ── */
+#scr-title .title-ext {
+    position: absolute;
+    left: calc(12px + var(--safe-l));
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;            /* Wischen am Helden bleibt möglich */
+    z-index: 3;
+}
+.pg-side { display: flex; flex-direction: column; gap: 8px; }
+.pg-side-item { display: block; }
+#scr-title .title-ext .pg-round {
+    pointer-events: auto;
+    position: relative;
+    width: 54px; height: 54px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; line-height: 1;
+    background: linear-gradient(180deg, #55309f, #2a1660);
+    border: 2px solid rgba(255, 255, 255, 0.28);
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.45), 0 8px 16px rgba(0, 0, 0, 0.4), inset 0 2px 0 rgba(255, 255, 255, 0.3);
+    transition: transform 0.08s;
+}
+#scr-title .title-ext .pg-round:active { transform: scale(0.92); }
+.pg-badge {
+    position: absolute; top: -6px; right: -6px;
+    min-width: 21px; height: 21px; padding: 0 5px;
+    border-radius: 999px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 900; color: #fff;
+    background: linear-gradient(180deg, #ff6b6b, #e01f3d);
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+}
+.pg-rlab {
+    display: block; margin-top: 3px;
+    font-size: 10px; font-weight: 900; letter-spacing: 0.02em;
+    text-align: center; color: var(--muted);
+    text-shadow: 0 2px 0 var(--ink);
+}
+
+/* ── Gemeinsame Stücke: Balken und Leuchten ── */
+.pg-bar {
+    position: relative; display: block;
+    height: 16px; border-radius: 999px; overflow: hidden;
+    background: rgba(10, 4, 26, 0.55);
+    border: 1px solid var(--line);
+}
+.pg-bar i {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #7cf2a6, #22c476);
+}
+.pg-bar b {
+    position: relative; display: block;
+    font-size: 11px; font-weight: 900; line-height: 16px; text-align: center;
+    color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+}
+.pg-bar.big { height: 18px; }
+.pg-bar.big i { background: linear-gradient(90deg, #ffe14d, #ff9f1c); }
+@keyframes pg-glow {
+    0%, 100% { filter: brightness(1); transform: scale(1); }
+    50% { filter: brightness(1.22); transform: scale(1.05); }
+}
+
+/* ── Quest-Seite ── */
+#scr-quests .pg-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+#scr-quests .pg-xp {
+    padding: 8px 14px; border-radius: 16px;
+    font-size: 16px; font-weight: 900; color: #ffe38a;
+    background: rgba(10, 4, 26, 0.5);
+    border: 1px solid var(--line);
+}
+#scr-quests .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 2px 2px 10px; }
+#scr-quests .q-card { padding: 10px; gap: 6px; width: 100%; font: inherit; color: inherit; text-align: left; }
+#scr-quests .q-card .head { align-items: flex-start; gap: 8px; }
+#scr-quests .q-card .ico { font-size: 26px; }
+#scr-quests .q-card h3 { font-size: 13px; line-height: 1.15; }
+#scr-quests .q-card .foot { gap: 6px; }
+#scr-quests .pg-rew { font-size: 12px; font-weight: 900; color: #ffe38a; }
+#scr-quests .pg-take {
+    margin-left: auto;
+    padding: 4px 9px; border-radius: 999px;
+    font-size: 11px; font-weight: 900; color: #3a1d00;
+    background: linear-gradient(180deg, #ffe14d, #ffb01f);
+}
+#scr-quests button.q-card.done { cursor: pointer; animation: pg-glow 1.5s ease-in-out infinite; }
+#scr-quests button.q-card.done {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 2px rgba(255, 210, 63, 0.45), 0 0 22px rgba(255, 210, 63, 0.5), 0 6px 0 rgba(0, 0, 0, 0.3);
+}
+#scr-quests button.q-card.done .pg-rew { color: #fff6a8; }
+
+/* ── Power-Pfad ── */
+#scr-path .pg-level { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+#scr-path .pg-level-txt { font-size: 14px; font-weight: 900; color: #ffe38a; white-space: nowrap; }
+#scr-path .pg-level .pg-bar { flex: 1 1 auto; }
+#scr-path .page-body { overflow: hidden; }
+#scr-path .pg-scroll {
+    height: 100%; min-height: 176px;
+    overflow-x: auto; overflow-y: hidden;
+    touch-action: pan-x; overscroll-behavior: contain;
+    scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+}
+/* Pfad senkrecht mittig im freien Platz (vorher klebte er oben, unten blieb die halbe Seite leer) */
+#scr-path .pg-scroll { display: flex; align-items: center; }
+#scr-path .pg-track { flex: 0 0 auto; }
+#scr-path .pg-scroll::-webkit-scrollbar { height: 6px; }
+#scr-path .pg-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); border-radius: 99px; }
+#scr-path .pg-track { position: relative; height: 200px; }
+#scr-path .pg-lines { position: absolute; left: 0; top: 0; display: block; }
+#scr-path .pg-line { fill: none; stroke: rgba(255, 255, 255, 0.16); stroke-width: 12; stroke-linecap: round; }
+#scr-path .pg-line.on { stroke: rgba(255, 210, 63, 0.45); }
+#scr-path .pg-node {
+    position: absolute; width: 104px; padding: 0;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    font: inherit; color: inherit; background: none; border: 0;
+}
+#scr-path .pg-circ {
+    position: relative;
+    width: 54px; height: 54px; border-radius: 50%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    background: linear-gradient(180deg, #43277f, #24124d);
+    border: 3px solid rgba(255, 255, 255, 0.22);
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35), 0 8px 14px rgba(0, 0, 0, 0.3);
+}
+#scr-path .pg-num { font-size: 10px; font-weight: 900; color: #c9bdf0; line-height: 1; }
+#scr-path .pg-ic { font-size: 20px; line-height: 1.05; }
+#scr-path .pg-st {
+    position: absolute; right: -5px; bottom: -5px;
+    width: 21px; height: 21px; border-radius: 999px;
+    display: grid; place-items: center;
+    font-size: 12px; font-style: normal; text-decoration: none;
+    background: rgba(10, 4, 26, 0.85); border: 1px solid var(--line);
+}
+#scr-path .pg-st.ok { background: #22c476; color: #06331c; border-color: rgba(255, 255, 255, 0.4); }
+#scr-path .pg-txt {
+    max-width: 100px; font-size: 10px; font-weight: 800; line-height: 1.15; text-align: center;
+    color: var(--muted);
+}
+#scr-path .pg-ep { font-size: 10px; font-weight: 900; color: #ffe38a; }
+#scr-path .pg-node.got .pg-circ { opacity: 0.62; border-color: rgba(159, 245, 197, 0.5); }
+#scr-path .pg-node.got .pg-txt { opacity: 0.6; }
+#scr-path .pg-node.locked .pg-circ { filter: grayscale(0.9) brightness(0.55); }
+#scr-path .pg-node.locked .pg-txt, #scr-path .pg-node.locked .pg-ep { opacity: 0.55; }
+#scr-path .pg-node.can { cursor: pointer; }
+#scr-path .pg-node.can .pg-circ {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(255, 210, 63, 0.35), 0 0 20px rgba(255, 210, 63, 0.55), 0 4px 0 rgba(0, 0, 0, 0.35);
+    animation: pg-glow 1.3s ease-in-out infinite;
+}
+#scr-path .pg-node.can .pg-txt { color: #fff6a8; }
+#scr-path .pg-node.b10 .pg-circ { width: 74px; height: 74px; }
+#scr-path .pg-node.b10 .pg-ic { font-size: 28px; }
+#scr-path .pg-node.b10 .pg-num { font-size: 12px; }
+#scr-path .pg-node.b100 .pg-circ { width: 96px; height: 96px; border-width: 4px; }
+#scr-path .pg-node.b100 .pg-ic { font-size: 40px; }
+#scr-path .pg-node.b100 .pg-num { font-size: 14px; }
+#scr-path .pg-crown { position: absolute; top: -26px; left: 50%; transform: translateX(-50%); font-size: 26px; }
+
+/* ── Upgrade-Seite ── */
+#scr-power .pg-heroes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
+#scr-power .pg-hero { padding: 12px; gap: 7px; }
+#scr-power .pg-cv {
+    display: block; width: 100%; height: min(24vh, 104px);
+    border-radius: 16px;
+    background: radial-gradient(60% 60% at 50% 42%, rgba(255, 255, 255, 0.12), rgba(10, 4, 26, 0.4));
+}
+#scr-power .pg-hero .head { gap: 8px; }
+#scr-power .pg-hero .ico { font-size: 24px; }
+#scr-power .pg-hero h3 { font-size: 15px; }
+#scr-power .pg-lab { font-size: 13px; font-weight: 900; color: #ffe38a; }
+#scr-power .pg-lvls { display: flex; gap: 3px; }
+#scr-power .pg-lvls i {
+    flex: 1 1 0; min-width: 4px; height: 9px; border-radius: 3px;
+    background: rgba(255, 255, 255, 0.15);
+}
+#scr-power .pg-lvls i.on { background: var(--a); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55); }
+#scr-power .pg-hero p { font-size: 12px; }
+#scr-power .pg-lock { font-size: 12px; font-weight: 900; color: var(--muted); }
+#scr-power .pg-hero.locked { filter: grayscale(0.85) brightness(0.62); }
+#scr-power .btn.gold { --c1: #fff0a8; --c2: #ffcf3d; --edge: #b87a00; --tx: #3a1d00; }
+#scr-power .pg-note {
+    margin-top: 10px;
+    font-size: 12px; font-weight: 800; text-align: center; color: var(--muted);
+}
+#scr-power .pg-hero.flash { animation: pg-cardflash 0.75s ease-out; }
+@keyframes pg-cardflash {
+    0% { box-shadow: 0 0 0 4px rgba(255, 225, 77, 0.9), 0 0 34px rgba(255, 210, 63, 0.85); }
+    100% { box-shadow: 0 6px 0 rgba(0, 0, 0, 0.3), 0 10px 20px rgba(0, 0, 0, 0.3); }
+}
+
+/* ── Tagesleiste auf der Weltkarte (unten rechts) ── */
+#scr-worlds .pg-daily {
+    align-self: flex-end;
+    position: relative;
+    flex: 0 0 auto;
+    margin-top: 2px;
+    padding: 6px 10px 16px;
+    border-radius: 18px;
+    background: rgba(10, 4, 26, 0.62);
+    border: 1px solid var(--line);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+#scr-worlds .pg-dhead { font-size: 12px; font-weight: 900; color: #ffe38a; margin-bottom: 5px; }
+#scr-worlds .pg-drow { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; max-width: 520px; }
+#scr-worlds .pg-dtile {
+    position: relative;
+    width: 42px; min-height: 42px; padding: 2px;
+    border-radius: 12px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--line);
+}
+#scr-worlds .pg-dtile i { font-style: normal; font-size: 17px; line-height: 1.1; }
+#scr-worlds .pg-dtile b { font-size: 10px; font-weight: 900; line-height: 1.1; }
+#scr-worlds .pg-dtile.got { opacity: 0.45; }
+#scr-worlds .pg-dcheck {
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    font-size: 18px; text-decoration: none; color: #9ff5c5;
+    background: rgba(10, 4, 26, 0.5);
+    border-radius: 12px;
+}
+#scr-worlds .pg-dtile.next {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 2px rgba(255, 210, 63, 0.35), 0 0 14px rgba(255, 210, 63, 0.5);
+    animation: pg-glow 1.6s ease-in-out infinite;
+}
+#scr-worlds .pg-dtile.gem { animation: pg-sparkle 2.4s ease-in-out infinite; }
+#scr-worlds .pg-dhint {
+    position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    font-size: 9px; font-weight: 800; white-space: nowrap; color: #ffe38a;
+    text-shadow: 0 1px 0 var(--ink);
+}
+@keyframes pg-sparkle {
+    0%, 100% { filter: brightness(1); }
+    45% { filter: brightness(1.5); }
+    60% { filter: brightness(1.05); }
+}
+
+/* ── Handy quer und schmaler Bildschrim: kompakter ── */
+@media (max-height: 420px) {
+    #scr-quests .cards { gap: 8px; }
+    #scr-quests .q-card { padding: 8px; }
+    #scr-quests .q-card .ico { font-size: 22px; }
+    #scr-power .pg-heroes { gap: 8px; }
+    #scr-power .pg-hero { padding: 9px; gap: 5px; }
+    #scr-power .pg-cv { height: min(21vh, 86px); }
+    #scr-power .pg-hero h3 { font-size: 14px; }
+    #scr-power .pg-hero p { font-size: 11px; }
+    #scr-worlds .pg-dtile { width: 36px; min-height: 36px; }
+    #scr-worlds .pg-dtile i { font-size: 15px; }
+    #scr-worlds .pg-daily { padding: 5px 8px 14px; }
+    #scr-path .pg-scroll { min-height: 160px; }
+    #scr-path .pg-track { height: 184px; }
+}
+@media (max-width: 620px) {
+    #scr-quests .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #scr-power .pg-heroes { grid-template-columns: 1fr; }
+}
