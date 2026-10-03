@@ -27,6 +27,18 @@ const Music = {
         dream: { bpm: 112, root: 67, chords: [[0, 0], [2, 0], [9, 1], [4, 1]], arp: [0, 1, 2, 3, 2, 3, 1, 2], drums: 'soft', lead: 'triangle' },
         // Welt 24: heldenhaft und groß (Moll mit Dur-Aufhellung, treibend)
         dragon: { bpm: 132, root: 50, chords: [[0, 1], [10, 0], [8, 0], [7, 0]], arp: [0, 1, 2, 3, 2, 1, 3, 2], drums: 'rock', lead: 'sawtooth' },
+        // Welt 25: Heulen im Mondlicht (Moll, langsam schleichend)
+        howl: { bpm: 104, root: 53, chords: [[0, 1], [8, 0], [5, 1], [7, 0]], arp: [0, 2, 3, 2, 1, 2, 3, 1], drums: 'soft', lead: 'triangle' },
+        // Welt 26: hell und feierlich, aber mit bösem Moll-Ende
+        heaven: { bpm: 116, root: 64, chords: [[0, 0], [5, 0], [8, 0], [7, 1]], arp: [0, 1, 2, 3, 3, 2, 1, 0], drums: 'pop', lead: 'triangle' },
+        // Welt 27: orientalisch-geheimnisvoll (kleine Sekunde)
+        tomb: { bpm: 110, root: 52, chords: [[0, 1], [1, 0], [0, 1], [7, 0]], arp: [0, 1, 2, 1, 3, 2, 1, 2], drums: 'soft', lead: 'square' },
+        // Welt 28: stampfend wie Hämmer auf dem Amboss
+        forge: { bpm: 136, root: 48, chords: [[0, 1], [3, 0], [10, 0], [7, 0]], arp: [0, 0, 2, 1, 0, 0, 3, 2], drums: 'rock', lead: 'sawtooth' },
+        // Welt 29: schnell und knisternd
+        storm: { bpm: 150, root: 57, chords: [[0, 1], [10, 0], [8, 0], [10, 0]], arp: [0, 3, 1, 3, 2, 3, 1, 3], drums: 'pop', lead: 'square' },
+        // Welt 30: Hexentanz zum Finale
+        witch: { bpm: 128, root: 55, chords: [[0, 1], [6, 0], [3, 0], [7, 0]], arp: [0, 2, 1, 3, 2, 1, 3, 2], drums: 'rock', lead: 'sawtooth' },
     },
 
     THEME_MOOD: {
@@ -35,6 +47,7 @@ const Music = {
         pixel: 'chip', space: 'chip', bones: 'spooky', poison: 'spooky', stone: 'epic', dojo: 'happy',
         dino: 'happy', chrono: 'chip', shadowswamp: 'spooky', football: 'happy', scrap: 'epic',
         zombie: 'zombie', butterfly: 'dream', dragon: 'dragon',
+        werewolf: 'howl', angel: 'heaven', mummy: 'tomb', firepig: 'forge', thunder: 'storm', witch: 'witch',
     },
 
     _ensure() {

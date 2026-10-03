@@ -52,6 +52,8 @@ class Player {
         // Slow / sticky effects
         this.slowTimer = 0;
         this.slowFactor = 1;
+        // Betäubung (z. B. Pfotenschlag des Riesen-Werwolfs): > 0 = Mark kann nicht laufen, angreifen, ausweichen
+        this.stunTimer = 0;
 
         // Jump pads
         this.jumpPadStandTimer = 0;
@@ -168,6 +170,14 @@ class Player {
         this.slowFactor = Math.min(this.slowFactor, factor || 0.65);
     }
 
+    // Betäuben: wirkt nicht beim Ausweichen, im Auto und unter dem Kronen-Schild (wie Schaden).
+    // Gibt zurück, ob Mark jetzt betäubt ist.
+    stun(seconds) {
+        if (this.dead || this.dodging || this.autoActive || this.crownShieldTimer > 0) return false;
+        this.stunTimer = Math.max(this.stunTimer, seconds);
+        return true;
+    }
+
     switchWeapon() {
         if (this.rangedWeapon) {
             this.activeWeapon = this.activeWeapon === this.meleeWeapon
@@ -233,6 +243,14 @@ class Player {
 
         // Dodge cooldown
         if (this.dodgeCooldown > 0) this.dodgeCooldown -= dt;
+
+        // Betäubt: steht still, kein Angriff, kein Ausweichen
+        if (this.stunTimer > 0 && !this.dodging) {
+            this.stunTimer -= dt;
+            if (Input.consumeDodge) Input.consumeDodge();
+            this.activeWeapon.update(dt);
+            return;
+        }
 
         // Dodge
         if (this.dodging) {
@@ -351,6 +369,9 @@ class Player {
         if (P.attack || P.fast) this._drawAura(ctx, P, t, false);
         if (this.slowTimer > 0 && this.slowFactor < 1) this._drawSlowed(ctx, P, t);
         if (this.crownShieldTimer > 0) this._drawCrownShield(ctx, P, t);
+        if (this.stunTimer > 0 && typeof Juri !== 'undefined' && Juri.dizzyStars) {
+            Juri.dizzyStars(ctx, cx, cy - 20, 10, 1.7);
+        }
     }
 
     // Haltung für dieses Bild (reine Anzeigewerte; das Objekt wird wiederverwendet).

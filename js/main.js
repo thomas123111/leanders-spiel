@@ -10,7 +10,8 @@ const LEVELS = [TUTORIAL_LEVEL, WORLD1_LEVEL, WORLD2_LEVEL, WORLD3_LEVEL, WORLD4
     WORLD5_LEVEL, WORLD6_LEVEL, WORLD7_LEVEL, WORLD8_LEVEL, WORLD9_LEVEL, WORLD10_LEVEL,
     WORLD11_LEVEL, WORLD12_LEVEL, WORLD13_LEVEL, WORLD14_LEVEL, WORLD15_LEVEL,
     WORLD16_LEVEL, WORLD17_LEVEL, WORLD18_LEVEL, WORLD19_LEVEL, WORLD20_LEVEL, WORLD21_LEVEL,
-    WORLD22_LEVEL, WORLD23_LEVEL, WORLD24_LEVEL];
+    WORLD22_LEVEL, WORLD23_LEVEL, WORLD24_LEVEL,
+    WORLD25_LEVEL, WORLD26_LEVEL, WORLD27_LEVEL, WORLD28_LEVEL, WORLD29_LEVEL, WORLD30_LEVEL];
 
 // Stärkere Bosse in allen Welten (Wunsch von Leander).
 // BOSS_TOUGHNESS: Bosse nehmen nur 1/1,5 des Schadens, halten also 1,5-mal so viel aus. Absichtlich nicht
@@ -482,6 +483,12 @@ const Game = {
             22: { label: '1000 MUENZEN', coins: 1000, jewels: 0 },
             23: { label: '100 JUWELEN', coins: 0, jewels: 100 },
             24: { label: '2000 MUENZEN', coins: 2000, jewels: 0 },
+            25: { label: '150 JUWELEN', coins: 0, jewels: 150 },
+            26: { label: '3 BOESE STERNE', coins: 0, jewels: 0, starPack: 3 },
+            27: { label: '2500 MUENZEN', coins: 2500, jewels: 0 },
+            28: { label: '200 JUWELEN', coins: 0, jewels: 200 },
+            29: { label: '3000 MUENZEN', coins: 3000, jewels: 0 },
+            30: { label: '5000 MUENZEN', coins: 5000, jewels: 0 },
         };
     },
 
@@ -930,6 +937,13 @@ const Game = {
                 // Der Drachenvater bewacht seine Kinder: sein Schatten fliegt ab und zu über die Karte
                 this.props.push(new DragonFatherShadow());
                 break;
+            // Welt 25–30: Ideen von Leander (Oktober 2026)
+            case 25: add(Werewolf, 18); keyCarrier(Werewolf); chests(8); break;
+            case 26: add(EvilAngel, 18); keyCarrier(EvilAngel); chests(8); break;
+            case 27: add(Mummy, 22); keyCarrier(Mummy); chests(8); break;
+            case 28: add(FirePig, 18); keyCarrier(FirePig); chests(8); break;
+            case 29: add(ThunderBall, 18); keyCarrier(ThunderBall); chests(8); break;
+            case 30: add(WitchKid, 21); keyCarrier(WitchKid); chests(9); break;
         }
         this._applyDifficulty(worldNum, diff);
     },
@@ -965,7 +979,8 @@ const Game = {
             11: BossGhostChick, 12: BossKnightBat, 13: BossSkeletonRider, 14: BossHydra, 15: BossStoneDemon,
             16: BossFruitGiant, 17: BossStingRex, 18: BossTimeSphere, 19: BossShadowCrocodile,
             20: BossFootball, 21: BossScrapRaccoon, 22: BossGiantZombie, 23: BossTripleButterfly,
-            24: BossDragonFather,
+            24: BossDragonFather, 25: BossGiantWerewolf, 26: BossSwordAngel, 27: BossTripleMummy,
+            28: BossPigQueen, 29: BossThunderBall, 30: BossOldWitch,
         };
         // Welt 11/12 bekommen eigene Boss-Varianten (Pixel-Roboter, Sternen-Ritter), falls vorhanden
         if (typeof BossPixelRobot !== 'undefined') bosses[11] = BossPixelRobot;
@@ -1321,7 +1336,7 @@ const Game = {
         }
 
         // Fernkampf
-        if (this.player.activeWeapon.type === 'ranged' && !this.player.dead &&
+        if (this.player.activeWeapon.type === 'ranged' && !this.player.dead && !(this.player.stunTimer > 0) &&
             (Input.attackPressed || Input.attackHeld || this.player.autoAttack)) {
             if (this.player.activeWeapon.attack(this.player.facingAngle, this.player, this.projectiles)) {
                 Sound.shoot();

@@ -27,6 +27,12 @@ const WORLDS = [
     { name: 'Zombie Academy', theme: 'zombie', accent: '#8ee86a', emoji: '🧟', boss: 'Riesen-Zombie' },
     { name: 'Schmetterlingwelt', theme: 'butterfly', accent: '#ff8ad8', emoji: '🦋', boss: 'Drei-Kopf-Schmetterling' },
     { name: 'Drachenberg', theme: 'dragon', accent: '#ff8a3d', emoji: '🐉', boss: 'Drachenvater' },
+    { name: 'Vollmondwald', theme: 'werewolf', accent: '#ff4a4a', emoji: '🐺', boss: 'Riesen-Werwolf' },
+    { name: 'Wolkenfestung', theme: 'angel', accent: '#ffd66b', emoji: '👼', boss: 'Schwert-Engel' },
+    { name: 'Pyramidengrab', theme: 'mummy', accent: '#e8c27a', emoji: '🏺', boss: 'Drei-Kopf-Mumie' },
+    { name: 'Glutschmiede', theme: 'firepig', accent: '#ff6b2e', emoji: '🐷', boss: 'Hammer-Schweinefrau' },
+    { name: 'Gewitterwolken', theme: 'thunder', accent: '#ffe74a', emoji: '⚡', boss: 'Hundert-Augen-Blitzball' },
+    { name: 'Hexenwald', theme: 'witch', accent: '#b884ff', emoji: '🧙', boss: 'Metallarm-Hexe' },
 ];
 
 const LAST_WORLD = WORLDS.length - 1;

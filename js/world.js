@@ -465,6 +465,61 @@ const WORLD_THEMES = {
         zdeco: [[['gold', 2]], [['glowcrack', 2.2], ['ember', 1.2], ['obsidian', 1]], [['frost', 2.6], ['icecrack', 1.2], ['snowmound', 0.5]], [['shard', 2.8]]],
         sk: 'nest', win: 'cave', glow: '#ffb86a', dark: 0.3, darkCol: '#12081c',
     },
+    // Welt 25–30 (Gerüst aus vorhandenen Stilen, wird später verfeinert)
+    // Welt 25: Wald bei Vollmond, dunkle Bäume, Nebelpfützen
+    werewolf: {
+        void: '#050914', vignette: 0.45, shade: '#030714', fs: 'blotch', floor: ['#2f4a52', '#2b444c'],
+        ws: 'darktree', wall: '#22403c', wallF: '#122624', accent: '#ff4a4a',
+        bush: ['#12302c', '#1e4a40', '#4a8a72'], bx: 'eyes', bxc: ['#ff3b3b'],
+        water: 'water', wc: ['#0e2238', '#1a3a5a', '#bcd8ff'], bone: '#e6ecf2', pad: '#ff4a4a',
+        deco: [['puddle', 1.5], ['tuft', 2], ['bone', 0.8], ['footprint', 1.2], ['firefly', 0.5], ['glowshroom', 0.5]], rate: 0.26,
+        pud: '#1a2c44', win: 'wisp', glow: '#dfe8ff', dark: 0.5, darkCol: '#030616',
+    },
+    // Welt 26: Festung über den Wolken, weißer Stein mit Gold
+    angel: {
+        void: '#7fb4ec', vignette: 0.2, shade: '#5a7ab8', fs: 'flag', stone: 32, floor: ['#e8eaf6', '#dfe2f2'],
+        ws: 'blocks', wall: '#fbf6e8', wallF: '#c8b27a', accent: '#ffd66b', tints: ['#fff2c8', '#e8eeff', '#ffe8f0', '#fbf6e8'], deepCol: '#4a78c8',
+        bush: ['#e8f0ff', '#ffffff', '#ffe9a8'], bx: 'glow', bxc: ['#ffd66b'],
+        water: 'water', wc: ['#6aa8f0', '#a4d0ff', '#ffffff'], bone: '#fffaf0', pad: '#ffd66b',
+        deco: [['sparkle', 3], ['star', 1.5], ['crack', 0.8], ['flower', 0.8]], rate: 0.24,
+        flowers: ['#ffffff', '#ffe14a', '#ffd0ea'], win: 'gothic', glow: '#fff1a8',
+    },
+    // Welt 27: Grabkammern in der Pyramide, Sandstein und Knochen
+    mummy: {
+        void: '#1e1206', vignette: 0.42, shade: '#2c1806', fs: 'sand', floor: ['#c9a466', '#c29d60'],
+        ws: 'strata', wall: '#d8b06a', wallF: '#93682e', accent: '#e8c27a', arena: '#3ab0c8', deepCol: '#5a3008', deep: 0.4,
+        bush: ['#6a7a3a', '#8a9a48', '#c0c870'], bx: 'none',
+        water: 'water', wc: ['#1a7a90', '#2aa6b8', '#cbf3ff'], bone: '#fbf1dc', pad: '#3ab0c8',
+        deco: [['bone', 2], ['skullsmall', 0.6], ['crack', 2], ['pebble', 2], ['cactus', 0.4]], rate: 0.26,
+        win: 'fossil', glow: '#ffcf6b', dark: 0.3, darkCol: '#1a0e04',
+    },
+    // Welt 28: Schmiede im Vulkan, Metallwände und Glut
+    firepig: {
+        void: '#1a0806', vignette: 0.42, shade: '#1c0604', fs: 'rock', floor: ['#5a3430', '#53302c'],
+        ws: 'metal', lava: true, wall: '#7a5a52', wallF: '#3e2622', accent: '#ff6b2e', hazard: true, deepCol: '#8a2006', deep: 0.4,
+        bush: ['#5a2a1a', '#8a3a1a', '#ff7a2b'], bx: 'glow', bxc: ['#ffb02e'],
+        water: 'lava', wc: ['#d62f1a', '#ff7a1f', '#ffe066'], poolGlow: [20, 0.18], bone: '#f0e0d6', pad: '#ffb02e',
+        deco: [['glowcrack', 2], ['ember', 1.5], ['bolt', 1.5], ['obsidian', 1], ['ash', 1]], rate: 0.28,
+        win: 'lava', glow: '#ff7a2b',
+    },
+    // Welt 29: dunkle Gewitterwolken mit Kristallen
+    thunder: {
+        void: '#0a0c1e', vignette: 0.42, shade: '#080a1c', fs: 'flag', stone: 32, seams: true, floor: ['#3a4064', '#353a5c'],
+        ws: 'rock', crystals: true, wall: '#5c6488', wallF: '#30365a', accent: '#ffe74a',
+        bush: ['#2a3058', '#3e4880', '#9aa8ff'], bx: 'glow', bxc: ['#ffe74a'],
+        water: 'plasma', wc: ['#1a2a8a', '#4c7aff', '#fff6a0'], bone: '#eef0ff', pad: '#ffe74a',
+        deco: [['sparkle', 2.5], ['crack', 1.5], ['crater', 0.8], ['crystal', 0.8]], rate: 0.24,
+        win: 'crystal', glow: '#fff3a0', dark: 0.35, darkCol: '#060818',
+    },
+    // Welt 30: Hexenwald mit Dornen, Zaubertrank-Teichen und Pilzen
+    witch: {
+        void: '#0c0614', vignette: 0.45, shade: '#0a0414', fs: 'blotch', floor: ['#3e2e56', '#392a50'],
+        ws: 'bramble', wall: '#5a3a7a', wallF: '#2e1a46', accent: '#b884ff',
+        bush: ['#2a1a48', '#4a2a7a', '#b884ff'], bx: 'glow', bxc: ['#7fffd0'],
+        water: 'potion', wc: ['#4f1aa6', '#8a3cff', '#e8c6ff'], bone: '#f0e6ff', pad: '#7fffd0',
+        deco: [['mushroom', 1.5], ['glowshroom', 1.2], ['candle', 0.7], ['rune', 0.8], ['bone', 0.5], ['crack', 1]], rate: 0.28,
+        win: 'rune', glow: '#b884ff', dark: 0.45, darkCol: '#0a0418',
+    },
 };
 
 // Welt 24: Die drei Elemente des Drachenvaters (und Gold dazwischen) liegen als Zonen über der Karte:
@@ -5894,6 +5949,27 @@ function createDragonLevel() {
     return map;
 }
 
+// Welt 25–30: gemeinsamer Kartenbau. pools = Becken (Wasser/Lava/Trank), bushes = Buschreihen,
+// skulls = Deko-Gruppen (Schädel-Kachel), pads = Sprungfelder. Alles nur dort, wo es nichts abschneidet.
+function createLateLevel(w, h, rooms, seed, pools, bushes, skulls, pads) {
+    const map = generateLevel(w, h, rooms, seed);
+    const rnd = wRng(seed), taken = [];
+    for (const r of findFloorRects(map, 5, 4, pools, rnd, taken)) {
+        for (let dy = 1; dy < 3; dy++) for (let dx = 1; dx < 4; dx++) placeSolidSafely(map, r.x + dx, r.y + dy, TILE_WATER);
+    }
+    for (const r of findFloorRects(map, 6, 3, bushes, rnd, taken)) {
+        for (let dx = 1; dx < 5; dx++) placeOnFloor(map, r.x + dx, r.y + 1, TILE_BUSH);
+    }
+    for (const r of findFloorRects(map, 4, 4, skulls, rnd, taken)) {
+        for (const [dx, dy] of [[1, 1], [2, 1], [1, 2]]) placeOnFloor(map, r.x + dx, r.y + dy, TILE_SKULL);
+    }
+    for (const r of findFloorRects(map, 4, 4, pads, rnd, taken)) {
+        for (const [dx, dy] of [[1, 1], [2, 1], [1, 2], [2, 2]]) placeOnFloor(map, r.x + dx, r.y + dy, TILE_JUMP_PAD);
+    }
+    sprinkleSpecialTiles(map);
+    return map;
+}
+
 const TUTORIAL_LEVEL = createTrainingLevel();
 const WORLD1_LEVEL = generateLevel(50, 45, 12, 101);
 const WORLD2_LEVEL = generateLevel(55, 45, 14, 202);
@@ -5917,3 +5993,9 @@ const WORLD21_LEVEL = createScrapYardLevel();
 const WORLD22_LEVEL = createZombieAcademyLevel();
 const WORLD23_LEVEL = createButterflyLevel();
 const WORLD24_LEVEL = createDragonLevel();
+const WORLD25_LEVEL = createLateLevel(58, 50, 17, 2525, 3, 5, 3, 1);
+const WORLD26_LEVEL = createLateLevel(58, 50, 17, 2626, 3, 4, 2, 2);
+const WORLD27_LEVEL = createLateLevel(60, 50, 18, 2727, 2, 2, 5, 1);
+const WORLD28_LEVEL = createLateLevel(58, 52, 18, 2828, 4, 2, 3, 1);
+const WORLD29_LEVEL = createLateLevel(60, 52, 18, 2929, 3, 3, 2, 3);
+const WORLD30_LEVEL = createLateLevel(62, 54, 19, 3030, 4, 4, 4, 1);
