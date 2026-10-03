@@ -1953,6 +1953,12 @@ const Game = {
         // Bildschirm-Ebene: Umgebungspartikel, Licht, Vignette, Blitz
         FX.drawAmbient(ctx);
         if (this.world.drawLighting) this.world.drawLighting(ctx, camera, this.viewW, this.viewH);
+        // Leuchtendes über der Nacht-Abdunklung (z. B. rote Werwolf-Augen, Welt 25)
+        for (const e of this.enemies) {
+            if (e.dead || !e.drawOverLight) continue;
+            if (!e.isBoss && !isOnScreen(e, camera, 40)) continue;
+            try { e.drawOverLight(ctx, camera); } catch (err) { /* nur Deko */ }
+        }
         FX.drawVignette(ctx, this.viewW, this.viewH, (this.world.palette && this.world.palette.vignette) || 0.42);
         if (this.player.hp <= 4 && !this.player.dead) FX.drawVignette(ctx, this.viewW, this.viewH, 0.25 + Math.sin(Art.time * 6) * 0.08);
         FX.drawScreenFlash(ctx, this.viewW, this.viewH);
