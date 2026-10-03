@@ -82,6 +82,7 @@ class Player {
         if (this.crownShieldTimer > 0) return;
         if (this.autoActive) return;
         this.hp -= amount;
+        if (typeof Progress !== 'undefined') Progress.onHurt();
         this.iFrames = this.iFrameDuration;
         if (this.hp <= 0) {
             this.hp = 0;

@@ -146,6 +146,7 @@ const Game = {
         this.applySettings();
         Input.init(this.canvas);
         this.loadSave();
+        Progress.load();
         UI.init();
         this.setState('TITLE');
         // Offline-Fähigkeit (nur auf der echten Seite, nicht beim lokalen Entwickeln)
@@ -167,6 +168,9 @@ const Game = {
         if (fightSwitch) Input.releaseActions();
         else Input.releaseAll();
         this._updateMusic(state);
+        // Runde vorbei: Quests weiterzählen, nächste Tagesbelohnung (vor der Anzeige der Endseite)
+        if (state === 'WORLD_CLEAR' || state === 'WIN') this.roundSummary = Progress.endRound(true);
+        else if (state === 'GAME_OVER') this.roundSummary = Progress.endRound(false);
         UI.onState(state);
     },
 
@@ -534,11 +538,12 @@ const Game = {
         return true;
     },
 
-    _grantDailyReward(forcePay) {
+    // Gratis-Tagesbelohnung im Shop: genau einmal am Tag, kein Nachkaufen (Wunsch von Leander, 03.10.2026).
+    // Ein Böser Stern daraus wird direkt geöffnet (lastDailyStar, siehe ui.js).
+    _grantDailyReward() {
         const today = this._todayKey();
-        const alreadyClaimed = this.dailyRewardClaimDate === today;
-        if (alreadyClaimed && !forcePay) return false;
-        if (alreadyClaimed && forcePay && !this._spendCoins(5000)) return false;
+        if (this.dailyRewardClaimDate === today) return false;
+        this.lastDailyStar = false;
         const roll = Math.random();
         if (roll < 0.45) {
             const amount = randInt(150, 700);
@@ -558,10 +563,9 @@ const Game = {
                 this.lastDailyText = '300 Münzen! 🪙';
             }
         } else {
-            const tiers = ['green', 'yellow', 'orange', 'red'];
-            this.freeStarTier = tiers[randInt(0, tiers.length - 1)];
-            const t = STAR_TIERS.find(x => x.id === this.freeStarTier);
-            this.lastDailyText = 'Freier Stern: ' + (t ? t.label : '') + ' ⭐';
+            this.boseStarUses = (this.boseStarUses || 0) + 1;
+            this.lastDailyStar = true;
+            this.lastDailyText = 'Ein Böser Stern! 😈';
         }
         this.dailyRewardClaimDate = today;
         this.save();
@@ -665,6 +669,8 @@ const Game = {
         }
         if (res.coins) this._grantCoins(res.coins);
         if (res.jewels) this._grantJewels(res.jewels);
+        Progress.addStat('stars', 1);
+        Progress.save();
         const parts = [];
         if (res.coins) parts.push('+' + res.coins + ' Münzen');
         if (res.jewels) parts.push('+' + res.jewels + ' Juwelen');
@@ -808,6 +814,9 @@ const Game = {
             this.player.rangedWeapon = null;
             this.player.activeWeapon = this.player.meleeWeapon;
         }
+        // Upgrade-Stufen aus den Powerpunkten, Zähler für Quests und Tagesleiste (js/progress.js)
+        if (worldNum > 0) Progress.applyPower(this);
+        Progress.startRound(worldNum);
 
         // Kamera
         this.camera = new Camera(this.viewW, this.viewH);
@@ -1395,6 +1404,7 @@ const Game = {
             if (!chest.opened && chest.canInteract(this.player) &&
                 (Input.attackPressed || rectOverlap(this.player, { x: chest.x - 4, y: chest.y - 4, w: chest.w + 8, h: chest.h + 8 }))) {
                 chest.open();
+                Progress.onChest();
                 Sound.chest();
                 FX.burst(chest.x + chest.w / 2, chest.y + chest.h / 2, ['#ffd23f', '#fff6a8', '#ff9f1c'], 12, 130, 0.6, { kind: 'star', gravity: 160 });
                 for (let i = 0; i < 3; i++) this._dropCoin(chest.x + chest.w / 2, chest.y + chest.h / 2, randInt(2, 5), true);
@@ -1411,6 +1421,7 @@ const Game = {
             if (key.update(dt, this.player)) {
                 this.hasKey = true;
                 this.world.openBossDoor();
+                Progress.onKey();
                 Sound.key();
                 this.vibrate(80);
                 FX.burst(key.x + key.w / 2, key.y + key.h / 2, ['#ffd23f', '#fff6a8'], 14, 140, 0.7, { kind: 'star' });
@@ -1646,6 +1657,7 @@ const Game = {
             if (c.age > 0.35 && !p.dead && c.update(dt, p)) {
                 this.coins += c.value;
                 this.levelCoins += c.value;
+                Progress.onCoin(c.value);
                 FX.text(cx, cy - 6, '+' + c.value, '#ffd23f', 10, { life: 0.6 });
                 Sound.coin();
             } else if (c.age <= 0.35) {
@@ -1657,6 +1669,7 @@ const Game = {
     // Einmalige Effekte (und Münzen), wenn ein Gegner stirbt.
     _onEnemyDeathFx(enemy) {
         enemy._deathFxDone = true;
+        Progress.onKill(enemy);
         const cx = enemy.centerX();
         const cy = enemy.centerY();
         const color = enemy.fxColor || '#ffe066';

@@ -49,12 +49,21 @@ const UI = {
     _starSpin: 0,
     _starFlash: 0,
 
+    // Erweiterungen aus eigenen Dateien (js/ui-box.js, js/ui-end.js, js/ui-progress.js), angemeldet mit
+    // UI.register({ screens: { id: 'page' | 'full' | 'overlay' }, onClick(act, btn, e) → true wenn erledigt,
+    //   onResult(kind) → true wenn die Endseite selbst gezeigt wurde, titleButtons() → HTML,
+    //   worldsFooter() → HTML, shopCards() → HTML }).
+    ext: [],
+    register(mod) { this.ext.push(mod); },
+    _extHtml(fn) { return this.ext.map(m => (m[fn] ? m[fn]() || '' : '')).join(''); },
+
     init() {
         this.root = document.getElementById('ui');
-        for (const id of ['title', 'worlds', 'shop', 'star', 'extra', 'pause', 'result', 'settings']) {
+        const kinds = { title: 'full', worlds: 'page', shop: 'page', star: 'full', extra: 'page', pause: 'overlay', result: 'overlay', settings: 'overlay' };
+        for (const m of this.ext) Object.assign(kinds, m.screens || {});
+        for (const [id, kind] of Object.entries(kinds)) {
             const el = document.createElement('section');
-            el.className = 'screen' + (['pause', 'result', 'settings'].includes(id) ? ' overlay' : ' page');
-            if (id === 'title' || id === 'star') el.classList.remove('page');
+            el.className = 'screen' + (kind === 'overlay' ? ' overlay' : kind === 'page' ? ' page' : '');
             el.id = 'scr-' + id;
             this.root.appendChild(el);
             this.screens[id] = el;
@@ -96,6 +105,7 @@ const UI = {
         return `<div class="chips">
             <span class="chip coin"><i>🪙</i><b>${Game.coins | 0}</b></span>
             <span class="chip gem"><i>💎</i><b>${Game.jewels | 0}</b></span>
+            <span class="chip pp"><i>⚡</i><b>${Progress.pp | 0}</b></span>
             ${stars ? `<span class="chip star"><i>😈</i><b>${stars}</b></span>` : ''}
             ${Game.settings.difficulty !== 'normal' ? `<span class="chip"><i>${Game.settings.difficulty === 'extrem' ? '🔥' : '💪'}</i><b>${Game.difficulty().name}</b></span>` : ''}
         </div>`;
@@ -121,7 +131,8 @@ const UI = {
                     <button class="btn green" data-act="training">🎯 Training</button>
                     <button class="btn purple" data-act="extra">✨ Extra</button>
                 </div>
-            </div>`;
+            </div>
+            <div class="title-ext">${this._extHtml('titleButtons')}</div>`;
         this.show('title');
         // Karussell: waagerecht wischen dreht die Figuren weiter, Tippen lässt die vordere Figur springen
         const hero = el.querySelector('.hero');
@@ -188,7 +199,8 @@ const UI = {
                 <h2>Weltkarte</h2>
                 ${this._chips()}
             </div>
-            <div class="page-body"><div class="world-strip">${cards}</div></div>`;
+            <div class="page-body"><div class="world-strip">${cards}</div></div>
+            ${this._extHtml('worldsFooter')}`;
         this.show('worlds');
         // Zur neuesten Welt scrollen
         requestAnimationFrame(() => {
@@ -255,10 +267,10 @@ const UI = {
             <div class="page-body"><div class="cards">
                 <div class="card" style="--a:#3ddc97">
                     <div class="head"><span class="ico">🎁</span><div><h3>Tagesbelohnung</h3>
-                    <p>${dailyDone ? 'Heute schon geholt. Nochmal geht für 5000 Münzen.' : 'Einmal am Tag gratis: Münzen, Upgrade oder ein freier Stern!'}</p></div></div>
+                    <p>${dailyDone ? 'Heute schon geholt. Morgen gibt es die nächste!' : 'Einmal am Tag gratis: Münzen, Upgrade oder ein Böser Stern!'}</p></div></div>
                     ${g.freeStarTier ? `<p>Freier Stern wartet: <b>${(STAR_TIERS.find(t => t.id === g.freeStarTier) || {}).label || g.freeStarTier}</b></p>` : ''}
                     <div class="foot">${dailyDone
-                        ? `<span class="owned">✓ heute geholt</span><button class="btn small gray" data-act="dailypaid" ${g.coins < 5000 ? 'disabled' : ''}>Nochmal · 🪙 5000</button>`
+                        ? '<span class="owned">✓ heute geholt</span>'
                         : '<button class="btn small green pulse" data-act="daily">GRATIS holen</button>'}</div>
                 </div>
                 <div class="card" style="--a:#ff5f5f">
@@ -273,6 +285,7 @@ const UI = {
                     <div class="foot">${g.unlockedCrown ? '<span class="owned">✓ hast du schon</span>' :
                         `<button class="btn small" data-act="crown" ${g.coins >= 500 ? '' : 'disabled'}>🪙 500</button>`}</div>
                 </div>
+                ${this._extHtml('shopCards')}
                 <div class="section-title">Sternen-Markt</div>
                 ${starCards}
                 <div class="section-title">Wechselstube</div>
@@ -780,6 +793,7 @@ const UI = {
 
     // ── Ergebnis: Welt geschafft / Game Over / Sieg ──
     renderResult(kind) {
+        for (const m of this.ext) if (m.onResult && m.onResult(kind)) return;
         const el = this.screens.result;
         const g = Game;
         const info = worldInfo(g.currentWorld);
@@ -883,29 +897,16 @@ const UI = {
                 break;
             }
             case 'daily': {
-                if (g.dailyRewardClaimDate === g._todayKey()) break; // bezahltes Nachholen hat einen eigenen Knopf
-                if (g._grantDailyReward(false)) {
-                    Sound.powerUp();
-                    this.flashMessage(g.lastDailyText || 'Belohnung abgeholt!');
-                    this._dailyLockUntil = performance.now() + 2000;
+                if (!g._grantDailyReward()) { this.renderShop(); break; }
+                Sound.powerUp();
+                // Böser Stern: gleich richtig öffnen (antippen, Seltenheit steigt, Belohnung), wenn kein anderer offen ist
+                if (g.lastDailyStar && !g.shopRandomStarActive) {
+                    this._starSparks = [];
+                    this._starBoom = null;
+                    this._starBusy = false;
+                    if (g.startBadStar()) { this.renderStar(); break; }
                 }
-                this.renderShop();
-                break;
-            }
-            case 'dailypaid': {
-                if (performance.now() < (this._dailyLockUntil || 0)) break;
-                // Nur nach zweitem Tippen (Bestätigung), damit kein Doppeltipp 5000 Münzen kostet
-                if (!(this._dailyConfirm && performance.now() - this._dailyConfirm < 3000)) {
-                    this._dailyConfirm = performance.now();
-                    btn.textContent = 'Wirklich 5000 🪙? Nochmal tippen';
-                    btn.classList.add('pink');
-                    break;
-                }
-                this._dailyConfirm = 0;
-                if (g._grantDailyReward(true)) {
-                    Sound.powerUp();
-                    this.flashMessage(g.lastDailyText || 'Belohnung abgeholt!');
-                }
+                this.flashMessage(g.lastDailyText || 'Belohnung abgeholt!');
                 this.renderShop();
                 break;
             }
@@ -994,6 +995,8 @@ const UI = {
                 }
                 break;
             case 'frosty': g.save(); location.href = 'frosty-burger/'; break;
+            default:
+                for (const m of this.ext) if (m.onClick && m.onClick(act, btn, e)) break;
         }
     },
 
