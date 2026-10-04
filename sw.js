@@ -16,7 +16,7 @@ const CORE = [
     ...['utils', 'art', 'fx', 'data', 'sound', 'music', 'input', 'camera', 'world', 'weapons', 'loot',
         'entities', 'entities2', 'zombie', 'butterfly', 'dragon',
         'werewolf', 'angel', 'mummy', 'firepig', 'thunder', 'witch',
-        'bunny', 'devil', 'alien', 'spider', 'toad', 'dwarf', 'treemonster', 'golem', 'pumpkin', 'crab', 'eagle', 'fox', 'player', 'hud', 'progress', 'ui',
+        'bunny', 'devil', 'alien', 'spider', 'toad', 'dwarf', 'treemonster', 'golem', 'pumpkin', 'crab', 'eagle', 'fox', 'porcupine', 'player', 'hud', 'progress', 'ui',
         'ui-box', 'ui-end', 'ui-progress', 'main'].map(n => './js/' + n + '.js' + V),
     './frosty-burger/',
     './frosty-burger/styles.css?v=1.2.1',

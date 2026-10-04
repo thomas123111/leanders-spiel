@@ -631,6 +631,15 @@ const WORLD_THEMES = {
         deco: [['bolt', 2], ['tire', 0.8], ['can', 1], ['hazard', 0.8], ['grate', 0.8]], rate: 0.26,
         win: 'tv', glow: '#ffcf6b',
     },
+    // Welt 43: Herbstwald mit Laub und Dornenbüschen
+    porcupine: {
+        void: '#1e140a', vignette: 0.32, shade: '#2a1a0a', fs: 'blotch', floor: ['#7a6a3e', '#73633a'],
+        ws: 'bramble', wall: '#8a6a3a', wallF: '#5a3e1a', accent: '#c8a06a',
+        bush: ['#6a3a14', '#a85a1a', '#ffb03a'], bx: 'berries', bxc: ['#ff4a5a', '#ffd23f'],
+        water: 'water', wc: ['#2a6a8a', '#4a9ab8', '#d4f0ff'], bone: '#f6ecd8', pad: '#ffb03a',
+        deco: [['leaf', 4], ['mushroom', 1.2], ['pebble', 1.5], ['tuft', 1.5], ['apple', 0.4]], rate: 0.34,
+        win: 'crate', glow: '#ffcf6b',
+    },
 };
 
 // Welt 24: Die drei Elemente des Drachenvaters (und Gold dazwischen) liegen als Zonen über der Karte:
@@ -6122,3 +6131,4 @@ const WORLD39_LEVEL = createLateLevel(62, 54, 19, 3939, 3, 4, 4, 1);
 const WORLD40_LEVEL = createLateLevel(64, 54, 20, 4040, 6, 2, 3, 1);
 const WORLD41_LEVEL = createLateLevel(64, 56, 20, 4141, 3, 3, 4, 3);
 const WORLD42_LEVEL = createLateLevel(64, 56, 20, 4242, 4, 3, 4, 2);
+const WORLD43_LEVEL = createLateLevel(64, 56, 20, 4343, 3, 6, 3, 2);

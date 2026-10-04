@@ -45,6 +45,7 @@ const WORLDS = [
     { name: 'Krebsstrand', theme: 'crab', accent: '#ff5f4a', emoji: '🦀', boss: 'Riesenkrebs' },
     { name: 'Adlerhorst', theme: 'eagle', accent: '#e8c27a', emoji: '🦅', boss: 'Riesenadler' },
     { name: 'Fuchsfestung', theme: 'fox', accent: '#ff8c32', emoji: '🦊', boss: 'Riesenfuchs' },
+    { name: 'Stachelwald', theme: 'porcupine', accent: '#c8a06a', emoji: '🦔', boss: 'Riesen-Stachelschwein' },
 ];
 
 const LAST_WORLD = WORLDS.length - 1;
