@@ -59,6 +59,22 @@ const QUESTS = [
         steps: [[1, 15], [5, 30], [12, 50], [24, 80], [36, 120]] },
 ];
 
+// Tagesquests: jeden Tag DAILY_QUEST_COUNT verschiedene aus diesem Vorrat, Ziel und Erfahrung je Tag zufällig
+// (gleiches Paar targets[k]/xp[k]). Leichter als die Dauerquests, schaffbar an einem Nachmittag.
+const DAILY_QUEST_COUNT = 6;
+const DAILY_QUEST_POOL = [
+    { id: 'd-kills', stat: 'kills', icon: '👊', text: n => `Besiege heute ${n} Gegner`, targets: [30, 60, 100], xp: [15, 25, 40] },
+    { id: 'd-bosses', stat: 'bosses', icon: '👹', text: n => `Besiege heute ${n} ${n === 1 ? 'Boss' : 'Bosse'}`, targets: [1, 2, 3], xp: [15, 25, 35] },
+    { id: 'd-wins', stat: 'wins', icon: '🏁', text: n => `Schaffe heute ${n} ${n === 1 ? 'Welt' : 'Welten'}`, targets: [1, 2, 3], xp: [15, 25, 35] },
+    { id: 'd-rounds', stat: 'rounds', icon: '🎮', text: n => `Spiele heute ${n} Runden`, targets: [2, 3, 5], xp: [10, 15, 25] },
+    { id: 'd-coins', stat: 'coins', icon: '🪙', text: n => `Sammle heute ${n} Münzen im Kampf`, targets: [40, 80, 150], xp: [10, 20, 30] },
+    { id: 'd-chests', stat: 'chests', icon: '🧰', text: n => `Öffne heute ${n} Truhen im Kampf`, targets: [3, 6, 10], xp: [10, 20, 30] },
+    { id: 'd-keys', stat: 'keys', icon: '🔑', text: n => `Finde heute ${n} Schlüssel`, targets: [1, 2, 3], xp: [10, 20, 30] },
+    { id: 'd-flawless', stat: 'flawless', icon: '💖', text: () => 'Schaffe heute eine Welt ohne Herz zu verlieren', targets: [1], xp: [35] },
+    { id: 'd-stars', stat: 'stars', icon: '😈', text: n => `Öffne heute ${n === 1 ? 'einen Bösen Stern' : n + ' Böse Sterne'}`, targets: [1, 2], xp: [10, 20] },
+    { id: 'd-boxes', stat: 'boxes', icon: '🎁', text: n => `Öffne heute ${n === 1 ? 'eine Glücksbox' : n + ' Glücksboxen'}`, targets: [1, 2], xp: [10, 20] },
+];
+
 // Power-Pfad: 100 Belohnungen. Erfahrung für Stufe n: 20, 20, 20, 20, 25, … (alle 4 Stufen +5), Stufe 100 = 140.
 const PATH_STEPS = 100;
 function pathCost(n) { return 20 + 5 * Math.floor((n - 1) / 4); }
@@ -103,6 +119,7 @@ const Progress = {
     daily: { date: '', list: [], got: 0 },
     boxes: [],                  // ungeöffnete Glücksboxen (Start-Seltenheit je Box)
     box: null,                  // gerade geöffnete Box: { tier, tries, done }
+    dailyQ: null,               // Tagesquests: { date, list: [{ id, stat, icon, target, xp, base }], claimed: [ids] }
     round: null,                // Zähler der laufenden Runde
 
     // ── Speichern ──
@@ -120,6 +137,7 @@ const Progress = {
                 if (d.daily && Array.isArray(d.daily.list)) this.daily = d.daily;
                 this.boxes = Array.isArray(d.boxes) ? d.boxes.map(t => clamp(t | 0, 0, BOX_RARITIES.length - 1)) : [];
                 this.box = d.box && typeof d.box === 'object' ? d.box : null;
+                if (d.dailyQ && Array.isArray(d.dailyQ.list)) this.dailyQ = d.dailyQ;
             }
         } catch (e) { /* kaputter Stand: neu beginnen */ }
         this._ensureDaily();
@@ -130,6 +148,7 @@ const Progress = {
             localStorage.setItem(PROGRESS_KEY, JSON.stringify({
                 pp: this.pp, levels: this.levels, xp: this.xp, pathClaimed: this.pathClaimed,
                 questStep: this.questStep, stats: this.stats, daily: this.daily, boxes: this.boxes, box: this.box,
+                dailyQ: this.dailyQ,
             }));
         } catch (e) { /* privater Modus */ }
     },
@@ -239,7 +258,45 @@ const Progress = {
         return { quest: q, index: i, target, xp, have: Math.min(have, target), done: have >= target, text: q.text(target) };
     },
     allQuests() { return QUESTS.map(q => this.questState(q)); },
-    claimableQuests() { return this.allQuests().filter(s => s.done).length; },
+    claimableQuests() {
+        return this.allQuests().filter(s => s.done).length + this.dailyQuestStates().filter(s => s.done && !s.claimed).length;
+    },
+
+    // ── Tagesquests: jeden Tag 6 neue (Wunsch von Leander, 04.10.2026) ──
+    // Zählen über dieselben Lebenszeit-Zähler, ab dem Stand beim Erzeugen (base).
+    _ensureDailyQuests() {
+        const today = typeof Game !== 'undefined' && Game._todayKey ? Game._todayKey() : '';
+        if (!today || (this.dailyQ && this.dailyQ.date === today)) return;
+        const rnd = seededRandom(parseInt(today.replace(/-/g, ''), 10) * 7 + 3);
+        const pool = DAILY_QUEST_POOL.slice();
+        const list = [];
+        while (list.length < DAILY_QUEST_COUNT && pool.length) {
+            const t = pool.splice(Math.floor(rnd() * pool.length), 1)[0];
+            const k = Math.floor(rnd() * t.targets.length);
+            list.push({ id: t.id, stat: t.stat, icon: t.icon, target: t.targets[k], xp: t.xp[k], base: this.stats[t.stat] || 0 });
+        }
+        this.dailyQ = { date: today, list, claimed: [] };
+        this.save();
+    },
+    // Stand der Tagesquests: [{ id, icon, text, have, target, done, claimed, xp, daily: true }]
+    dailyQuestStates() {
+        this._ensureDailyQuests();
+        if (!this.dailyQ) return [];
+        return this.dailyQ.list.map(q => {
+            const t = DAILY_QUEST_POOL.find(x => x.id === q.id);
+            const have = Math.min(q.target, Math.max(0, (this.stats[q.stat] || 0) - q.base));
+            return { id: q.id, icon: q.icon, text: t ? t.text(q.target) : q.id, have, target: q.target,
+                done: have >= q.target, claimed: this.dailyQ.claimed.includes(q.id), xp: q.xp, daily: true };
+        });
+    },
+    claimDailyQuest(id) {
+        const s = this.dailyQuestStates().find(x => x.id === id);
+        if (!s || !s.done || s.claimed) return 0;
+        this.dailyQ.claimed.push(id);
+        this.xp += s.xp;
+        this.save();
+        return s.xp;
+    },
     // Erledigte Quest antippen: Erfahrung gutschreiben, nächste Stufe. Liefert die Erfahrung oder 0.
     claimQuest(id) {
         const q = QUESTS.find(x => x.id === id);
@@ -292,7 +349,8 @@ const Progress = {
     // ── Runde: Zähler während des Kampfs ──
     startRound(world) {
         this.round = { world, kills: 0, bosses: 0, coins: 0, chests: 0, keys: 0, hurt: 0, ended: false,
-            before: this.allQuests().map(s => ({ id: s.quest.id, have: s.have, done: s.done })) };
+            before: this.allQuests().map(s => ({ id: s.quest.id, have: s.have, done: s.done })),
+            beforeDaily: this.dailyQuestStates().map(s => ({ id: s.id, done: s.done })) };
     },
     onKill(enemy) { if (this.round && !this.round.ended && this.round.world > 0) { if (enemy.isBoss) this.round.bosses++; else this.round.kills++; } },
     onCoin(v) { if (this.round && !this.round.ended && this.round.world > 0) this.round.coins += v; },
@@ -318,8 +376,11 @@ const Progress = {
             if (r.hurt === 0) this.addStat('flawless', 1);
             if (Game.settings && Game.settings.difficulty !== 'normal') this.addStat('hardwins', 1);
         }
-        // Quests, die in dieser Runde weitergekommen oder fertig geworden sind
-        const quests = [];
+        // Endseite: zuerst alle Tagesquests, dann die Dauerquests, die in dieser Runde weitergekommen sind
+        const quests = this.dailyQuestStates().map(s => {
+            const b = (r.beforeDaily || []).find(x => x.id === s.id);
+            return { ...s, newlyDone: s.done && !s.claimed && !!b && !b.done };
+        });
         for (const s of this.allQuests()) {
             const b = r.before.find(x => x.id === s.quest.id);
             if (!b || (s.have === b.have && s.done === b.done)) continue;
@@ -340,12 +401,14 @@ const Progress = {
     },
 
     // ── Glücksboxen öffnen (wie die Bösen Sterne: 5 Versuche, Aufstieg mit Glück, kein Zurück) ──
-    startBox() {
+    startBox(preferTier) {
         if (this.box) return true;                 // angefangene Box läuft weiter
         if (!this.boxes.length) return false;
-        // die beste vorhandene Box zuerst
+        // gewünschte Stufe (gerade gekauft/bekommen), sonst die beste vorhandene Box zuerst
         let best = 0;
         for (let i = 1; i < this.boxes.length; i++) if (this.boxes[i] > this.boxes[best]) best = i;
+        const want = preferTier === undefined || preferTier === null ? -1 : this.boxes.lastIndexOf(preferTier | 0);
+        if (want >= 0) best = want;
         const tier = this.boxes.splice(best, 1)[0];
         this.box = { tier, tries: BOX_TRIES, done: tier >= BOX_RARITIES.length - 1 };
         this.save();

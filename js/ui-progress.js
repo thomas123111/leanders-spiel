@@ -67,6 +67,12 @@ const UIProgress = {
             const r = Progress.claimPath();
             if (r) {
                 Sound.powerUp();
+                // Böse Sterne und Glücksboxen werden gleich richtig geöffnet, danach zurück auf den Pfad
+                // (Wunsch von Leander, 04.10.2026; vorher stand nur oben eine gelbe Meldung)
+                const back = () => this.renderPath();
+                if (r.stars && !Game.shopRandomStarActive && UI.openBadStarNow(false, back)) return true;
+                if (r.box !== undefined && r.box !== null && typeof BoxUI !== 'undefined' && !Progress.box &&
+                    BoxUI.openNow(r.box, back)) return true;
                 UI.flashMessage('Belohnung: ' + (r.label || Progress.rewardText(r)));
             }
             this.renderPath();

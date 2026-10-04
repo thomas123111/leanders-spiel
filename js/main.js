@@ -589,18 +589,20 @@ const Game = {
         return true;
     },
 
-    // Böser Stern: kostet einen verdienten Stern oder 100 Münzen (vorher war er versehentlich gratis).
-    startBadStar() {
+    // Böser Stern: ein verdienter Stern (buy = false) oder gekauft für BAD_STAR_PRICE Juwelen (buy = true,
+    // Wunsch von Leander 04.10.2026: 100 Juwelen, vorher 100 Münzen). Gekaufte zahlen wie verdiente aus,
+    // weil 100 Juwelen (= 1000 Münzen) weit über dem Erwartungswert liegen.
+    startBadStar(buy) {
         // Angefangener (schon bezahlter) Stern läuft weiter, statt verloren zu gehen
         if (this.shopRandomStarActive) return true;
-        if ((this.boseStarUses || 0) > 0) {
+        if (buy) {
+            if (!this._spendJewels(BAD_STAR_PRICE)) return false;
+        } else if ((this.boseStarUses || 0) > 0) {
             this.boseStarUses--;
-            this.shopRandomStarWithStar = true;
-        } else if (this._spendCoins(BAD_STAR_PRICE)) {
-            this.shopRandomStarWithStar = false;
         } else {
             return false;
         }
+        this.shopRandomStarWithStar = true;
         this.shopRandomStarActive = true;
         this.shopRandomStarTier = 0;
         this.shopRandomStarAttempts = STAR_TRIES;
@@ -1258,6 +1260,7 @@ const Game = {
         this.world.update(dt);
         this._updateAssist();
         this.player.update(dt, this.world);
+        if (this.player.autoActive) this._crashWalls();
         if (this.player.dodging && !this._wasDodging) FX.burst(this.player.x + this.player.w / 2, this.player.y + this.player.h - 2, 'rgba(230,240,255,0.9)', 6, 60, 0.4, { kind: 'smoke', size: 4 });
         this._wasDodging = this.player.dodging;
 
@@ -1547,6 +1550,30 @@ const Game = {
     },
 
     // Öffentliche Schnittstelle für Gegner (gleich wie _hurtPlayer)
+    // Auto fährt durch Mauern und reißt sie ein (Wunsch von Leander, 04.10.2026): vorher sah es aus, als
+    // flöge es darüber. Nur normale Mauern, nie der äußere Rand und nie der Boss-Bereich samt Wandring.
+    // Die Karte wird beim nächsten Weltstart frisch aus der Vorlage geladen, die Mauern sind dann wieder da.
+    _crashWalls() {
+        const p = this.player, w = this.world;
+        const x0 = Math.floor((p.x - 2) / TILE_SIZE), x1 = Math.floor((p.x + p.w + 2) / TILE_SIZE);
+        const y0 = Math.floor((p.y - 2) / TILE_SIZE), y1 = Math.floor((p.y + p.h + 2) / TILE_SIZE);
+        const col = (w.palette && w.palette.wall) || '#9a8a7a';
+        const dark = (w.palette && w.palette.wallF) || '#5a4a3a';
+        for (let ty = y0; ty <= y1; ty++) {
+            for (let tx = x0; tx <= x1; tx++) {
+                if (tx < 1 || ty < 1 || tx > w.width - 2 || ty > w.height - 2) continue;
+                if (w.tiles[ty][tx] !== TILE_WALL || this._isBossBlockTile(tx, ty)) continue;
+                w.setTile(tx, ty, TILE_FLOOR);
+                const cx = tx * TILE_SIZE + TILE_SIZE / 2, cy = ty * TILE_SIZE + TILE_SIZE / 2;
+                FX.burst(cx, cy, [col, dark, Art.light(col, 0.3)], 14, 190, 0.7, { gravity: 260, size: 4 });
+                FX.burst(cx, cy, 'rgba(225,215,200,0.85)', 5, 50, 0.7, { kind: 'smoke', size: 7 });
+                this.camera.shake(5, 0.18);
+                Sound.hit();
+                this.vibrate(25);
+            }
+        }
+    },
+
     hurtPlayer(amount, angle, force) {
         this._hurtPlayer(amount, angle, force);
     },
@@ -1861,6 +1888,12 @@ const Game = {
                 o.facingAngle = isFront && spin > 0 ? (1 - spin) * TAU * 2 : Math.sin(Art.time * 0.8) * 0.5 + Math.PI * 0.12;
                 o.aimAngle = o.facingAngle;
             } else {
+                // Juri und das Krokodil drehen sich beim Antippen wie Mark (zweimal um sich selbst):
+                // die Breite folgt dem Kosinus, bei negativem Wert schauen sie zur anderen Seite
+                if (isFront && spin > 0) {
+                    const c = Math.cos((1 - spin) * TAU * 2);
+                    ctx.scale(Math.abs(c) < 0.08 ? 0.08 * Math.sign(c || 1) : c, 1);
+                }
                 o.faceX = 1;
                 o.moving = false;
                 o.target = null;

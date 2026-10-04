@@ -50,10 +50,11 @@ const BoxUI = {
             return true;
         }
         if (act === 'boxbuy') {
-            if (Game._spendJewels(BOX_PRICE)) {
+            // Gekauft wird, um zu öffnen: die neue Box erscheint sofort (Wunsch von Leander, 04.10.2026)
+            if (!Progress.box && Game._spendJewels(BOX_PRICE)) {
                 Progress.grant({ box: 0 });
                 Sound.coin();
-                UI.flashMessage('Glücksbox gekauft! 🎁');
+                if (this.openNow(0)) return true;
             }
             UI.renderShop();
             return true;
@@ -94,10 +95,22 @@ const BoxUI = {
         if (act === 'boxdone') {
             this._boxItems = null;
             this._boxPages = null;
-            UI.renderShop();
+            const back = this._boxReturn;
+            this._boxReturn = null;
+            if (typeof back === 'function') back(); else UI.renderShop();
             return true;
         }
         return false;
+    },
+
+    // Box sofort öffnen (nach dem Kauf, aus dem Power-Pfad). tier = diese Box nehmen, falls vorhanden;
+    // returnTo = Funktion, die nach der Übersicht aufgerufen wird (Vorgabe: Shop).
+    openNow(tier, returnTo) {
+        this._resetRun();
+        if (!Progress.startBox(tier)) return false;
+        this._boxReturn = returnTo || null;
+        this.renderBox();
+        return true;
     },
 
     _resetRun() {

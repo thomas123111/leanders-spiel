@@ -6,7 +6,7 @@ const STAR_TIERS = [
     { id: 'orange', label: 'Mega Scharf', color: '#ff9f2e', price: 200, gift: 'Gamer-Pistole', flag: 'unlockedGamerPistol', emoji: '🟠' },
     { id: 'red', label: 'Ultra Scharf', color: '#ff5f5f', price: 350, gift: 'Goldene Krone', flag: 'unlockedCrown', emoji: '🔴' },
 ];
-const BAD_STAR_PRICE = 100;
+const BAD_STAR_PRICE = 100;   // Juwelen (seit 04.10.2026, vorher Münzen)
 
 // Seltenheiten der Bösen Sterne (Wunsch von Leander: wie in Brawl Stars). Namen und Farben nur hier ändern.
 // c = Grundfarbe, hi/lo = helle und dunkle Seite der 3D-Facetten, rainbow = Regenbogen-Facetten.
@@ -261,9 +261,11 @@ const UI = {
             const ic = x => x === 'J' ? '💎' : '🪙';
             return `<button class="btn small blue" data-act="exchange" data-i="${i}" ${can ? '' : 'disabled'}>${a}${ic(from)} → ${b}${ic(to)}</button>`;
         }).join('');
-        const badCan = g.shopRandomStarActive || (g.boseStarUses || 0) > 0 || g.coins >= BAD_STAR_PRICE;
-        const badLabel = g.shopRandomStarActive ? 'Weitermachen!' :
-            ((g.boseStarUses || 0) > 0 ? 'Öffnen (1 😈)' : 'Öffnen · 🪙 ' + BAD_STAR_PRICE);
+        const own = g.boseStarUses || 0;
+        const badBtns = g.shopRandomStarActive
+            ? '<button class="btn small pink pulse" data-act="badstar">Weitermachen!</button>'
+            : `${own ? `<button class="btn small pink" data-act="badstar">Öffnen (${own} 😈)</button>` : ''}
+               <button class="btn small" data-act="badstarbuy" ${g.jewels >= BAD_STAR_PRICE ? '' : 'disabled'}>Kaufen · 💎 ${BAD_STAR_PRICE}</button>`;
         el.innerHTML = `
             <div class="page-head">
                 <button class="btn small gray" data-act="title">◀ Zurück</button>
@@ -283,7 +285,7 @@ const UI = {
                     <div class="head"><span class="ico">😈</span><div><h3>Böse Sterne</h3>
                     <p>Tippe den Stern ${STAR_TRIES}-mal an. Mit Glück wird er seltener und die Belohnung größer:
                     ${STAR_RARITIES.map(r => r.name).join(', ')}!</p></div></div>
-                    <div class="foot"><button class="btn small pink${g.shopRandomStarActive ? ' pulse' : ''}" data-act="badstar" ${badCan ? '' : 'disabled'}>${badLabel}</button></div>
+                    <div class="foot">${badBtns}</div>
                 </div>
                 <div class="card" style="--a:#ffd23f">
                     <div class="head"><span class="ico">👑</span><div><h3>Goldene Krone</h3>
@@ -331,6 +333,18 @@ const UI = {
         this._starUp = false;
         this.show('star');
         this._animateStar(el.querySelector('canvas'));
+    },
+
+    // Stern-Bildschirm sofort öffnen. buy = für Juwelen kaufen, sonst einen vorhandenen Stern nehmen.
+    // Nach den Belohnungen geht es dorthin zurück, wo man herkam (this._starReturn, Vorgabe Shop).
+    openBadStarNow(buy, returnTo) {
+        this._starSparks = [];
+        this._starBoom = null;
+        this._starBusy = false;
+        if (!Game.startBadStar(buy)) return false;
+        this._starReturn = returnTo || null;
+        this.renderStar();
+        return true;
     },
 
     // Letzter Versuch verbraucht: kleine blaue Explosion, dann die Belohnungen
@@ -958,10 +972,9 @@ const UI = {
                 break;
             }
             case 'badstar':
-                this._starSparks = [];
-                this._starBoom = null;
-                this._starBusy = false;
-                if (g.startBadStar()) this.renderStar();
+            case 'badstarbuy':
+                // Gekauft oder verdient: der Stern öffnet sich sofort (antippen, Seltenheit, Belohnung)
+                if (!this.openBadStarNow(act === 'badstarbuy')) this.renderShop();
                 break;
             case 'startap': {
                 if (g.shopRandomStarFinished || this._starBusy) break;
@@ -997,7 +1010,9 @@ const UI = {
                 } else {
                     this._starPages = null;
                     this._starMode = 'star';
-                    this.renderShop();
+                    const back = this._starReturn;
+                    this._starReturn = null;
+                    if (typeof back === 'function') back(); else this.renderShop();
                 }
                 break;
             case 'frosty': g.save(); location.href = 'frosty-burger/'; break;
