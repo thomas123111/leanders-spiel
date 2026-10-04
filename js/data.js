@@ -33,6 +33,18 @@ const WORLDS = [
     { name: 'Glutschmiede', theme: 'firepig', accent: '#ff6b2e', emoji: '🐷', boss: 'Hammer-Schweinefrau' },
     { name: 'Gewitterwolken', theme: 'thunder', accent: '#ffe74a', emoji: '⚡', boss: 'Hundert-Augen-Blitzball' },
     { name: 'Hexenwald', theme: 'witch', accent: '#b884ff', emoji: '🧙', boss: 'Metallarm-Hexe' },
+    { name: 'Hasenhügel', theme: 'bunny', accent: '#ffb3d1', emoji: '🐰', boss: 'Riesenhase' },
+    { name: 'Teufelsschlucht', theme: 'devil', accent: '#ff3b5c', emoji: '👿', boss: 'Vier-Arm-Teufel' },
+    { name: 'Alienplanet', theme: 'alien', accent: '#6dff8a', emoji: '👽', boss: 'Blaster-Raumschiff' },
+    { name: 'Spinnenhöhle', theme: 'spider', accent: '#a8ff3c', emoji: '🕷️', boss: 'Riesenspinne' },
+    { name: 'Krötensumpf', theme: 'toad', accent: '#9ccc4a', emoji: '🐸', boss: 'Drei-Kopf-Kröte' },
+    { name: 'Zwergengarten', theme: 'dwarf', accent: '#ff7a3c', emoji: '⛏️', boss: 'Riesenzwerg' },
+    { name: 'Monsterwald', theme: 'treemonster', accent: '#6fcf4a', emoji: '🌳', boss: 'Riesenbaum' },
+    { name: 'Glutberg', theme: 'golem', accent: '#ff8a2b', emoji: '🔥', boss: 'Riesen-Feuergolem' },
+    { name: 'Kürbisfeld', theme: 'pumpkin', accent: '#ff9a1f', emoji: '🎃', boss: 'Kürbisvater' },
+    { name: 'Krebsstrand', theme: 'crab', accent: '#ff5f4a', emoji: '🦀', boss: 'Riesenkrebs' },
+    { name: 'Adlerhorst', theme: 'eagle', accent: '#e8c27a', emoji: '🦅', boss: 'Riesenadler' },
+    { name: 'Fuchsfestung', theme: 'fox', accent: '#ff8c32', emoji: '🦊', boss: 'Riesenfuchs' },
 ];
 
 const LAST_WORLD = WORLDS.length - 1;

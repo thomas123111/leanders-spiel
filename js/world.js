@@ -520,6 +520,117 @@ const WORLD_THEMES = {
         deco: [['mushroom', 1.5], ['glowshroom', 1.2], ['candle', 0.7], ['rune', 0.8], ['bone', 0.5], ['crack', 1]], rate: 0.28,
         win: 'rune', glow: '#b884ff', dark: 0.28, darkCol: '#0a0418',
     },
+    // Welt 31–42 (Gerüst aus vorhandenen Stilen, kann später verfeinert werden)
+    // Welt 31: grüne Hügel mit Möhrenbeeten und Blumen
+    bunny: {
+        void: '#1c3a20', vignette: 0.25, shade: '#1a4a22', fs: 'grass', stripes: 0, floor: ['#7cc45e', '#76bb58'],
+        blossoms: ['#ffffff', '#ffd0ea', '#fff3a8'],
+        ws: 'foliage', wall: '#4a9a3e', wallF: '#2e6a2c', accent: '#ffb3d1', deepCol: '#1b4a24',
+        bush: ['#2a7a3e', '#46a553', '#9be06a'], bx: 'flowers', bxc: ['#ff9a3c', '#ffffff', '#ffb3d1'],
+        water: 'water', wc: ['#2a86c8', '#4cb2ec', '#dcf6ff'], lily: true, bone: '#fff6e8', pad: '#ff9a3c',
+        deco: [['flower', 4], ['tuft', 3], ['clover', 2], ['daisy', 1.2], ['mushroom', 0.4], ['pebble', 0.6]], rate: 0.36,
+        flowers: ['#ffffff', '#ffe14a', '#ff9ad0', '#ff9a3c'], win: 'crate', glow: '#fff0c8',
+    },
+    // Welt 32: Lava-Schlucht mit dunklem Fels und Feuerritzen
+    devil: {
+        void: '#14040a', vignette: 0.46, shade: '#18030a', fs: 'rock', floor: ['#4a2030', '#441c2c'],
+        ws: 'rock', lava: true, wall: '#6a2a3a', wallF: '#3a1220', accent: '#ff3b5c',
+        bush: ['#3a0a1a', '#6a1a2a', '#ff3b5c'], bx: 'glow', bxc: ['#ff5f3c'],
+        water: 'lava', wc: ['#c42a1a', '#ff5a1f', '#ffd24a'], poolGlow: [20, 0.2], bone: '#f0d6dc', pad: '#ff3b5c',
+        deco: [['glowcrack', 2.5], ['ember', 1.5], ['bone', 1], ['skullsmall', 0.5], ['obsidian', 1]], rate: 0.28,
+        win: 'redglass', glow: '#ff4d6d', dark: 0.4, darkCol: '#14030a',
+    },
+    // Welt 33: fremder Planet mit Metallplatten und Kratern
+    alien: {
+        void: '#060a18', vignette: 0.42, shade: '#04081a', fs: 'plate', floor: ['#3a4a6a', '#354462'],
+        ws: 'metal', wall: '#5a6a9a', wallF: '#2e3a62', accent: '#6dff8a', hazard: true, deepCol: '#0e1a4a', deep: 0.4,
+        bush: ['#1a5a3a', '#2a9a5a', '#6dff8a'], bx: 'glow', bxc: ['#6dff8a'],
+        water: 'plasma', wc: ['#1a6a3a', '#4cff8a', '#d8ffe0'], bone: '#e0f0ff', pad: '#6dff8a',
+        deco: [['crater', 1.5], ['bolt', 2], ['star', 1.5], ['crystal', 0.8], ['grate', 0.8]], rate: 0.24,
+        win: 'porthole', glow: '#6dff8a', dark: 0.3, darkCol: '#040818',
+    },
+    // Welt 34: dunkle Höhle mit Spinnweben und Giftpfützen
+    spider: {
+        void: '#08080c', vignette: 0.48, shade: '#06060a', fs: 'cave', floor: ['#3a3640', '#35313a'],
+        ws: 'basalt', wall: '#4a4458', wallF: '#26222e', accent: '#a8ff3c',
+        bush: ['#1a2a12', '#2a4a1a', '#a8ff3c'], bx: 'glow', bxc: ['#a8ff3c'],
+        water: 'goo', wc: ['#3a7a18', '#8cff3a', '#e2ffb4'], bone: '#eeeef4', pad: '#a8ff3c',
+        deco: [['bone', 1.5], ['skullsmall', 0.6], ['crack', 2], ['pebble', 2], ['puddle', 0.8]], rate: 0.26,
+        cobweb: true, pud: '#5aaa2a', win: 'cave', glow: '#c8ff7a', dark: 0.48, darkCol: '#05050a',
+    },
+    // Welt 35: Sumpf mit Schilf und Seerosen
+    toad: {
+        void: '#0c1e14', vignette: 0.4, shade: '#081c12', fs: 'blotch', floor: ['#4a6a40', '#44633b'],
+        ws: 'reeds', wall: '#6aa53e', wallF: '#3a6a2c', accent: '#9ccc4a', deepCol: '#1c4a1a',
+        bush: ['#2c5a29', '#4b8a33', '#9ccc4a'], bx: 'cattail', bxc: ['#c8743a'],
+        water: 'goo', wc: ['#2a6a2a', '#5cb83a', '#c8f080'], lily: true, bone: '#eef0dc', pad: '#9ccc4a',
+        deco: [['puddle', 2], ['reed', 2], ['lily', 1], ['frog', 0.5], ['firefly', 0.6], ['tuft', 1.5]], rate: 0.3,
+        pud: '#3a7a2a', win: 'firefly', glow: '#e8ff7a',
+    },
+    // Welt 36: Schrebergarten mit Gartenzwergen, Beeten und Werkzeugschuppen
+    dwarf: {
+        void: '#1e2a14', vignette: 0.28, shade: '#2a2410', fs: 'grass', stripes: 2, floor: ['#6fa84a', '#689f45'],
+        ws: 'stands', wall: '#a8643a', wallF: '#6a3a1a', accent: '#ff7a3c',
+        bush: ['#2a6a30', '#46963d', '#8fcf5a'], bx: 'berries', bxc: ['#ff4a5a', '#ffd23f'],
+        water: 'water', wc: ['#2786d0', '#48aef0', '#d4f4ff'], bone: '#f6f0de', pad: '#ff7a3c',
+        deco: [['flower', 3], ['tuft', 2], ['mushroom', 1], ['apple', 0.6], ['pebble', 1], ['can', 0.5]], rate: 0.3,
+        flowers: ['#ff4a5a', '#ffe14a', '#ffffff', '#b58cff'], win: 'crate', glow: '#ffcf6b',
+    },
+    // Welt 37: dichter Wald mit knorrigen Bäumen und Obst
+    treemonster: {
+        void: '#0c200f', vignette: 0.38, shade: '#08200b', fs: 'blotch', floor: ['#466e3e', '#41673a'],
+        ws: 'jungle', fruits: true, wall: '#3a8a34', wallF: '#205a24', accent: '#6fcf4a',
+        bush: ['#1b6628', '#379a3a', '#8fdc5a'], bx: 'berries', bxc: ['#ff4a5a', '#ffb02e'],
+        water: 'water', wc: ['#128a84', '#26b4a6', '#c4fff2'], bone: '#f6ecd8', pad: '#ff7a3a',
+        deco: [['fern', 3], ['leaf', 2], ['apple', 1.2], ['mushroom', 1], ['tuft', 2]], rate: 0.34,
+        win: 'egg', glow: '#ffd23f', dark: 0.25, darkCol: '#061a08',
+    },
+    // Welt 38: Vulkanberg mit glühendem Gestein
+    golem: {
+        void: '#1a0806', vignette: 0.44, shade: '#1c0604', fs: 'rock', floor: ['#5a3028', '#542c25'],
+        ws: 'rock', lava: true, wall: '#8a4a32', wallF: '#4a2014', accent: '#ff8a2b',
+        bush: ['#5a2a1a', '#8a3a1a', '#ff7a2b'], bx: 'glow', bxc: ['#ffb02e'],
+        water: 'lava', wc: ['#d62f1a', '#ff7a1f', '#ffe066'], poolGlow: [22, 0.22], bone: '#f0e0d6', pad: '#ffb02e',
+        deco: [['glowcrack', 2.5], ['obsidian', 2], ['ember', 1.5], ['ash', 1], ['pebble', 1]], rate: 0.3,
+        win: 'lava', glow: '#ff7a2b', dark: 0.3, darkCol: '#160604',
+    },
+    // Welt 39: Kürbisfeld in der Abenddämmerung
+    pumpkin: {
+        void: '#1a0c18', vignette: 0.42, shade: '#1a0a14', fs: 'blotch', floor: ['#5a4a32', '#54452e'],
+        ws: 'darktree', wall: '#4a3a5a', wallF: '#2a1e36', accent: '#ff9a1f',
+        bush: ['#3a2a14', '#6a4a1a', '#ff9a1f'], bx: 'glow', bxc: ['#ffb02e'],
+        water: 'potion', wc: ['#4f1aa6', '#8a3cff', '#e8c6ff'], bone: '#f4e6d6', pad: '#ff9a1f',
+        deco: [['leaf', 2.5], ['mushroom', 1], ['candle', 0.8], ['bone', 0.6], ['tuft', 1.5]], rate: 0.3,
+        win: 'paperlantern', glow: '#ff9a3c', dark: 0.38, darkCol: '#100610',
+    },
+    // Welt 40: Sandstrand mit Wasserbecken
+    crab: {
+        void: '#0a2a40', vignette: 0.28, shade: '#3a2a10', fs: 'sand', floor: ['#e8c88a', '#e2c184'],
+        ws: 'strata', wall: '#d8a86a', wallF: '#9a6a3a', accent: '#ff5f4a', arena: '#3ab0c8', deepCol: '#1a5a8a', deep: 0.4,
+        bush: ['#3a8a5a', '#5ab06a', '#a8e08a'], bx: 'none',
+        water: 'water', wc: ['#1a7ac8', '#3ab0f0', '#d8f6ff'], bone: '#fbf6ea', pad: '#ff5f4a',
+        deco: [['pebble', 2], ['crack', 1], ['fish', 0.5], ['tuft', 1], ['bone', 0.4]], rate: 0.24,
+        win: 'porthole', glow: '#8fe8ff',
+    },
+    // Welt 41: Felsgipfel über den Wolken mit Nestern
+    eagle: {
+        void: '#3a5a8a', vignette: 0.24, shade: '#3a4a6a', fs: 'flag', stone: 32, moss: true, floor: ['#8a94b0', '#838da8'],
+        ws: 'blocks', wall: '#b8b0a0', wallF: '#7a7060', accent: '#e8c27a', tints: ['#c8c0b0', '#b0b8c8', '#d0c0a0', '#b8b0a0'], deepCol: '#3a5a9a',
+        bush: ['#5a7a3a', '#7a9a48', '#c0d070'], bx: 'none',
+        water: 'water', wc: ['#3a7ac8', '#6aa8f0', '#e8f4ff'], bone: '#f8f2e6', pad: '#e8c27a',
+        deco: [['pebble', 2.5], ['moss', 2], ['bone', 0.8], ['crack', 1.2]], rate: 0.26,
+        win: 'stonelantern', glow: '#ffe8a8',
+    },
+    // Welt 42: Festung der Fuchssoldaten, Metall und Warnstreifen
+    fox: {
+        void: '#141820', vignette: 0.38, shade: '#0c1018', fs: 'plate', floor: ['#5a5a4a', '#545444'],
+        ws: 'cubes', wall: '#6a6a50', wallF: '#3a3a28', accent: '#ff8c32', hazard: true, deepCol: '#2a2a18', deep: 0.35,
+        cars: ['#6a7a3a', '#5a6a4a', '#8a7a4a', '#4a5a3a', '#7a6a3a'],
+        bush: ['#3a5a2a', '#5a7a3a', '#9ab06a'], bx: 'none',
+        water: 'oil', wc: ['#182838', '#27485a', '#9ae0ff'], bone: '#e8e4d8', pad: '#ff8c32',
+        deco: [['bolt', 2], ['tire', 0.8], ['can', 1], ['hazard', 0.8], ['grate', 0.8]], rate: 0.26,
+        win: 'tv', glow: '#ffcf6b',
+    },
 };
 
 // Welt 24: Die drei Elemente des Drachenvaters (und Gold dazwischen) liegen als Zonen über der Karte:
@@ -5999,3 +6110,15 @@ const WORLD27_LEVEL = createLateLevel(60, 50, 18, 2727, 2, 2, 5, 1);
 const WORLD28_LEVEL = createLateLevel(58, 52, 18, 2828, 4, 2, 3, 1);
 const WORLD29_LEVEL = createLateLevel(60, 52, 18, 2929, 3, 3, 2, 3);
 const WORLD30_LEVEL = createLateLevel(62, 54, 19, 3030, 4, 4, 4, 1);
+const WORLD31_LEVEL = createLateLevel(60, 52, 18, 3131, 3, 6, 2, 2);
+const WORLD32_LEVEL = createLateLevel(60, 52, 18, 3232, 5, 2, 3, 1);
+const WORLD33_LEVEL = createLateLevel(62, 52, 19, 3333, 3, 2, 3, 3);
+const WORLD34_LEVEL = createLateLevel(60, 54, 19, 3434, 3, 2, 5, 1);
+const WORLD35_LEVEL = createLateLevel(62, 54, 19, 3535, 6, 4, 2, 1);
+const WORLD36_LEVEL = createLateLevel(60, 52, 18, 3636, 2, 6, 3, 2);
+const WORLD37_LEVEL = createLateLevel(62, 54, 19, 3737, 3, 6, 3, 1);
+const WORLD38_LEVEL = createLateLevel(62, 54, 19, 3838, 5, 2, 3, 2);
+const WORLD39_LEVEL = createLateLevel(62, 54, 19, 3939, 3, 4, 4, 1);
+const WORLD40_LEVEL = createLateLevel(64, 54, 20, 4040, 6, 2, 3, 1);
+const WORLD41_LEVEL = createLateLevel(64, 56, 20, 4141, 3, 3, 4, 3);
+const WORLD42_LEVEL = createLateLevel(64, 56, 20, 4242, 4, 3, 4, 2);

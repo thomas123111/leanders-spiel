@@ -11,7 +11,9 @@ const LEVELS = [TUTORIAL_LEVEL, WORLD1_LEVEL, WORLD2_LEVEL, WORLD3_LEVEL, WORLD4
     WORLD11_LEVEL, WORLD12_LEVEL, WORLD13_LEVEL, WORLD14_LEVEL, WORLD15_LEVEL,
     WORLD16_LEVEL, WORLD17_LEVEL, WORLD18_LEVEL, WORLD19_LEVEL, WORLD20_LEVEL, WORLD21_LEVEL,
     WORLD22_LEVEL, WORLD23_LEVEL, WORLD24_LEVEL,
-    WORLD25_LEVEL, WORLD26_LEVEL, WORLD27_LEVEL, WORLD28_LEVEL, WORLD29_LEVEL, WORLD30_LEVEL];
+    WORLD25_LEVEL, WORLD26_LEVEL, WORLD27_LEVEL, WORLD28_LEVEL, WORLD29_LEVEL, WORLD30_LEVEL,
+    WORLD31_LEVEL, WORLD32_LEVEL, WORLD33_LEVEL, WORLD34_LEVEL, WORLD35_LEVEL, WORLD36_LEVEL,
+    WORLD37_LEVEL, WORLD38_LEVEL, WORLD39_LEVEL, WORLD40_LEVEL, WORLD41_LEVEL, WORLD42_LEVEL];
 
 // Stärkere Bosse in allen Welten (Wunsch von Leander).
 // BOSS_TOUGHNESS: Bosse nehmen nur 1/1,5 des Schadens, halten also 1,5-mal so viel aus. Absichtlich nicht
@@ -493,6 +495,18 @@ const Game = {
             28: { label: '200 JUWELEN', coins: 0, jewels: 200 },
             29: { label: '3000 MUENZEN', coins: 3000, jewels: 0 },
             30: { label: '5000 MUENZEN', coins: 5000, jewels: 0 },
+            31: { label: '200 JUWELEN', coins: 0, jewels: 200 },
+            32: { label: '3 BOESE STERNE', coins: 0, jewels: 0, starPack: 3 },
+            33: { label: '3000 MUENZEN', coins: 3000, jewels: 0 },
+            34: { label: '250 JUWELEN', coins: 0, jewels: 250 },
+            35: { label: '3500 MUENZEN', coins: 3500, jewels: 0 },
+            36: { label: '3 BOESE STERNE', coins: 0, jewels: 0, starPack: 3 },
+            37: { label: '4000 MUENZEN', coins: 4000, jewels: 0 },
+            38: { label: '300 JUWELEN', coins: 0, jewels: 300 },
+            39: { label: '4500 MUENZEN', coins: 4500, jewels: 0 },
+            40: { label: '3 BOESE STERNE', coins: 0, jewels: 0, starPack: 3 },
+            41: { label: '400 JUWELEN', coins: 0, jewels: 400 },
+            42: { label: '10000 MUENZEN', coins: 10000, jewels: 0 },
         };
     },
 
@@ -960,6 +974,19 @@ const Game = {
             case 28: add(FirePig, 18); keyCarrier(FirePig); chests(8); break;
             case 29: add(ThunderBall, 18); keyCarrier(ThunderBall); chests(8); break;
             case 30: add(WitchKid, 21); keyCarrier(WitchKid); chests(9); break;
+            // Welt 31–42: Ideen von Leander (04.10.2026)
+            case 31: add(HammerBunny, 22); keyCarrier(HammerBunny); chests(9); break;
+            case 32: add(ShadowDevil, 18); keyCarrier(ShadowDevil); chests(9); break;
+            case 33: add(AlienGunner, 18); keyCarrier(AlienGunner); chests(9); break;
+            case 34: add(PoisonSpider, 20); keyCarrier(PoisonSpider); chests(9); break;
+            case 35: add(SlimeFrog, 18); keyCarrier(SlimeFrog); chests(9); break;
+            case 36: add(GardenDwarf, 20); keyCarrier(GardenDwarf); chests(9); break;
+            case 37: add(TreeMonster, 18); keyCarrier(TreeMonster); chests(9); break;
+            case 38: add(FireGolem, 16); keyCarrier(FireGolem); chests(9); break;
+            case 39: add(PumpkinKid, 20); keyCarrier(PumpkinKid); chests(9); break;
+            case 40: add(Crab, 20); keyCarrier(Crab); chests(9); break;
+            case 41: add(Eagle, 18); keyCarrier(Eagle); chests(9); break;
+            case 42: add(FoxSoldier, 20); keyCarrier(FoxSoldier); chests(10); break;
         }
         this._applyDifficulty(worldNum, diff);
     },
@@ -997,6 +1024,9 @@ const Game = {
             20: BossFootball, 21: BossScrapRaccoon, 22: BossGiantZombie, 23: BossTripleButterfly,
             24: BossDragonFather, 25: BossGiantWerewolf, 26: BossSwordAngel, 27: BossTripleMummy,
             28: BossPigQueen, 29: BossThunderBall, 30: BossOldWitch,
+            31: BossGiantBunny, 32: BossFourArmDevil, 33: BossAlienShip, 34: BossGiantSpider, 35: BossTripleToad,
+            36: BossGiantDwarf, 37: BossGiantTree, 38: BossFireGolem, 39: BossPumpkinFather, 40: BossGiantCrab,
+            41: BossGiantEagle, 42: BossGiantFox,
         };
         // Welt 11/12 bekommen eigene Boss-Varianten (Pixel-Roboter, Sternen-Ritter), falls vorhanden
         if (typeof BossPixelRobot !== 'undefined') bosses[11] = BossPixelRobot;
