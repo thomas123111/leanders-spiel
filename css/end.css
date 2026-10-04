@@ -68,21 +68,53 @@
     flex: none;
 }
 
-/* ── Linke Spalte: Quests ── */
+/* ── Linke Spalte: Quests (immer drei, geblaettert) ── */
 .end-quests { grid-area: quests; }
-.end-quest-list { overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; overscroll-behavior: contain; }
+.end-h.with-pager { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 4px; }
+.end-pager { display: flex; align-items: center; gap: 5px; flex: none; }
+.end-pbtn {
+    width: 34px; height: 34px; padding: 0;
+    border: 0; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font: inherit; font-size: 13px; font-weight: 900; line-height: 1; color: #fff;
+    background: linear-gradient(180deg, #4c9bff, #1f5fd0);
+    box-shadow: 0 2px 0 #10357c, 0 3px 6px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+    cursor: pointer; touch-action: manipulation;
+}
+.end-pbtn:active { transform: translateY(2px); box-shadow: 0 0 0 #10357c, 0 2px 4px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4); }
+.end-pbtn[disabled] { opacity: 0.34; pointer-events: none; }
+.end-pageno {
+    min-width: 27px; text-align: center;
+    font-size: clamp(10px, 1.7vh, 12px); font-weight: 900; color: var(--muted);
+    text-transform: none; letter-spacing: 0;
+}
+/* Kein Scrollen mehr: drei Quests passen in die Spalte */
+.end-quest-list { min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 6px; overscroll-behavior: contain; }
+.end-quest-list.in-right { animation: end-slide-right 0.25s ease-out; }
+.end-quest-list.in-left { animation: end-slide-left 0.25s ease-out; }
 .end-empty { color: var(--muted); font-size: 13px; padding: 6px 2px; }
-.end-quest { display: flex; gap: 8px; align-items: flex-start; }
-.end-quest-icon { font-size: 20px; line-height: 1.3; flex: none; }
+.end-quest { display: flex; gap: 6px; align-items: flex-start; flex: none; }
+.end-quest-icon { font-size: 18px; line-height: 1.25; flex: none; }
 .end-quest-body { flex: 1; min-width: 0; }
-.end-quest-text { font-size: clamp(11px, 1.9vh, 14px); font-weight: 700; line-height: 1.25; }
-.end-quest-bar { position: relative; height: 15px; margin-top: 4px; border-radius: 8px; background: rgba(255, 255, 255, 0.14); overflow: hidden; }
+.end-quest-text { font-size: clamp(10px, 1.75vh, 14px); font-weight: 700; line-height: 1.18; }
+.end-quest-tag {
+    display: inline-block; margin-right: 5px; padding: 1px 5px;
+    border-radius: 6px; vertical-align: 2px;
+    font-size: 9px; font-weight: 900; letter-spacing: 0.4px; text-transform: uppercase;
+    color: #3a1d00; background: linear-gradient(180deg, #ffe14d, #ffb01f);
+}
+.end-quest-bar { position: relative; height: 13px; margin-top: 3px; border-radius: 8px; background: rgba(255, 255, 255, 0.14); overflow: hidden; }
 .end-quest-bar i { display: block; height: 100%; border-radius: 8px; background: linear-gradient(90deg, #3fa7ff, #3ddc97); }
-.end-quest-bar b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
+.end-quest-bar b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 900; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
 .end-quest.done .end-quest-text { color: var(--gold); }
-.end-quest.done { background: rgba(255, 210, 63, 0.12); border: 1px solid rgba(255, 210, 63, 0.5); border-radius: 12px; padding: 6px 8px; }
+.end-quest.done { background: rgba(255, 210, 63, 0.12); border: 1px solid rgba(255, 210, 63, 0.5); border-radius: 10px; padding: 4px 6px; }
 .end-quest.done .end-quest-bar i { background: linear-gradient(90deg, #ffd23f, #ff9f1c); }
-.end-quest-done { margin-top: 3px; color: var(--gold); font-size: clamp(10px, 1.7vh, 12px); font-weight: 800; }
+.end-quest-done { margin-top: 2px; color: var(--gold); font-size: clamp(9px, 1.5vh, 12px); font-weight: 800;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* drei Quests müssen ohne Abschneiden in die Spalte passen (Handy quer) */
+.end-quest-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.end-quest.claimed { opacity: 0.52; }
+.end-quest-claim { margin-top: 2px; color: var(--muted); font-size: clamp(9px, 1.5vh, 12px); font-weight: 800; }
 
 /* ── Mitte: Buehne ── */
 .end-stage {
@@ -114,6 +146,7 @@
 .end-row.daily { background: rgba(63, 167, 255, 0.14); border-color: rgba(63, 167, 255, 0.45); }
 .end-row.daily small { color: var(--blue); font-weight: 800; }
 .end-row.muted { color: var(--muted); }
+.end-open { margin-left: auto; flex: none; }
 .end-ic { font-size: 20px; flex: none; }
 
 /* ── Knöpfe unten rechts ── */
@@ -133,6 +166,14 @@
     to { transform: translateX(0) skewX(0); opacity: 1; }
 }
 @keyframes end-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes end-slide-right {
+    from { transform: translateX(48px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+@keyframes end-slide-left {
+    from { transform: translateX(-48px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
 
 /* ── Handy quer: enger ── */
 @media (max-width: 760px), (max-height: 420px) {
@@ -140,7 +181,11 @@
     .end-banner { padding: 7px 26px 8px 12px; clip-path: polygon(0 0, 100% 0, calc(100% - 22px) 100%, 0 100%); }
     .end-quests, .end-rewards { padding: 7px 9px; border-radius: 13px; }
     .end-quest-icon, .end-ic { font-size: 17px; }
-    .end-quest-bar { height: 13px; }
+    .end-quest-bar { height: 12px; }
+    .end-quest-list { gap: 4px; }
+    .end-quest-text { font-size: 10.5px; }
+    .end-quest.done { padding: 3px 5px; }
+    .end-h.with-pager { margin-bottom: 3px; }
     .end-actions { gap: 8px; }
 }
 

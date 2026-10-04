@@ -63,6 +63,15 @@ const UIProgress = {
             this.renderQuests();
             return true;
         }
+        if (act === 'dquestclaim') {
+            const xp = Progress.claimDailyQuest(btn.dataset.id);
+            if (xp) {
+                Sound.powerUp();
+                UI.flashMessage('+' + xp + ' EP ⭐');
+            }
+            this.renderQuests();
+            return true;
+        }
         if (act === 'pathclaim') {
             const r = Progress.claimPath();
             if (r) {
@@ -93,8 +102,41 @@ const UIProgress = {
     },
 
     // ── Quest-Seite ──
+    // Kleine Uhr über dem Abschnitt „Heute": volle Stunden bis Mitternacht (Ortszeit)
+    _dailyCountdown() {
+        const now = new Date();
+        const mid = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+        const h = Math.floor((mid.getTime() - now.getTime()) / 3600000);
+        return h < 1 ? 'Neue Quests in weniger als 1 Std' : 'Neue Quests in ' + h + ' Std';
+    },
+
+    // Karte einer Tagesquest (gleicher Stil wie die Dauerquests, eigene Zustände abgeholt/offen/fertig)
+    _dailyCard(s) {
+        const pct = s.target > 0 ? Math.max(0, Math.min(100, Math.round(s.have / s.target * 100))) : 100;
+        const bar = `<span class="pg-bar"><i style="width:${pct}%"></i><b>${s.have}/${s.target}</b></span>`;
+        const head = `<span class="head"><span class="ico">${s.icon}</span><h3>${s.text}</h3></span>`;
+        if (s.claimed) {
+            return `<div class="card q-card claimed">
+                ${head}${bar}
+                <span class="foot"><span class="pg-rew">+${s.xp} EP</span><span class="pg-taken">✓ abgeholt</span></span>
+            </div>`;
+        }
+        if (s.done) {
+            return `<button class="card q-card done" data-act="dquestclaim" data-id="${s.id}">
+                ${head}${bar}
+                <span class="foot"><span class="pg-rew">+${s.xp} EP</span><span class="pg-take">Antippen: +${s.xp} EP</span></span>
+            </button>`;
+        }
+        return `<div class="card q-card">
+            ${head}${bar}
+            <span class="foot"><span class="pg-rew">+${s.xp} EP</span></span>
+        </div>`;
+    },
+
     renderQuests() {
         const el = UI.screens.quests;
+        let today = '';
+        for (const s of Progress.dailyQuestStates()) today += this._dailyCard(s);
         const list = Progress.allQuests().slice().sort((a, b) =>
             (b.done ? 1 : 0) - (a.done ? 1 : 0) || (b.have / b.target) - (a.have / a.target));
         let cards = '';
@@ -125,7 +167,14 @@ const UIProgress = {
                     <span class="pg-xp">⭐ ${Progress.xp} EP gesammelt</span>
                     <button class="btn small blue" data-act="path">🛤️ Zum Power-Pfad</button>
                 </div>
-                <div class="cards">${cards}</div>
+                <div class="pg-sec">
+                    <div class="pg-sec-head"><h3>Heute</h3><span class="pg-clock">🕐 ${this._dailyCountdown()}</span></div>
+                    <div class="cards">${today}</div>
+                </div>
+                <div class="pg-sec">
+                    <div class="pg-sec-head"><h3>Dauerquests</h3></div>
+                    <div class="cards">${cards}</div>
+                </div>
             </div>`;
         UI.show('quests');
     },

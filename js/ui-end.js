@@ -16,6 +16,12 @@
         chars: null,
         glow: null,
         _lockTimer: 0,
+        // Quest-Blättern: immer drei auf einmal (Wunsch von Leander, 04.10.2026)
+        PER_PAGE: 3,
+        qPage: 0,
+        _qSig: null,                // die Zusammenfassung, zu der qPage gehört
+        _openedSig: null,           // für diese Zusammenfassung wurde die Tagesbelohnung schon geöffnet
+        _openedDaily: false,
 
         // ── Anmeldung bei der Oberflaeche ──
         ext: {
@@ -31,6 +37,9 @@
                 if (act === 'endnext') { g._advanceToNextWorld(); return true; }
                 if (act === 'endretry') { g.paused = false; g.startWorld(g.currentWorld); return true; }
                 if (act === 'endleave') { g.returnToTitle(); return true; }
+                if (act === 'endqprev') { UIEnd.pageQuests(-1); return true; }
+                if (act === 'endqnext') { UIEnd.pageQuests(1); return true; }
+                if (act === 'endopen') { UIEnd.openDaily(); return true; }
                 return false;
             }
         },
@@ -42,6 +51,8 @@
             const g = Game;
             const s = g.roundSummary;
             const info = worldInfo(g.currentWorld);
+            const page = this._pageInfo(s);
+            const pg = page.pages <= 1 ? 'disabled' : '';
 
             // Knöpfe
             let btns = '';
@@ -64,7 +75,11 @@
                         <div class="end-banner-sub">${this.subText(kind, info)}</div>
                     </div>
                     <div class="end-quests">
-                        <div class="end-h">Quests</div>
+                        <div class="end-h with-pager"><span>Quests</span><span class="end-pager">
+                            <button class="end-pbtn" data-act="endqprev" aria-label="Die drei Quests davor" ${pg}>◀</button>
+                            <b class="end-pageno">${page.page + 1}/${page.pages}</b>
+                            <button class="end-pbtn" data-act="endqnext" aria-label="Die nächsten drei Quests" ${pg}>▶</button>
+                        </span></div>
                         <div class="end-quest-list">${this.questHtml(s)}</div>
                     </div>
                     <div class="end-stage"><canvas class="end-canvas"></canvas></div>
@@ -107,18 +122,50 @@
             return t;
         },
 
-        questHtml(s) {
+        // Welche drei Quests gerade zu sehen sind. Neue Runde: die Seite mit der frisch geschafften Quest zuerst.
+        _pageInfo(s) {
             const qs = (s && s.quests) || [];
-            if (!qs.length) return '<div class="end-empty">Diesmal keine Quest weitergekommen.</div>';
-            return qs.map(q => {
+            const pages = Math.max(1, Math.ceil(qs.length / this.PER_PAGE));
+            if (this._qSig !== s) {
+                const fresh = qs.findIndex(q => q.newlyDone);
+                this._qSig = s;
+                this.qPage = fresh >= 0 ? Math.floor(fresh / this.PER_PAGE) : 0;
+            }
+            return { qs, pages, page: Math.max(0, Math.min(this.qPage, pages - 1)) };
+        },
+
+        // Blättern im Kreis: nur die Liste neu zeichnen, die Buehnen-Animation laeuft weiter
+        pageQuests(step) {
+            const s = Game.roundSummary;
+            const info = this._pageInfo(s);
+            if (info.pages <= 1) return;
+            this._qSig = s;
+            this.qPage = ((info.page + step) % info.pages + info.pages) % info.pages;
+            const el = UI.screens.end;
+            const list = el.querySelector('.end-quest-list');
+            if (!list) return;
+            list.innerHTML = this.questHtml(s);
+            const no = el.querySelector('.end-pageno');
+            if (no) no.textContent = (this.qPage + 1) + '/' + info.pages;
+            list.classList.remove('in-left', 'in-right');
+            void list.offsetWidth;                      // Animation neu starten
+            list.classList.add(step > 0 ? 'in-right' : 'in-left');
+        },
+
+        questHtml(s) {
+            const p = this._pageInfo(s);
+            if (!p.qs.length) return '<div class="end-empty">Diesmal keine Quest weitergekommen.</div>';
+            return p.qs.slice(p.page * this.PER_PAGE, p.page * this.PER_PAGE + this.PER_PAGE).map(q => {
                 const have = Math.min(q.have, q.target);
                 const pct = q.target > 0 ? Math.round(have * 100 / q.target) : 100;
-                return `<div class="end-quest${q.newlyDone ? ' done' : ''}">
+                const note = q.claimed ? '<div class="end-quest-claim">✓ abgeholt</div>'
+                    : (q.newlyDone ? `<div class="end-quest-done">✓ geschafft! +${q.xp} EP abholen</div>` : '');
+                return `<div class="end-quest${q.newlyDone ? ' done' : ''}${q.claimed ? ' claimed' : ''}${q.daily ? ' today' : ''}">
                     <span class="end-quest-icon">${q.icon}</span>
                     <div class="end-quest-body">
-                        <div class="end-quest-text">${q.text}</div>
+                        <div class="end-quest-text">${q.daily ? '<span class="end-quest-tag">Heute</span>' : ''}${q.text}</div>
                         <div class="end-quest-bar"><i style="width:${pct}%"></i><b>${have}/${q.target}</b></div>
-                        ${q.newlyDone ? `<div class="end-quest-done">✓ geschafft! +${q.xp} EP im Quest-Menü abholen</div>` : ''}
+                        ${note}
                     </div>
                 </div>`;
             }).join('');
@@ -134,13 +181,40 @@
             if (d) {
                 const list = Progress.dailyList();
                 rows.push(`<div class="end-row daily"><span class="end-ic">${Progress.rewardIcon(d)}</span>`
-                    + `<span>${Progress.rewardText(d)}<br><small>Tagesbelohnung ${list.got}/${DAILY_SLOTS}</small></span></div>`);
+                    + `<span>${Progress.rewardText(d)}<br><small>Tagesbelohnung ${list.got}/${DAILY_SLOTS}</small></span>`
+                    + this.openBtnHtml(s, d) + '</div>');
             } else {
                 const list = Progress.dailyList();
                 if (list.got >= DAILY_SLOTS) rows.push('<div class="end-row muted"><span class="end-ic">🌙</span><span>Alle 10 Tagesbelohnungen geholt!</span></div>');
             }
             if (!rows.length) rows.push('<div class="end-row muted"><span class="end-ic">🪙</span><span>Diese Runde gab es nichts zu holen.</span></div>');
             return rows.join('');
+        },
+
+        // ── Tagesbelohnung der Runde sofort oeffnen (Boeser Stern oder Gluecksbox) ──
+        _openable(d) {
+            if (!d) return false;
+            if (d.stars && !Game.shopRandomStarActive) return true;
+            return d.box !== undefined && d.box !== null && !Progress.box && typeof BoxUI !== 'undefined';
+        },
+        dailyOpened(s) { return this._openedSig === s && this._openedDaily; },
+        openBtnHtml(s, d) {
+            if (this.dailyOpened(s) || !this._openable(d)) return '';
+            return '<button class="btn small green pulse end-open" data-act="endopen">Öffnen!</button>';
+        },
+        // Antippen: Stern bzw. Box gehen sofort auf, danach zurueck auf die Endseite (Knopf dann weg)
+        openDaily() {
+            const s = Game.roundSummary;
+            const d = s && s.daily;
+            if (!d || this.dailyOpened(s) || !this._openable(d)) return false;
+            const back = () => { UIEnd.show(UIEnd.kind); };
+            this._openedSig = s;
+            this._openedDaily = true;
+            if (d.stars && !Game.shopRandomStarActive && UI.openBadStarNow(false, back)) return true;
+            if (d.box !== undefined && d.box !== null && typeof BoxUI !== 'undefined' && !Progress.box &&
+                BoxUI.openNow(d.box, back)) return true;
+            this._openedDaily = false;          // doch nichts aufgegangen: Knopf bleibt stehen
+            return false;
         },
 
         // ── Buehne: Canvas scharf und groessenanpasst ──

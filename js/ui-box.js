@@ -4,6 +4,17 @@
 
 const BOX_PRICE = 30;
 
+// Festgenagelte Werte fuer die Holztruhe: Maserung und Muenzwurf flackern nicht (kein Zufall pro Bild).
+// Maserung je Brett: [x0, y0, x1, y1] in Anteilen von Breite und Hoehe der Vorderseite.
+const BOX_GRAIN = [
+    [0.06, 0.10, 0.22, 0.14], [0.42, 0.22, 0.56, 0.26], [0.76, 0.08, 0.90, 0.12],
+    [0.08, 0.42, 0.22, 0.46], [0.44, 0.55, 0.55, 0.58], [0.78, 0.40, 0.92, 0.44],
+    [0.07, 0.74, 0.20, 0.78], [0.80, 0.72, 0.93, 0.76],
+];
+// Goldmuenzen-Funken beim Aufspringen: [x in z-Einheiten, Verzoegerung 0..1]
+const BOX_COIN = [[-26, 0.05], [-15, 0.35], [-5, 0.0], [6, 0.45], [16, 0.2], [25, 0.6], [-21, 0.75], [12, 0.85]];
+
+
 const BoxUI = {
     _boxRaf: 0,
     _boxSparks: [],
@@ -30,12 +41,12 @@ const BoxUI = {
         const started = !!Progress.box;
         let openLabel, openCls = 'btn small pink', openCan;
         if (started) { openLabel = 'Weitermachen!'; openCls += ' pulse'; openCan = true; }
-        else { openLabel = 'Öffnen (' + owned + ' 🎁)'; openCan = owned > 0; }
+        else { openLabel = 'Öffnen (' + owned + ' 🧰)'; openCan = owned > 0; }
         const canBuy = (Game.jewels | 0) >= BOX_PRICE;
         return `<div class="card" style="--a:#ff6ec7">
-            <div class="head"><span class="ico">🎁</span><div><h3>Glücksboxen</h3>
-            <p>Tippe die Box ${BOX_TRIES}-mal an. Mit Glück wird sie größer: Typisch, Groß, Supergroß, Megagroß, Ultragroß!</p>
-            <p>Du hast: ${owned} ${owned === 1 ? 'Box' : 'Boxen'}${started ? ' · eine ist schon offen' : ''}</p></div></div>
+            <div class="head"><span class="ico">🧰</span><div><h3>Glücksboxen</h3>
+            <p>Tippe die Truhe ${BOX_TRIES}-mal an. Mit Glück wird sie größer: Typisch, Groß, Supergroß, Megagroß, Ultragroß!</p>
+            <p>Du hast: ${owned} ${owned === 1 ? 'Truhe' : 'Truhen'}${started ? ' · eine ist schon offen' : ''}</p></div></div>
             <div class="foot">
                 <button class="${openCls}" data-act="boxopen" ${openCan ? '' : 'disabled'}>${openLabel}</button>
                 <button class="btn small purple" data-act="boxbuy" ${canBuy ? '' : 'disabled'}>Kaufen · 💎 ${BOX_PRICE}</button>
@@ -143,9 +154,9 @@ const BoxUI = {
         el.style.setProperty('--c', rar.c);
         el.innerHTML = `
             <div class="rarity${this._boxUp ? ' up' : ''}${rar.rainbow ? ' rainbow' : ''}">${rar.name}</div>
-            <button class="box-btn" data-act="boxtap" aria-label="Box antippen"><canvas></canvas></button>
+            <button class="box-btn" data-act="boxtap" aria-label="Truhe antippen"><canvas></canvas></button>
             <div class="tries" aria-label="${left} Versuche übrig">${circles}</div>
-            <div class="msg">${b.done ? '&nbsp;' : 'Tipp auf die Box!'}</div>`;
+            <div class="msg">${b.done ? '&nbsp;' : 'Tipp auf die Truhe!'}</div>`;
         this._boxUp = false;
         UI.show('box');
         this._animateBox(el.querySelector('canvas'));
@@ -157,7 +168,7 @@ const BoxUI = {
         this._boxBusy = true;
         setTimeout(() => {
             this._boxBoom = 1;
-            this._boxBurst(36, ['#ff6ec7', '#ffd23f', '#ffffff', '#ff9fd8'], 1.3);   // Konfetti pink, gold, weiß
+            this._boxBurst(36, ['#ffd23f', '#fff3b0', '#ffffff', '#ffb01f'], 1.3);   // Goldmünzen-Funken
             Sound.enemyDeath();
             Game.vibrate(120);
             const m = UI.screens.box.querySelector('.msg');
@@ -270,9 +281,10 @@ const BoxUI = {
         draw();
     },
 
-    // 3D-Box in Schrägansicht: Vorderseite, Seite, Deckel, Schleife, kreuzweises Band.
-    // Ruhig leichtes Wippen; Antippen = Wackeln und Stauchen; Aufstieg = Drehung, weißer Blitz, Funken;
-    // mit _boxBoom (1 → 0) platzt sie in einer kleinen Konfetti-Explosion.
+    // Truhe in Schrägansicht: Korpus und gewölbter Deckel, Metallbeschläge in Stufenfarbe, Schloss vorn.
+    // Ruhig leichtes Wippen; Antippen = Wackeln, Stauchen und hellere Lichtritze; Aufstieg = Drehung,
+    // weißer Blitz, Funken. Mit _boxBoom (1 -> 0) springt der Deckel nach hinten oben auf: Lichtstrahlen
+    // und Goldmünzen-Funken steigen aus der Truhe, die Truhe selbst bleibt stehen (erst bk <= 0 = nichts).
     _drawBox3D(ctx, t, dt) {
         const rar = BOX_RARITIES[this._boxTier || 0];
         if (this._boxShake > 0) this._boxShake = Math.max(0, this._boxShake - dt * 2.5);
@@ -281,14 +293,16 @@ const BoxUI = {
         if (this._boxFlash > 0) this._boxFlash = Math.max(0, this._boxFlash - dt * 2);
         // Größe wächst weich auf die neue Stufe (kein Sprung)
         this._boxSize += (rar.size - this._boxSize) * Math.min(1, dt * 5);
-        let bk = 1;
+        let bk = 1, open = 0;
         if (this._boxBoom !== undefined && this._boxBoom !== null) {
             this._boxBoom = Math.max(0, this._boxBoom - dt * 1.7);
             bk = this._boxBoom;
             const e = 1 - bk;
+            open = Math.min(1, e * 2.6);                      // Deckel ist im ersten Drittel offen
+            open = 1 - (1 - open) * (1 - open);               // ... und das mit Schwung
             ctx.save();
             ctx.translate(100, 100);
-            Art.glow(ctx, 0, 0, 55 + e * 65, '#ff9fd8', 0.95 * bk);
+            Art.glow(ctx, 0, 0, 55 + e * 65, rar.hi, 0.95 * bk);
             ctx.globalAlpha = bk;
             ctx.strokeStyle = '#ffd23f';
             ctx.lineWidth = 3 + 9 * bk;
@@ -296,19 +310,20 @@ const BoxUI = {
             ctx.arc(0, 0, 18 + e * 78, 0, Math.PI * 2);
             ctx.stroke();
             ctx.restore();
-            if (bk <= 0) return;                         // geplatzt: bis zur Belohnung leer
+            if (bk <= 0) return;                         // ausgetrunken: bis zur Belohnung nichts mehr malen
         }
         const spinExtra = this._boxSpin > 0 ? (1 - this._boxSpin) * (1 - this._boxSpin) * Math.PI * 2 : 0;
         const shake = (this._boxShake || 0) * Math.sin(t * 55) * 5;
         const sq = (this._boxBump || 0) * 0.12;          // Stauchen beim Antippen
-        const grow = 1 + (1 - bk) * 0.45;
+        // wächst beim Aufspringen, bleibt aber in der Leinwand (Ultragroß füllt sie ohnehin fast)
+        const grow = Math.min(1 + (1 - bk) * 0.45, Math.max(0.9, 90 / (84 * this._boxSize)));
         ctx.save();
         ctx.translate(100 + shake, 104 + Math.sin(t * 1.7) * 2.5);
-        ctx.globalAlpha = bk * bk;
+        ctx.globalAlpha = Math.min(1, 0.55 + 0.45 * bk); // die Truhe bleibt stehen, nur das Leuchten ebbt ab
         Art.glow(ctx, 0, 0, 95, rar.c, 0.4 + this._boxFlash * 0.5);
         ctx.rotate(Math.sin(t * 1.1) * 0.03 + spinExtra);
         ctx.scale(grow * (1 + sq), grow * (1 - sq));
-        this._paintBox(ctx, t, rar);
+        this._paintBox(ctx, t, rar, open, bk);
         ctx.restore();
         if (this._boxFlash > 0) {
             // weißer Blitz beim Aufstieg
@@ -319,82 +334,260 @@ const BoxUI = {
         }
     },
 
-    // Die Box selbst in einem 200er Koordinatensystem um den Nullpunkt (save/restore des Aufrufers)
-    _paintBox(ctx, t, rar) {
-        // 1,6-fach: die Box soll die Mitte füllen (vorher wirkte sie verloren); um die halbe Tiefe nach links
-        // geschoben, damit auch die Ultragroße mit Seitenfläche in die 200er Leinwand passt
+    // Die Truhe in einem 200er Koordinatensystem um den Nullpunkt (save/restore des Aufrufers).
+    // open = 0 (Deckel zu) bis 1 (Deckel nach hinten oben weg, Lichtstrahlen und Münzen steigen auf);
+    // bk = 1 im Normalbetrieb und läuft bei der Explosion von 1 auf 0. Alle Zufallswerte stehen fest.
+    _paintBox(ctx, t, rar, open = 0, bk = 1) {
+        const ga0 = ctx.globalAlpha;
         const z = this._boxSize * 1.6;
-        const hw = 40 * z, bodyH = 34 * z, lidH = 10 * z, ov = 3 * z;
+        const hw = 40 * z, bodyH = 34 * z, ov = 3 * z;
         const dx = 19 * z, dy = 11 * z;                  // Schräge nach rechts oben (Tiefe)
+        const by = 44 * z, ft = by - bodyH;              // Vorderkante unten, Korpus oben
+        const lidBot = ft + 1.5 * z;                     // Vorderkante Deckel (überlappt den Korpus)
+        const arch = 17 * z;                             // Höhe der gewölbten Deckelfront
+        const a = hw + ov;                               // halbe Breite des Deckels
+        const C = arch * 1.05;                           // Bézier-Höhe für den Bogen
+        const lw = Math.max(1.2, 1.6 * z);
         ctx.translate(-dx / 2, -6 * z);
-        const by = 44 * z;                               // Vorderkante unten
-        const ft = by - bodyH;                           // Korpus oben
-        const ftl = ft - lidH;                           // Deckel oben (Vorderkante)
-        let front = rar.c, side = rar.lo, top = rar.hi, lidFront = rar.c;
+
+        // ── Farben: Holz immer gleich, Beschläge in der Stufenfarbe ──
+        const WOOD_F = '#a8642a', WOOD_S = '#7a4418', WOOD_E = '#c98a4a', SEAM = '#5a3010';
+        let met = rar.c, metLo = rar.lo, metHi = rar.hi, slit = rar.hi, sheen = null;
         if (rar.rainbow) {
-            // Ultragroß: wandernde Regenbogenfarbe in festen 15-Grad-Schritten (Art.mix-ähnlich, ohne Wachstum)
+            // Ultragroß: wandernder Regenbogen in festen 15-Grad-Schritten
             const h = (Math.floor(t * 8) * 15) % 360;
-            front = `hsl(${h},92%,60%)`;
-            side = `hsl(${h},85%,38%)`;
-            top = `hsl(${(h + 40) % 360},95%,78%)`;
-            lidFront = front;
-        } else {
-            lidFront = Art.mix(rar.c, rar.hi, 0.25);
+            met = `hsl(${h},92%,62%)`;
+            metLo = `hsl(${h},85%,38%)`;
+            metHi = `hsl(${(h + 40) % 360},95%,80%)`;
+            slit = '#ffffff';
+            sheen = 'rgba(255,214,80,0.17)';             // leichter goldener Schimmer über dem Holz
         }
-        const poly = (pts, fill) => {
+        const poly = (pts, fill, ink = true) => {
             ctx.beginPath();
             for (let i = 0; i < pts.length; i++) { if (i) ctx.lineTo(pts[i][0], pts[i][1]); else ctx.moveTo(pts[i][0], pts[i][1]); }
             ctx.closePath();
             if (fill) { ctx.fillStyle = fill; ctx.fill(); }
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = Art.INK;
-            ctx.stroke();
+            if (ink) { ctx.lineWidth = 3; ctx.strokeStyle = Art.INK; ctx.stroke(); }
         };
-        // von hinten nach vorne: Deckelfläche, Deckelseite, Korpusseite, Vorderseiten
-        poly([[-hw - ov, ftl], [-hw - ov + dx, ftl - dy], [hw + ov + dx, ftl - dy], [hw + ov, ftl]], top);
-        poly([[hw + ov, ftl], [hw + ov + dx, ftl - dy], [hw + ov + dx, ft + 2 - dy], [hw + ov, ft + 2]], side);
-        poly([[hw, ft], [hw + dx, ft - dy], [hw + dx, by - dy], [hw, by]], side);
-        poly([[-hw, ft], [hw, ft], [hw, by], [-hw, by]], front);
-        poly([[-hw - ov, ftl], [hw + ov, ftl], [hw + ov, ft + 2], [-hw - ov, ft + 2]], lidFront);
-        // Band kreuzweise: weiß mit festem Umriss (vorn durch, über den Deckel, quer über die Oberseite)
-        const rw = 8 * z;
-        poly([[-rw / 2, ft], [rw / 2, ft], [rw / 2, by], [-rw / 2, by]], '#ffffff');
-        poly([[-rw / 2, ftl], [rw / 2, ftl], [rw / 2, ft + 2], [-rw / 2, ft + 2]], '#ffffff');
-        poly([[-rw / 2, ftl], [-rw / 2 + dx, ftl - dy], [rw / 2 + dx, ftl - dy], [rw / 2, ftl]], '#ffffff');
-        poly([[-hw - ov + dx * 0.3, ftl - dy * 0.3], [hw + ov + dx * 0.3, ftl - dy * 0.3],
-            [hw + ov + dx * 0.7, ftl - dy * 0.7], [-hw - ov + dx * 0.7, ftl - dy * 0.7]], '#ffffff');
-        // goldene Kante auf dem vorderen Band
-        ctx.strokeStyle = '#ffd23f';
-        ctx.lineWidth = 2 * z;
-        ctx.beginPath(); ctx.moveTo(-rw / 2 + 1.6 * z, ft); ctx.lineTo(-rw / 2 + 1.6 * z, by); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(rw / 2 - 1.6 * z, ft); ctx.lineTo(rw / 2 - 1.6 * z, by); ctx.stroke();
-        // Schleife oben auf der Deckelmitte: zwei weiße Schlaufen, goldener Knoten, zwei kurze Bänder
-        const bx = dx * 0.5, byy = ftl - dy * 0.5;
-        ctx.save();
-        ctx.translate(bx, byy);
-        for (const sgn of [-1, 1]) {
+        // Bogen der Deckelfront (nur der Pfad, ohne fill/stroke)
+        const archPath = (ox, oy, w = a, ch = C) => {
+            ctx.moveTo(-w + ox, lidBot + oy);
+            ctx.bezierCurveTo(-w + ox, lidBot - ch + oy, w + ox, lidBot - ch + oy, w + ox, lidBot + oy);
+        };
+        // Höhe des Bogens an einer Stelle x (für die Metallbänder)
+        // genau der Bezier-Bogen aus archPath (sonst ragten die Bänder oben über den Deckel):
+        // x(t) = a·(−1 + 2·(3t² − 2t³)), y(t) = lidBot − C·3t(1−t); t per Halbierung aus x bestimmen
+        const archY = x => {
+            let lo = 0, hi = 1;
+            for (let i = 0; i < 18; i++) {
+                const t = (lo + hi) / 2;
+                if (a * (-1 + 2 * (3 * t * t - 2 * t * t * t)) < x) lo = t; else hi = t;
+            }
+            const t = (lo + hi) / 2;
+            return lidBot - C * 3 * t * (1 - t);
+        };
+        const rivet = (x, y) => {
+            ctx.beginPath(); ctx.arc(x, y, 1.8 * z, 0, Math.PI * 2);
+            ctx.fillStyle = metHi; ctx.fill();
+            ctx.lineWidth = Math.max(0.9, 1.1 * z); ctx.strokeStyle = Art.INK; ctx.stroke();
+        };
+
+        // ── Deckel ──
+        const lid = () => {
+            // Wölbung nach hinten oben: vorderer Bogen, hintere Kante, zurückversetzter Bogen
             ctx.beginPath();
-            ctx.ellipse(sgn * 9 * z, -4 * z, 9.5 * z, 5.5 * z, sgn * 0.55, 0, Math.PI * 2);
-            ctx.fillStyle = '#ffffff';
-            ctx.fill();
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = Art.INK;
-            ctx.stroke();
-            ctx.strokeStyle = '#ffd23f';
-            ctx.lineWidth = 3 * z;
+            archPath(0, 0);
+            ctx.lineTo(a + dx, lidBot - dy);
+            ctx.bezierCurveTo(a + dx, lidBot - C - dy, -a + dx, lidBot - C - dy, -a + dx, lidBot - dy);
+            ctx.closePath();
+            ctx.fillStyle = WOOD_E; ctx.fill();
+            ctx.lineWidth = 3; ctx.strokeStyle = Art.INK; ctx.stroke();
+            if (sheen) { ctx.fillStyle = sheen; ctx.fill(); }
+            // Bretter auf der Wölbung: Fugen in Richtung nach hinten
+            ctx.strokeStyle = SEAM; ctx.lineWidth = lw;
+            for (const f of [-0.62, -0.21, 0.21, 0.62]) {
+                const x0 = a * f, y0 = archY(x0);
+                ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + dx, y0 - dy); ctx.stroke();
+            }
+            // Vorderseite: Bogen über dem Korpus
+            ctx.beginPath(); archPath(0, 0); ctx.closePath();
+            ctx.fillStyle = WOOD_F; ctx.fill();
+            ctx.lineWidth = 3; ctx.strokeStyle = Art.INK; ctx.stroke();
+            if (sheen) { ctx.fillStyle = sheen; ctx.fill(); }
+            // helle Kante dem Bogen entlang
+            const aH = a - 3.6 * z;
+            ctx.beginPath(); archPath(0, 0, aH, C - 3.6 * z);
+            ctx.strokeStyle = WOOD_E; ctx.lineWidth = lw * 1.5; ctx.stroke();
+            // Bretter auf der Deckelfront
+            ctx.strokeStyle = SEAM; ctx.lineWidth = lw;
+            for (const f of [-0.62, -0.21, 0.21, 0.62]) {
+                const x0 = a * f;
+                ctx.beginPath(); ctx.moveTo(x0, archY(x0)); ctx.lineTo(x0, lidBot); ctx.stroke();
+            }
+            // Metallbänder über dem Deckel: vorn auf der Front, dann über die Wölbung nach hinten
+            for (const s of [-1, 1]) {
+                const cx = s * 16 * z;
+                poly([[cx - bw2, archY(cx - bw2)], [cx - bw2 * 0.5, archY(cx - bw2 * 0.5)], [cx, archY(cx)],
+                    [cx + bw2 * 0.5, archY(cx + bw2 * 0.5)], [cx + bw2, archY(cx + bw2)],
+                    [cx + bw2 + dx, archY(cx + bw2) - dy], [cx - bw2 + dx, archY(cx - bw2) - dy]], metLo);
+                const pts = [[cx - bw2, lidBot]];
+                for (const o of [-bw2, -bw2 * 0.5, 0, bw2 * 0.5, bw2]) pts.push([cx + o, archY(cx + o)]);
+                pts.push([cx + bw2, lidBot]);
+                poly(pts, met);
+                rivet(cx, lidBot - 4 * z);
+                rivet(cx, archY(cx) + 3.4 * z);
+            }
+        };
+
+        // ── Korpus aus Holz: drei Bretter mit dunklen Fugen und Maserung ──
+        poly([[hw, ft], [hw + dx, ft - dy], [hw + dx, by - dy], [hw, by]], WOOD_S);   // rechte Seitenfläche
+        ctx.strokeStyle = SEAM; ctx.lineWidth = lw;
+        for (const s of [1 / 3, 2 / 3]) {
+            ctx.beginPath(); ctx.moveTo(hw, ft + bodyH * s); ctx.lineTo(hw + dx, ft + bodyH * s - dy); ctx.stroke();
+        }
+        for (const q of [[0.24, 0.16, 0.78, 0.1], [0.3, 0.66, 0.72, 0.6]]) {          // Maserung Seite
             ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(sgn * 8 * z, 11 * z);
+            ctx.moveTo(hw + dx * q[0], ft + bodyH * q[1] - dy * q[0]);
+            ctx.lineTo(hw + dx * q[2], ft + bodyH * q[3] - dy * q[2]);
             ctx.stroke();
         }
+        poly([[-hw, ft], [hw, ft], [hw, by], [-hw, by]], WOOD_F);                      // Vorderseite
+        if (sheen) poly([[-hw, ft], [hw, ft], [hw, by], [-hw, by]], sheen, false);
+        for (const s of [0, 1 / 3, 2 / 3]) {                                           // helle Kant' je Brett
+            ctx.beginPath();
+            ctx.moveTo(-hw + 2 * z, ft + bodyH * s + lw);
+            ctx.lineTo(hw - 2 * z, ft + bodyH * s + lw);
+            ctx.strokeStyle = WOOD_E; ctx.lineWidth = lw * 1.4; ctx.stroke();
+        }
+        ctx.strokeStyle = SEAM; ctx.lineWidth = lw;
+        for (const s of [1 / 3, 2 / 3]) {
+            ctx.beginPath(); ctx.moveTo(-hw, ft + bodyH * s); ctx.lineTo(hw, ft + bodyH * s); ctx.stroke();
+        }
+        for (const q of BOX_GRAIN) {                                                    // Maserung vorn
+            ctx.beginPath();
+            ctx.moveTo(-hw + 2 * hw * q[0], ft + bodyH * q[1]);
+            ctx.lineTo(-hw + 2 * hw * q[2], ft + bodyH * q[3]);
+            ctx.stroke();
+        }
+        // offenes Inneres: dunkle Öffnung, sobald der Deckel wegspringt
+        if (open > 0) {
+            ctx.globalAlpha = ga0 * Math.min(1, open * 1.6);
+            poly([[-hw, ft], [-hw + dx, ft - dy], [hw + dx, ft - dy], [hw, ft]], '#3a1f0c');
+            ctx.globalAlpha = ga0;
+        }
+        // Lichtritze: schmaler Streifen unter der Deckelkante, beim Antippen etwas heller
+        if (open < 0.98) {
+            const bump = this._boxBump || 0;
+            ctx.globalAlpha = ga0 * (0.7 + 0.3 * bump) * (1 - open);
+            ctx.fillStyle = slit;
+            ctx.fillRect(-hw + 1.5 * z, lidBot + 0.6 * z, 2 * hw - 3 * z, 2.6 * z);
+            if (bump > 0.05) Art.glow(ctx, 0, lidBot + 2 * z, 34 * z, slit, 0.5 * bump * (1 - open));
+            ctx.globalAlpha = ga0;
+        }
+
+        // ── Deckel: zu auf der Truhe, oder nach hinten oben weggedreht ──
+        const bw2 = 3.6 * z;
+        if (open > 0) {
+            // Der Deckel dreht um die hintere obere Kante nach hinten oben weg (gedacht rund 100 Grad).
+            // In der Schrägansicht ist das keine Drehung im Bild, sondern: Höhe schrumpft auf den
+            // Verkürzungsanteil, die Lehne nach hinten (Scherung) und ein kleines Heben der Scharnierkante.
+            const hy = ft - dy;                             // Scharnierlinie: hinten oben am Korpus
+            ctx.save();
+            ctx.translate(0, hy - 5 * z * open);
+            ctx.scale(1, Math.max(0.2, 1 - 0.78 * open));
+            ctx.transform(1, 0, -0.12 * open, 1, 0, 0);
+            ctx.translate(0, -hy);
+            lid();
+            ctx.restore();
+        } else {
+            lid();
+        }
+
+        // ── Beschläge am Korpus: zwei senkrechte Bänder, Eckbeschläge unten, Nieten ──
+        for (const s of [-1, 1]) {
+            const cx = s * 16 * z;
+            poly([[cx - bw2, ft], [cx + bw2, ft], [cx + bw2, by], [cx - bw2, by]], met);
+            ctx.fillStyle = metHi;
+            ctx.fillRect(cx - bw2 + 1.2 * z, ft + 1 * z, 1.7 * z, bodyH - 2 * z);
+            for (const yy of [ft + 6 * z, ft + bodyH * 0.52, by - 6.5 * z]) rivet(cx, yy);
+            const ix = s * (hw - 0.6 * z);                  // Eckbeschlag unten
+            const sgn = -s;
+            poly([[ix, by - 13 * z], [ix + sgn * 11 * z, by - 13 * z], [ix + sgn * 11 * z, by - 4.6 * z],
+                [ix + sgn * 19 * z, by - 4.6 * z], [ix + sgn * 19 * z, by], [ix, by]], met);
+            rivet(ix + sgn * 5.4 * z, by - 8.8 * z);
+        }
+
+        // ── Schloss: goldener Schild mit dunklem Schlüsselloch, darüber der Edelstein ──
+        if ((this._boxTier || 0) >= 2) {
+            const gy = ft + 8.8 * z, gr = 4.0 * z;         // direkt über dem Schloss, unter der Lichtritze
+            ctx.beginPath();
+            ctx.moveTo(0, gy - gr);
+            ctx.lineTo(gr * 0.86, gy - gr * 0.18);
+            ctx.lineTo(0, gy + gr);
+            ctx.lineTo(-gr * 0.86, gy - gr * 0.18);
+            ctx.closePath();
+            ctx.fillStyle = rar.rainbow ? met : rar.c; ctx.fill();
+            ctx.lineWidth = 3; ctx.strokeStyle = Art.INK; ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, gy - gr); ctx.lineTo(-gr * 0.86, gy - gr * 0.18); ctx.lineTo(0, gy + gr * 0.1);
+            ctx.closePath();
+            ctx.fillStyle = rar.hi; ctx.fill();
+            Art.star(ctx, gr * 1.5, gy - gr * 1.1, (1.8 + Math.sin(t * 3.4) * 0.7) * z, '#ffffff', { lineWidth: 1 });
+        }
+        const lw2 = 11.5 * z, lt = ft + 13.5 * z, lbm = ft + 28.5 * z;
         ctx.beginPath();
-        ctx.arc(0, 0, 4.5 * z, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffd23f';
-        ctx.fill();
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = Art.INK;
-        ctx.stroke();
-        ctx.restore();
+        ctx.moveTo(-lw2, lt);
+        ctx.lineTo(lw2, lt);
+        ctx.lineTo(lw2, lbm - 6 * z);
+        ctx.quadraticCurveTo(lw2, lbm, 0, lbm + 3.5 * z);
+        ctx.quadraticCurveTo(-lw2, lbm, -lw2, lbm - 6 * z);
+        ctx.closePath();
+        ctx.fillStyle = '#ffd23f'; ctx.fill();
+        ctx.lineWidth = 3; ctx.strokeStyle = Art.INK; ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, lt + 7.5 * z, 3.2 * z, 0, Math.PI * 2);
+        ctx.moveTo(-2.1 * z, lt + 9.4 * z);
+        ctx.lineTo(2.1 * z, lt + 9.4 * z);
+        ctx.lineTo(3.1 * z, lt + 15 * z);
+        ctx.lineTo(-3.1 * z, lt + 15 * z);
+        ctx.closePath();
+        ctx.fillStyle = '#4a2a08'; ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(-lw2 + 3 * z, lt + 3.2 * z);
+        ctx.quadraticCurveTo(0, lt + 1.2 * z, lw2 - 3 * z, lt + 3.2 * z);
+        ctx.strokeStyle = '#fff3b0'; ctx.lineWidth = lw; ctx.stroke();
+
+        // ── Beim Aufspringen: Lichtstrahlen und Goldmünzen-Funken aus der Öffnung ──
+        if (open > 0) {
+            const mouth = ft - dy * 0.35;
+            Art.glow(ctx, 0, mouth, 42 * z, rar.hi, 0.6 * open * Math.max(0.25, bk));
+            ctx.globalAlpha = ga0 * 0.42 * open;
+            for (let i = 0; i < 7; i++) {
+                const ang = -Math.PI / 2 + (i - 3) * 0.26 + Math.sin(t * 1.3 + i) * 0.02;
+                const len = (30 + ((i * 7) % 3) * 9) * z * (0.55 + 0.45 * open);
+                const w = 0.055;
+                ctx.beginPath();
+                ctx.moveTo(0, mouth);
+                ctx.lineTo(Math.cos(ang - w) * len, mouth + Math.sin(ang - w) * len);
+                ctx.lineTo(Math.cos(ang + w) * len, mouth + Math.sin(ang + w) * len);
+                ctx.closePath();
+                ctx.fillStyle = (i % 2) ? rar.hi : '#ffd23f';
+                ctx.fill();
+            }
+            ctx.globalAlpha = ga0;
+            for (let i = 0; i < BOX_COIN.length; i++) {
+                const k = Math.min(1, Math.max(0, open * 1.7 - BOX_COIN[i][1]));
+                if (k <= 0) continue;
+                const x = (BOX_COIN[i][0] + Math.sin(t * 2.6 + i * 1.7) * 2.5) * z;
+                const y = mouth - k * (30 + ((i * 5) % 4) * 8) * z;
+                const r = (2.9 - k * 0.8) * z;
+                ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.86, 0, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffd23f'; ctx.fill();
+                ctx.lineWidth = Math.max(0.9, 1.2 * z); ctx.strokeStyle = '#b87a00'; ctx.stroke();
+                ctx.beginPath(); ctx.arc(x - r * 0.3, y - r * 0.32, r * 0.3, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff3b0'; ctx.fill();
+            }
+        }
     },
 
     // Belohnungsbild: Münz-/Juwelenberg (UI._drawPile), gelber Blitz für Powerpunkte,

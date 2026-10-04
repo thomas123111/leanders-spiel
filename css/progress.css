@@ -95,6 +95,29 @@
 }
 #scr-quests button.q-card.done .pg-rew { color: #fff6a8; }
 
+/* ── Abschnitte „Heute" (Tagesquests) und „Dauerquests" ── */
+#scr-quests .pg-sec + .pg-sec { margin-top: 4px; }
+#scr-quests .pg-sec-head { display: flex; align-items: center; gap: 10px; margin: 2px 2px 7px; }
+#scr-quests .pg-sec-head h3 {
+    margin: 0;
+    font-size: 15px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--gold);
+}
+#scr-quests .pg-clock {
+    padding: 3px 9px; border-radius: 999px;
+    font-size: 11px; font-weight: 900; color: #ffe38a;
+    background: rgba(10, 4, 26, 0.5);
+    border: 1px solid var(--line);
+}
+#scr-quests .pg-taken {
+    margin-left: auto;
+    padding: 4px 9px; border-radius: 999px;
+    font-size: 11px; font-weight: 900; color: #9ff5c5;
+    background: rgba(34, 196, 118, 0.18);
+    border: 1px solid rgba(34, 196, 118, 0.45);
+}
+#scr-quests .q-card.claimed { opacity: 0.52; }
+
 /* ── Power-Pfad ── */
 #scr-path .pg-level { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
 #scr-path .pg-level-txt { font-size: 14px; font-weight: 900; color: #ffe38a; white-space: nowrap; }
@@ -248,6 +271,8 @@
     #scr-quests .cards { gap: 8px; }
     #scr-quests .q-card { padding: 8px; }
     #scr-quests .q-card .ico { font-size: 22px; }
+    #scr-quests .pg-sec-head { margin-bottom: 5px; }
+    #scr-quests .pg-sec-head h3 { font-size: 13px; }
     #scr-power .pg-heroes { gap: 8px; }
     #scr-power .pg-hero { padding: 9px; gap: 5px; }
     #scr-power .pg-cv { height: min(21vh, 86px); }
@@ -263,3 +288,6 @@
     #scr-quests .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     #scr-power .pg-heroes { grid-template-columns: 1fr; }
 }
+
+/* keine waagerechte Bildlaufleiste auf der Quest-Seite */
+#scr-quests .page-body { overflow-x: hidden; }
