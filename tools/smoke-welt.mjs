@@ -65,7 +65,7 @@ const deep = () => new Proxy(function () {}, {
 
 const store = new Map();
 const gameErrors = [];
-const fakeConsole = { ...console, error: (...a) => gameErrors.push(a.map(x => (x && x.message) || String(x)).join(' ').slice(0, 300)), warn: noop };
+const fakeConsole = { ...console, error: (...a) => { gameErrors.push(a.map(x => (x && x.message) || String(x)).join(' ').slice(0, 300)); if (process.env.SMOKE_STACK) for (const x of a) if (x && x.stack) console.log(x.stack.split('\n').slice(0, 6).join('\n')); }, warn: noop };
 const ctx = {
     console: fakeConsole, Math, JSON, Date, Number, String, Array, Object, Map, Set, WeakMap, Symbol, Promise, Error,
     Uint8ClampedArray, Float32Array, Int32Array, Uint8Array, Uint16Array, Float64Array, Int16Array, Proxy, Reflect,
@@ -135,6 +135,14 @@ for (const n of worlds) {
     gameErrors.length = 0;
     const r = vm.runInContext(`(function (n) {
         const r = { welt: n, fehler: null, schritt: 'start' };
+        // Wache: jede Figur mit ungültiger Position sofort melden (sonst nur ein späterer Folgefehler)
+        const wache = wo => {
+            for (const e of Game.enemies) if (!Number.isFinite(e.x) || !Number.isFinite(e.y)) {
+                throw new Error('Position ungültig (NaN) bei ' + e.constructor.name + ' (Zustand ' + (e.state || '-') + ') ' + wo);
+            }
+        };
+        const origStep = Game.debugStep.bind(Game);
+        Game.debugStep = (n, ms, dr) => { for (let i = 0; i < n; i++) { origStep(1, ms, dr); wache('in Schritt ' + r.schritt); } };
         try {
             Game.startWorld(n);
             r.gegner = Game.enemies.length;
@@ -162,7 +170,11 @@ for (const n of worlds) {
                 // Mark läuft im Kreis durch den Raum, damit die Angriffe auch zielen müssen
                 Game.player.x = room.x + room.w / 2 + Math.cos(i / 40) * room.w * 0.35 - Game.player.w / 2;
                 Game.player.y = room.y + room.h / 2 + Math.sin(i / 40) * room.h * 0.35 - Game.player.h / 2;
+                const vorher = String(boss && (boss.state || boss.mode || ''));
                 Game.debugStep(1, 1000 / 60, i % 3 === 0);
+                if (!Number.isFinite(Game.player.x) || !Number.isFinite(Game.player.y)) {
+                    throw new Error('Marks Position ungültig (NaN) im Boss-Zustand ' + vorher + ' -> ' + (boss && boss.state));
+                }
                 if (boss) {
                     r.zustaende.add(String(boss.state || boss.mode || boss.attack || ''));
                     if (i === 750) boss.hp = Math.ceil(boss.maxHp * 0.45);       // Phase 2 erzwingen
@@ -174,13 +186,20 @@ for (const n of worlds) {
             r.zustaende = [...r.zustaende].join(',');
             r.schritt = 'boss besiegen';
             let guard = 0;
-            while (boss && !boss.dead && guard++ < 2000) { boss.iFrames = 0; boss.takeDamage(10, 0, 0); Game.debugStep(2, 1000 / 60, false); }
-            Game.debugStep(400, 1000 / 60, false);
+            while (boss && !boss.dead && guard++ < 2000) {
+                boss.iFrames = 0; boss.takeDamage(10, 0, 0); Game.debugStep(2, 1000 / 60, false);
+                if (!Number.isFinite(Game.player.x)) throw new Error('Marks Position ungültig (NaN) beim Besiegen, Boss-Zustand ' + boss.state);
+            }
+            for (let i = 0; i < 400; i++) {
+                Game.debugStep(1, 1000 / 60, false);
+                if (!Number.isFinite(Game.player.x)) throw new Error('Marks Position ungültig (NaN) nach dem Sieg, Bild ' + i + ', Zustand ' + Game.state);
+            }
             r.ende = Game.state;
             r.schritt = 'fertig';
         } catch (e) {
             r.fehler = e.message + ' | ' + String(e.stack || '').split('\\n').slice(1, 3).join(' ').trim();
         }
+        Game.debugStep = origStep;
         return r;
     })(${n})`, ctx);
     if (gameErrors.length) r.fehler = r.fehler || ('abgefangene Spielfehler: ' + [...new Set(gameErrors)].slice(0, 3).join(' || '));
