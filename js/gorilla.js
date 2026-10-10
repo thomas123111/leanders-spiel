@@ -133,7 +133,7 @@ const GorillaArt = {
         const want = clamp(best.d, minD, maxD);
         let x = cx + ((best.t.x - cx) / best.d) * want;
         let y = cy + ((best.t.y - cy) / best.d) * want;
-        const room = this.room(world);
+        const room = e.isBoss ? this.room(world) : null;
         if (room) {
             x = clamp(x, room.x + e.w / 2 + 6, room.x + room.w - e.w / 2 - 6);
             y = clamp(y, room.y + e.h / 2 + 6, room.y + room.h - e.h / 2 - 6);
@@ -225,7 +225,6 @@ class Gorilla extends Enemy {
         this.aim = null;                // {x, y} Lande- oder Schlagpunkt
         this.lift = 0;
         this.landHit = [];
-        this.summoner = null;
         this._keyInit = false;
         this._engaged = false;
         this._jumpFrom = null;
@@ -249,12 +248,6 @@ class Gorilla extends Enemy {
             this._keyInit = true;
             this.gray = true;
             this.hp = this.maxHp = 10;
-        }
-        if (this.summoner && this.summoner.dead) {
-            GorillaArt.burst(this.centerX(), this.centerY(), [GorillaCfg.saddle, '#ffffff'], 10, 110, 0.45, { kind: 'star' });
-            this.dead = true;
-            this.deathTimer = 0.3;
-            return;
         }
         const mx = this.centerX(), my = this.centerY();
         const px = player.x + player.w / 2, py = player.y + player.h / 2;
@@ -306,7 +299,6 @@ class Gorilla extends Enemy {
                 break;
             default: this._walk(dt, world, player, dist, dx, dy);
         }
-        if (this.summoner) GorillaArt.clampToRoom(this, world);
     }
 
     // ── Ansatz: Abstand halten, Angriff auswählen ──
@@ -344,13 +336,13 @@ class Gorilla extends Enemy {
         this._set('punchWind', this.gray ? 0.3 : 0.42);
     }
 
+    // Der Schlag landet genau dort, wo der rote Zielkreis war – er reicht also bis an den Kreis heran.
     _punchHit() {
         const a = this.aim || { x: this.centerX() + this.face * 30, y: this.centerY() };
-        const f = { x: this.centerX() + this.face * 24, y: a.y };
-        GorillaArt.areaHit(f.x, f.y, 26, this.damage + 1, 190, this.landHit);
+        GorillaArt.areaHit(a.x, a.y, 28, this.damage + 1, 190, this.landHit);
         GorillaArt.shake(2.6, 0.12);
-        GorillaArt.burst(f.x, f.y, [GorillaCfg.skin, '#ffffff', GorillaCfg.leaf], 8, 150, 0.34, { kind: 'spark' });
-        GorillaArt.ring(f.x, f.y, GorillaCfg.skin, 26, 0.22, 3.4);
+        GorillaArt.burst(a.x, a.y, [GorillaCfg.skin, '#ffffff', GorillaCfg.leaf], 8, 150, 0.34, { kind: 'spark' });
+        GorillaArt.ring(a.x, a.y, GorillaCfg.skin, 28, 0.22, 3.4);
     }
 
     // true = Sprung angesetzt
@@ -699,7 +691,6 @@ class BossGiantGorilla extends Enemy {
         this.landHit = [];
         GorillaArt.areaHit(mx, my, R, 2, 240, this.landHit);
         this.waves.push({ x: mx, y: my, r: R * 0.7, max: p2 ? 176 : 152, hitP: false, hitC: [] });
-        if (typeof Sound !== 'undefined' && Sound.explosion) Sound.explosion();
         this._set('land', p2 ? 0.3 : 0.38);
         if (this.leapPair > 0) {
             this.leapPair--;
@@ -795,6 +786,7 @@ class BossGiantGorilla extends Enemy {
         if (this.dead) return;
         const st = this.state;
         const mx = this.centerX(), my = this.centerY();
+        this._drawWaves(ctx, camera);
         if (st === 'leapCrouch' || st === 'leapAir') {
             const p = camera.worldToScreen(this.aim.x, this.aim.y);
             const R = this.phase === 2 ? 74 : 62;
@@ -829,6 +821,11 @@ class BossGiantGorilla extends Enemy {
             const p = camera.worldToScreen(q.x, q.y);
             Art.ring(ctx, p.x, p.y, 26 + this._k() * 60, '#ffe6b8', 4, 0.7);
         }
+    }
+
+    // Die Wellen liegen auf dem Fels und treffen noch, während der Riese schon zum nächsten Sprung
+    // oder Schlag ausholt – deshalb zeichnet er sie vor allen frühen Ausstiegen, nie danach.
+    _drawWaves(ctx, camera) {
         if (!this.waves.length) return;
         for (const w of this.waves) {
             const c = camera.worldToScreen(w.x, w.y);
