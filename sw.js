@@ -3,7 +3,7 @@
 // Dateien sind über ?v=… versioniert und damit unveränderlich: sie kommen aus dem Speicher, sonst
 // aus dem Netz. So entsteht nie eine Mischung aus alten und neuen Dateien.
 // Bei jedem Update: APP_VERSION hier UND die ?v=-Angaben in index.html gemeinsam erhöhen.
-const APP_VERSION = '9.4.0';
+const APP_VERSION = '9.5.0';
 const CACHE = 'mark-' + APP_VERSION;
 const V = '?v=' + APP_VERSION;
 const CORE = [
@@ -16,7 +16,7 @@ const CORE = [
     ...['utils', 'art', 'fx', 'data', 'sound', 'music', 'input', 'camera', 'world', 'weapons', 'loot',
         'entities', 'entities2', 'zombie', 'butterfly', 'dragon',
         'werewolf', 'angel', 'mummy', 'firepig', 'thunder', 'witch',
-        'bunny', 'devil', 'alien', 'spider', 'toad', 'dwarf', 'treemonster', 'golem', 'pumpkin', 'crab', 'eagle', 'fox', 'porcupine', 'player', 'hud', 'progress', 'ui',
+        'bunny', 'devil', 'alien', 'spider', 'toad', 'dwarf', 'treemonster', 'golem', 'pumpkin', 'crab', 'eagle', 'fox', 'porcupine', 'gorilla', 'player', 'hud', 'progress', 'ui',
         'ui-box', 'ui-end', 'ui-progress', 'main'].map(n => './js/' + n + '.js' + V),
     './frosty-burger/',
     './frosty-burger/styles.css?v=1.2.1',
