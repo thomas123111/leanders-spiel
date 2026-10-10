@@ -64,6 +64,8 @@ const BoxUI = {
     onClick(act, btn, e) {
         if (act === 'boxopen') {
             this._resetRun();
+            // Wiederaufnahme im Shop: ein Ziel aus einer frueheren, abgebrochenen Kette darf nicht mehr wirken
+            this._boxReturn = null;
             if (Progress.startBox()) this.renderBox();
             return true;
         }
