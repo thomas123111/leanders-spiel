@@ -590,14 +590,14 @@ const BoxUI = {
         }
     },
 
-    // Belohnungsbild: Münz-/Juwelenberg (UI._drawPile), gelber Blitz für Powerpunkte,
+    // Belohnungsbild: Berg aus Münzen, Juwelen oder lila Powerpunkt-Kugeln (UI._drawPile),
     // roter Stern mit bösen Augen für Böse Sterne; age = Sekunden seit dem Erscheinen
     _drawBoxReward(ctx, t, age) {
         const pages = this._boxPages || [];
         const p = pages[this._boxPage] || pages[0];
         if (!p) return;
         const rar = BOX_RARITIES[this._boxTier || 0];
-        const glowC = p.kind === 'coins' ? '#ffd23f' : (p.kind === 'jewels' ? '#39d5ff' : (p.kind === 'pp' ? '#ffe14d' : '#ff5f5f'));
+        const glowC = p.kind === 'coins' ? '#ffd23f' : (p.kind === 'jewels' ? '#39d5ff' : (p.kind === 'pp' ? '#b26bff' : '#ff5f5f'));
         ctx.save();
         ctx.translate(100, 100);
         Art.glow(ctx, 0, 0, 110, glowC, 0.55);
@@ -616,28 +616,8 @@ const BoxUI = {
         }
         ctx.restore();
         ctx.restore();
-        if (p.kind === 'coins' || p.kind === 'jewels') {
+        if (p.kind === 'coins' || p.kind === 'jewels' || p.kind === 'pp') {
             UI._drawPile(ctx, t, age, p.kind, p.n);
-        } else if (p.kind === 'pp') {
-            // Powerpunkte: großer gelber Blitz, der etwas mitatmet
-            const k = Math.min(1, age / 0.4);
-            const r = 46 * (1 + Math.sin(k * Math.PI) * 0.2) * (1 + Math.sin(t * 3) * 0.03);
-            const pts = [[0.18, -1], [-0.52, 0.12], [-0.06, 0.12], [-0.28, 1], [0.56, -0.22], [0.1, -0.22]];
-            ctx.save();
-            ctx.translate(100, 94);
-            ctx.beginPath();
-            for (let i = 0; i < pts.length; i++) {
-                if (i) ctx.lineTo(pts[i][0] * r, pts[i][1] * r); else ctx.moveTo(pts[i][0] * r, pts[i][1] * r);
-            }
-            ctx.closePath();
-            ctx.fillStyle = '#ffe14d';
-            ctx.fill();
-            ctx.lineWidth = 3.5;
-            ctx.strokeStyle = '#b87a00';
-            ctx.stroke();
-            ctx.restore();
-            Art.sparkle(ctx, 134, 62, 6 * (0.5 + 0.5 * Math.sin(t * 4)), '#ffffff', 0.9);
-            Art.sparkle(ctx, 68, 122, 5 * (0.5 + 0.5 * Math.sin(t * 4 + 2)), '#ffffff', 0.8);
         } else {
             // Böser Stern: roter Stern mit bösen Augen und Zähnen
             const k = Math.min(1, age / 0.4);

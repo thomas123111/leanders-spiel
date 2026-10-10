@@ -105,7 +105,7 @@ const UI = {
         return `<div class="chips">
             <span class="chip coin"><i>🪙</i><b>${Game.coins | 0}</b></span>
             <span class="chip gem"><i>💎</i><b>${Game.jewels | 0}</b></span>
-            <span class="chip pp"><i>⚡</i><b>${Progress.pp | 0}</b></span>
+            <span class="chip pp"><i><span class="pp-orb"></span></i><b>${Progress.pp | 0}</b></span>
             ${stars ? `<span class="chip star"><i>😈</i><b>${stars}</b></span>` : ''}
             ${Game.settings.difficulty !== 'normal' ? `<span class="chip"><i>${Game.settings.difficulty === 'extrem' ? '🔥' : '💪'}</i><b>${Game.difficulty().name}</b></span>` : ''}
         </div>`;
@@ -511,67 +511,40 @@ const UI = {
                 ctx.restore();
             }
             ctx.scale(s, s);
-            // Seitenwand (Dicke): versetzte dunkle Kopien, dann die Vorderseite
-            const depth = 13;
-            const off = Math.sin(ang) * depth;
-            const path = (dx, dy) => {
+            // Flach statt 3D (Wunsch von Leander, 10.10.2026): keine dunkle Seitenwand, keine Facetten,
+            // eine Farbe je Seltenheit mit dickem Umriss. Die Drehung um die senkrechte Achse bleibt.
+            const path = () => {
                 ctx.beginPath();
                 for (let i = 0; i < 10; i++) {
-                    const px = P[i].x * R * sx + dx, py = P[i].y * R + dy;
+                    const px = P[i].x * R * sx, py = P[i].y * R;
                     if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py);
                 }
                 ctx.closePath();
             };
-            for (let k = 4; k >= 1; k--) {
-                path(-off * k / 4, depth * 0.55 * k / 4);
-                ctx.fillStyle = k === 4 ? Art.INK : rar.lo;
-                ctx.fill();
-            }
-            path(-off, depth * 0.55);
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = Art.INK;
-            ctx.stroke();
-            // Vorderseite: zehn Facetten, Licht von links oben (dreht mit)
-            const light = -2.35 - ang * 0.9;
-            for (let i = 0; i < 10; i++) {
-                const p = P[i], q = P[(i + 1) % 10];
-                const outer = i % 2 === 0 ? p : q;           // Spitze dieses Dreiecks
-                const side = i % 2 === 0 ? 1 : -1;           // rechte oder linke Flanke des Zackens
-                const dir = outer.a + side * Math.PI / 2;
-                let b = 0.5 + 0.5 * Math.cos(dir - light);
-                if (!front) b *= 0.55;
-                let fill;
-                if (rar.rainbow) {
+            if (rar.rainbow) {
+                // Regenbogen: jede Zacke eine eigene Farbe, alle gleich hell (flach)
+                for (let i = 0; i < 10; i++) {
+                    const p = P[i], q = P[(i + 1) % 10];
                     const h = (Math.floor(i / 2) * 72 + t * 70) % 360;
-                    fill = `hsl(${h | 0},92%,${(38 + b * 40) | 0}%)`;
-                } else {
-                    // gerundet, weil Art.mix jede Farbe zwischenspeichert (sonst wächst der Speicher je Bild)
-                    fill = Art.mix(rar.lo, rar.hi, Math.round((0.12 + b * 0.82) * 32) / 32);
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(p.x * R * sx, p.y * R);
+                    ctx.lineTo(q.x * R * sx, q.y * R);
+                    ctx.closePath();
+                    ctx.fillStyle = `hsl(${h | 0},92%,62%)`;
+                    ctx.fill();
                 }
-                ctx.beginPath();
-                ctx.moveTo(0, 0);
-                ctx.lineTo(p.x * R * sx, p.y * R);
-                ctx.lineTo(q.x * R * sx, q.y * R);
-                ctx.closePath();
-                ctx.fillStyle = fill;
+            } else {
+                path();
+                ctx.fillStyle = rar.c;
                 ctx.fill();
             }
-            // Grate und Umriss
-            ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-            ctx.lineWidth = 1.2;
-            for (let i = 0; i < 10; i += 2) {
-                ctx.beginPath();
-                ctx.moveTo(0, 0);
-                ctx.lineTo(P[i].x * R * sx, P[i].y * R);
-                ctx.stroke();
-            }
-            path(0, 0);
+            path();
             ctx.lineWidth = 4;
+            ctx.lineJoin = 'round';
             ctx.strokeStyle = Art.INK;
             ctx.stroke();
             if (front) {
-                // Lichtstreif auf der oberen Spitze
-                Art.shine(ctx, -7 * sx, -44, 3.5 * Math.max(0.3, sx), 12, -0.35, 0.5);
                 // Gesicht: je seltener, desto frecher (dreht mit)
                 ctx.save();
                 ctx.scale(Math.max(0.2, sx), 1);
@@ -609,7 +582,7 @@ const UI = {
         }
         ctx.restore();
         ctx.restore();
-        if (p.kind === 'coins' || p.kind === 'jewels') this._drawPile(ctx, t, age, p.kind, p.n);
+        if (p.kind === 'coins' || p.kind === 'jewels' || p.kind === 'pp') this._drawPile(ctx, t, age, p.kind, p.n);
         else {
             // Upgrade-Bild(er) springen herein
             const k = Math.min(1, age / 0.45);
@@ -626,9 +599,9 @@ const UI = {
         }
     },
 
-    // Berg aus Münzen oder Juwelen: mehr Menge, größerer Berg; die Stücke fallen von oben herein
+    // Berg aus Münzen, Juwelen oder Powerpunkten (lila Kugeln): mehr Menge, größerer Berg; die Stücke fallen von oben herein
     _drawPile(ctx, t, age, kind, n) {
-        const count = Math.max(6, Math.min(36, Math.round(6 + Math.sqrt(n) * (kind === 'coins' ? 0.9 : 2.2))));
+        const count = Math.max(6, Math.min(36, Math.round(6 + Math.sqrt(n) * (kind === 'coins' ? 0.9 : (kind === 'pp' ? 1.6 : 2.2)))));
         if (!this._pile || this._pile.kind !== kind || this._pile.count !== count) {
             // Plätze einmal festlegen: unten breite Reihen, oben schmal (Dreieck)
             const pts = [];
@@ -653,6 +626,7 @@ const UI = {
             if (k <= 0) continue;
             const y = p.y - (1 - k) * (1 - k) * 110;
             if (kind === 'coins') Art.coin(ctx, p.x, y, 10.5, p.spin);
+            else if (kind === 'pp') Art.ppOrb(ctx, p.x, y, 10.5);
             else Art.gem(ctx, p.x, y, 10.5, p.col);
         }
         // Glitzern auf dem Berg

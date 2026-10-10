@@ -280,7 +280,7 @@ const UIProgress = {
                 ? `<span class="pg-lock">🔒 Kommt ab Welt ${h.from + 1}</span>`
                 : (max
                     ? '<button class="btn small gold" disabled>MAX</button>'
-                    : `<button class="btn small ${can ? 'green pulse' : 'gray'}" data-act="powerup" data-id="${h.id}" ${can ? '' : 'disabled'}>Upgrade · ⚡ ${cost}</button>`);
+                    : `<button class="btn small ${can ? 'green pulse' : 'gray'}" data-act="powerup" data-id="${h.id}" ${can ? '' : 'disabled'}>Upgrade · <span class="pp-orb"></span> ${cost}</button>`);
             cards += `<div class="card pg-hero${open ? '' : ' locked'}" data-id="${h.id}" style="--a:${h.id === 'mark' ? '#ffd23f' : (h.id === 'juri' ? '#3fa7ff' : '#3ddc97')}">
                 <canvas class="pg-cv"></canvas>
                 <span class="head"><span class="ico">${h.emoji}</span><h3>${h.name}</h3></span>

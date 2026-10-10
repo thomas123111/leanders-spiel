@@ -104,6 +104,13 @@ button { font-family: inherit; color: inherit; border: 0; background: none; curs
 .chip.coin b { color: #ffe38a; }
 .chip.gem b { color: #aef0ff; }
 .chip.star b { color: #ff9ecf; }
+.chip.pp b { color: #e2c4ff; }
+/* Powerpunkt-Symbol: lila Kugel statt Blitz (Wunsch von Leander, 10.10.2026) */
+.pp-orb {
+    display: inline-block; width: 0.95em; height: 0.95em; vertical-align: -0.12em;
+    border-radius: 50%; border: 0.09em solid #3d0f7a; box-sizing: border-box;
+    background: radial-gradient(circle at 34% 30%, #ffffff 0 12%, #d6a8ff 22%, #a24dff 55%, #6a1fc4 100%);
+}
 
 /* ── Startseite ── */
 #scr-title { flex-direction: row; align-items: stretch; }

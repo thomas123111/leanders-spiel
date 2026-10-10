@@ -490,6 +490,17 @@ const Art = {
         ctx.fill();
     },
 
+    // Powerpunkt: lila Kugel (Wunsch von Leander, 10.10.2026)
+    ppOrb(ctx, x, y, r) {
+        this.body(ctx, x, y, r, r, '#a24dff', { outline: '#3d0f7a', glossy: true, highlight: false });
+        ctx.strokeStyle = 'rgba(236,214,255,0.55)';
+        ctx.lineWidth = Math.max(0.8, r * 0.12);
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.62, 0.3 * Math.PI, 0.95 * Math.PI);   // Lichtbogen unten links
+        ctx.stroke();
+        this.shine(ctx, x - r * 0.32, y - r * 0.38, r * 0.3, r * 0.2, -0.5, 0.75);
+    },
+
     key(ctx, x, y, s, color = '#ffd23f') {
         ctx.save();
         ctx.translate(x, y);

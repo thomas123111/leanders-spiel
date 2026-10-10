@@ -186,7 +186,7 @@ const Progress = {
         if (r.box !== undefined && r.box !== null) return '🎁';
         if (r.stars) return '😈';
         if (r.jewels) return '💎';
-        if (r.pp) return '⚡';
+        if (r.pp) return '<span class="pp-orb"></span>';
         if (r.xp) return '⭐';
         return '🪙';
     },
