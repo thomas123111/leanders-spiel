@@ -640,6 +640,17 @@ const WORLD_THEMES = {
         deco: [['leaf', 4], ['mushroom', 1.2], ['pebble', 1.5], ['tuft', 1.5], ['apple', 0.4]], rate: 0.34,
         win: 'crate', glow: '#ffcf6b',
     },
+    // Welt 44: heller Urwald – Sandwege, große Blätter, Farne, moosige Felsbrocken. Hell, damit die
+    // schwarzen Gorillas gut zu sehen sind. Die Boss-Arena ist ein moosiges Felsplateau (plateauArena).
+    gorilla: {
+        void: '#0e2c14', vignette: 0.22, shade: '#12421c', fs: 'sand', floor: ['#e3c88e', '#dbbe84'],
+        ws: 'jungle', fruits: true, wall: '#3fae42', wallF: '#1f6b2a', accent: '#5fd44a', deepCol: '#155226', deep: 0.3,
+        bush: ['#1b7a2c', '#3fae42', '#9ae86a'], bx: 'flowers', bxc: ['#ff7a3a', '#ffd23f', '#ff4a7a'],
+        water: 'water', wc: ['#1a86a8', '#3ec4dc', '#d8fff4'], bone: '#f6ecd8', pad: '#ff8c32',
+        deco: [['fern', 3], ['leaf', 3], ['moss', 2], ['pebble', 1.6], ['tuft', 2], ['flower', 1.2]], rate: 0.36,
+        flowers: ['#ffffff', '#ffe14a', '#ff9ad0'], win: 'crate', glow: '#ffe8a8',
+        arena: '#5fd44a', arenaStyle: 'plateau',
+    },
 };
 
 // Welt 24: Die drei Elemente des Drachenvaters (und Gold dazwischen) liegen als Zonen über der Karte:
@@ -1674,6 +1685,7 @@ const WorldPaint = {
         if (P.arenaStyle === 'gym') { this._gymArena(w, c, P); return; }
         if (P.arenaStyle === 'meadow') { this._meadowArena(w, c, P); return; }
         if (P.arenaStyle === 'nest') { this._nestArena(w, c, P); return; }
+        if (P.arenaStyle === 'plateau') { this._plateauArena(w, c, P); return; }
         const T = TILE_SIZE, a = P.arena || P.accent;
         const ix = (w.width - 13) * T, iy = (w.height - 11) * T, iw = 11 * T, ih = 9 * T;
         const cx = (w.width - 8) * T + T / 2, cy = (w.height - 7) * T + T / 2;
@@ -1738,6 +1750,95 @@ const WorldPaint = {
         c.lineTo(cx + 15, cy + 9);
         c.closePath();
         c.fill();
+    },
+
+    // Dschungelfelsen: der Boss-Raum ist ein moosiges Felsplateau – graue Gesteinsplatten mit Rissen,
+    // Moos in den Fugen, Felsbrocken an den Ecken, Lianen darüber und ein Prankenabdruck in der Mitte
+    _plateauArena(w, c, P) {
+        const T = TILE_SIZE, a = P.arena || P.accent;
+        const ix = (w.width - 13) * T, iy = (w.height - 11) * T, iw = 11 * T, ih = 9 * T;
+        const cx = (w.width - 8) * T + T / 2, cy = (w.height - 7) * T + T / 2;
+        const rock = { stone: 28, floor: ['#a8a494', '#9c9888'], ftints: ['#8fa07a', '#b2aa93', '#8c9382'] };
+        c.save();
+        c.beginPath();
+        c.rect(ix, iy, iw, ih);
+        c.clip();
+        this._flagstones(c, rock, ix, iy, iw, ih, 4401);
+        // Moosflecken
+        for (const [al, sd] of [[0.3, 4403], [0.18, 4405]]) {
+            c.fillStyle = wcA('#5fb84a', al);
+            c.beginPath();
+            wScatter(ix, iy, iw, ih, 30, 0, sd, (px, py, r) => {
+                if (r > 0.5) return;
+                c.moveTo(px + 4 + r * 8, py);
+                c.arc(px, py, 4 + r * 8, 0, W_TAU);
+            });
+            c.fill();
+        }
+        // Risse im Gestein
+        this._line(c, wcA('#3a3524', 0.38), 1.3);
+        c.beginPath();
+        wScatter(ix, iy, iw, ih, 64, 0, 4407, (px, py, r) => {
+            const an = r * W_TAU;
+            c.moveTo(px, py);
+            c.lineTo(px + Math.cos(an) * 11, py + Math.sin(an) * 11);
+            c.lineTo(px + Math.cos(an + 0.6) * 20, py + Math.sin(an + 0.6) * 20);
+        });
+        c.stroke();
+        // Prankenabdruck in der Mitte (Fläche + vier Finger + Daumen)
+        c.fillStyle = wcA(wcDark(rock.floor[0], 0.42), 0.42);
+        c.beginPath();
+        c.ellipse(cx, cy + 6, 26, 20, 0, 0, W_TAU);
+        c.fill();
+        c.beginPath();
+        for (let i = 0; i < 4; i++) {
+            const fx = cx - 18 + i * 12, fy = cy - 22 - (i === 1 || i === 2 ? 5 : 0);
+            c.moveTo(fx + 6, fy);
+            c.arc(fx, fy, 6, 0, W_TAU);
+        }
+        c.moveTo(cx + 38, cy + 2);
+        c.arc(cx + 32, cy + 2, 7, 0, W_TAU);
+        c.fill();
+        this._line(c, wcA(a, 0.4), 2);
+        c.beginPath();
+        c.arc(cx, cy, 46, 0, W_TAU);
+        c.stroke();
+        c.restore();
+        // Rand: dunkle Felskante und heller Plateaurand, dazu moosige Brocken in den Ecken
+        this._line(c, wcA('#241f14', 0.45), 10);
+        c.strokeRect(ix + 6, iy + 6, iw - 12, ih - 12);
+        this._line(c, wcA('#ffffff', 0.22), 1.4);
+        c.strokeRect(ix + 11, iy + 11, iw - 22, ih - 22);
+        for (const [sx, sy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+            const bx = sx > 0 ? ix + 34 : ix + iw - 34, by = sy > 0 ? iy + 30 : iy + ih - 30;
+            c.fillStyle = wcA(wcDark(rock.floor[0], 0.35), 0.7);
+            c.beginPath();
+            c.ellipse(bx, by, 17, 12, 0, 0, W_TAU);
+            c.fill();
+            c.fillStyle = wcA(wcLight(rock.floor[0], 0.3), 0.65);
+            c.beginPath();
+            c.ellipse(bx - 3, by - 4, 11, 6.5, 0, 0, W_TAU);
+            c.fill();
+            c.fillStyle = wcA('#5fb84a', 0.5);
+            c.beginPath();
+            for (let i = 0; i < 4; i++) {
+                const mx = bx - 10 + i * 6, my = by + 7 - (i & 1) * 2;
+                c.moveTo(mx + 4, my);
+                c.arc(mx, my, 4, 0, W_TAU);
+            }
+            c.fill();
+        }
+        // Lianen, die über die Platten hängen
+        for (const [col, lw] of [[wcA('#2f7a34', 0.5), 5], [wcA('#6fd44a', 0.4), 2.4]]) {
+            this._line(c, col, lw);
+            c.beginPath();
+            for (let i = 0; i < 5; i++) {
+                const y0 = iy + 16 + i * (ih - 32) / 4;
+                c.moveTo(ix + 4, y0);
+                c.bezierCurveTo(ix + iw * 0.32, y0 + 26, ix + iw * 0.66, y0 - 26, ix + iw - 4, y0 + 8);
+            }
+            c.stroke();
+        }
     },
 
     // Zombie Academy: Turnhalle mit Parkett, Spielfeldlinien und Schulwappen „ZA“
@@ -6132,3 +6233,4 @@ const WORLD40_LEVEL = createLateLevel(64, 54, 20, 4040, 6, 2, 3, 1);
 const WORLD41_LEVEL = createLateLevel(64, 56, 20, 4141, 3, 3, 4, 3);
 const WORLD42_LEVEL = createLateLevel(64, 56, 20, 4242, 4, 3, 4, 2);
 const WORLD43_LEVEL = createLateLevel(64, 56, 20, 4343, 3, 6, 3, 2);
+const WORLD44_LEVEL = createLateLevel(64, 56, 20, 4444, 4, 7, 3, 2);
