@@ -903,6 +903,9 @@ const UI = {
                     this._starBusy = false;
                     if (g.startBadStar()) { this.renderStar(); break; }
                 }
+                // Münzen, Juwelen und Powerpunkte: Berg wie in der Glücksbox, danach zurück in den Shop
+                if (g.lastDailyReward && typeof BoxUI !== 'undefined' &&
+                    BoxUI.showRewards([g.lastDailyReward], () => this.renderShop(), { head: 'Tagesbelohnung' })) break;
                 this.flashMessage(g.lastDailyText || 'Belohnung abgeholt!');
                 this.renderShop();
                 break;

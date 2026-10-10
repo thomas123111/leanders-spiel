@@ -1,6 +1,8 @@
 // ── Glücksboxen: Shop-Karte, Bildschirm zum Öffnen, Belohnungsseiten (im Stil der Bösen Sterne) ──
 // Klassische Script-Datei (kein import/export). Meldet sich über UI.register bei der Oberfläche an.
 // Regeln und Zahlen stehen in js/progress.js (BOX_RARITIES, BOX_TRIES, Progress.startBox/boxTap/openBox).
+// showRewards() ist derselbe Seitenweg für alle Belohnungen: Weltbelohnung, Gratis-Tagesbelohnung im
+// Shop, Tagesleiste nach der Runde und Power-Pfad zeigen ihre Berge hier, nicht an eigener Stelle.
 
 const BOX_PRICE = 30;
 
@@ -13,6 +15,9 @@ const BOX_GRAIN = [
 ];
 // Goldmuenzen-Funken beim Aufspringen: [x in z-Einheiten, Verzoegerung 0..1]
 const BOX_COIN = [[-26, 0.05], [-15, 0.35], [-5, 0.0], [6, 0.45], [16, 0.2], [25, 0.6], [-21, 0.75], [12, 0.85]];
+
+// Randfarbe der Belohnungsseite je Art (dieselben Farben wie das Leuchten hinter dem Berg)
+const PILE_C = { coins: '#ffd23f', jewels: '#39d5ff', pp: '#b26bff' };
 
 
 const BoxUI = {
@@ -34,6 +39,8 @@ const BoxUI = {
     _boxPage: 0,
     _boxPageT: 0,
     _boxLockUntil: 0,
+    _boxHead: null,               // Kopfzeile der Belohnungsseite (leer = Seltenheitsname der Box)
+    _boxReturn: null,             // wohin nach der letzten Seite zurueck (leer = Shop)
 
     // ── Shop-Karte (wie die „Böse Sterne“-Karte) ──
     shopCards() {
@@ -98,20 +105,25 @@ const BoxUI = {
             if (this._boxPages && this._boxPage < this._boxPages.length - 1) {
                 this._boxPage++;
                 this.renderBoxReward();
-            } else {
+            } else if (this._boxItems) {
                 this.renderBoxSummary();
+            } else {
+                this._goBack();
             }
             return true;
         }
-        if (act === 'boxdone') {
-            this._boxItems = null;
-            this._boxPages = null;
-            const back = this._boxReturn;
-            this._boxReturn = null;
-            if (typeof back === 'function') back(); else UI.renderShop();
-            return true;
-        }
+        if (act === 'boxdone') return this._goBack();
         return false;
+    },
+
+    // Nach der letzten Belohnungsseite (oder der Übersicht) dorthin zurück, wo man herkam.
+    _goBack() {
+        this._boxItems = null;
+        this._boxPages = null;
+        const back = this._boxReturn;
+        this._boxReturn = null;
+        if (typeof back === 'function') back(); else UI.renderShop();
+        return true;
     },
 
     // Box sofort öffnen (nach dem Kauf, aus dem Power-Pfad). tier = diese Box nehmen, falls vorhanden;
@@ -124,6 +136,41 @@ const BoxUI = {
         return true;
     },
 
+    // ── Gemeinsamer Weg für alle Belohnungsbilder (Wunsch von Leander, 10.10.2026) ──
+    // Zeigt eine Liste von Belohnungen genau wie in der Glücksbox Seite für Seite als Berg – mit Leuchten,
+    // Strahlen, Funken, Ton und Sperre gegen wildes Weitertippen – ohne vorher eine Truhe zu öffnen.
+    // Tippen irgendwo führt zur nächsten Seite, nach der letzten kommt back() (Vorgabe: Shop).
+    // Eine Seite gibt es nur für Münzen, Juwelen und Powerpunkte; Böse Sterne und Glücksboxen werden wie
+    // bisher sofort geöffnet und Erfahrung (EP) bekommt keinen Berg. Liefert false, wenn nichts davon
+    // eine Seite bekommt – der Aufrufer zeigt dann wie bisher seine kurze Meldung.
+    // opts = { head: Kopfzeile über dem Berg, tier: Seltenheit der Box, summary: true = danach Übersicht }
+    showRewards(items, back, opts) {
+        const pages = this._pilePages(items);
+        if (!pages.length) return false;
+        const o = opts || {};
+        this._resetRun();
+        this._boxTier = clamp(o.tier === undefined ? (this._boxTier || 0) : o.tier, 0, BOX_RARITIES.length - 1);
+        this._boxHead = o.head || null;
+        this._boxItems = o.summary ? (items || []).slice() : null;
+        this._boxPages = pages;
+        this._boxPage = 0;
+        if (back) this._boxReturn = back;
+        this.renderBoxReward();
+        return true;
+    },
+
+    // Seiten für eine Belohnungsliste: je Belohnung eine, und nur für Münzen, Juwelen und Powerpunkte.
+    _pilePages(items) {
+        const pages = [];
+        for (const it of (items || [])) {
+            if (!it) continue;
+            if (it.coins) pages.push({ kind: 'coins', n: it.coins, label: it.coins + ' Münzen' });
+            else if (it.jewels) pages.push({ kind: 'jewels', n: it.jewels, label: it.jewels + ' Juwelen' });
+            else if (it.pp) pages.push({ kind: 'pp', n: it.pp, label: it.pp + ' Powerpunkte' });
+        }
+        return pages;
+    },
+
     _resetRun() {
         this._boxSparks = [];
         this._boxBoom = null;
@@ -132,6 +179,7 @@ const BoxUI = {
         this._boxItems = null;
         this._boxPages = null;
         this._boxPage = 0;
+        this._boxHead = null;
     },
 
     // ── Box-Bildschirm: ganzer Bildschirm, kein Knopf außer der Box selbst ──
@@ -179,13 +227,8 @@ const BoxUI = {
             if (!Progress.box) { UI.renderShop(); return; }
             const res = Progress.openBox();   // schreibt und schreibt alles gut
             this._boxItems = res.items;
-            this._boxPages = res.items.map(it => ({
-                kind: it.coins ? 'coins' : (it.jewels ? 'jewels' : (it.pp ? 'pp' : 'stars')),
-                n: it.coins || it.jewels || it.pp || it.stars,
-                label: Progress.rewardText(it),
-            }));
-            this._boxPage = 0;
-            this.renderBoxReward();
+            // dieselben Belohnungsseiten wie überall sonst (kein eigener Seitenweg mehr), danach die Übersicht
+            if (!this.showRewards(res.items, null, { tier: res.tier, summary: true })) this.renderBoxSummary();
         }, (delay || 0) + 700);
     },
 
@@ -199,16 +242,20 @@ const BoxUI = {
         this._boxPageT = performance.now();
         this._boxLockUntil = performance.now() + 550;   // wildes Weitertippen überspringt keine Belohnung
         const left = pages.length - this._boxPage;      // diese und alle noch kommenden Belohnungen
-        el.style.setProperty('--c', rar.c);
+        // Kopf und Randfarbe: bei der Box die Seltenheit, sonst ein kurzer Name (Tagesbelohnung, Power-Pfad …)
+        const head = this._boxHead || rar.name;
+        const c = this._boxHead ? (PILE_C[p.kind] || rar.c) : rar.c;
+        el.style.setProperty('--c', c);
         el.innerHTML = `
-            <div class="rarity${rar.rainbow ? ' rainbow' : ''}">${rar.name}</div>
+            <div class="rarity${rar.rainbow && !this._boxHead ? ' rainbow' : ''}">${head}</div>
             <div class="box-btn"><canvas></canvas></div>
             <div class="reward-label">${p.label}</div>
             <div class="msg small">Tippen zum Weitermachen</div>
-            <div class="box-badge${this._boxPage === 0 ? ' hop' : ''}"><b>×${left}</b><span>Belohnungen</span></div>
+            <div class="box-badge${this._boxPage === 0 ? ' hop' : ''}"><b>×${left}</b><span>${left === 1 ? 'Belohnung' : 'Belohnungen'}</span></div>
             <button class="box-tap" data-act="boxnext" aria-label="Weiter"></button>`;
         this._boxBurst(18, p.kind === 'coins' ? ['#ffd23f', '#fff6c2', '#ffb01f']
-            : (p.kind === 'jewels' ? ['#39d5ff', '#ff5fd2', '#b98cff'] : [rar.c, rar.hi, '#ffffff']));
+            : (p.kind === 'jewels' ? ['#39d5ff', '#ff5fd2', '#b98cff']
+                : (this._boxHead ? ['#b26bff', '#e6c6ff', '#ffffff'] : [rar.c, rar.hi, '#ffffff'])));
         if (p.kind === 'coins') Sound.coin(); else if (p.kind === 'jewels') Sound.chest(); else Sound.powerUp();
         UI.show('box');
         this._animateBox(el.querySelector('canvas'));
@@ -224,8 +271,8 @@ const BoxUI = {
         el.innerHTML = `
             <div class="rarity box-fertig">Fertig!</div>
             <div class="box-tiles">${tiles}</div>
-            <div class="msg small">Tippen für den Shop</div>
-            <button class="box-tap" data-act="boxdone" aria-label="Zum Shop"></button>`;
+            <div class="msg small">${typeof this._boxReturn === 'function' ? 'Tippen zum Weitermachen' : 'Tippen für den Shop'}</div>
+            <button class="box-tap" data-act="boxdone" aria-label="Weiter"></button>`;
         Sound.powerUp();
         UI.show('box');
     },
