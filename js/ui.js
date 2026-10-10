@@ -901,8 +901,12 @@ const UI = {
                     this._starSparks = [];
                     this._starBoom = null;
                     this._starBusy = false;
+                    this._starReturn = null;      // Ziel einer frueheren Kette darf hier nicht nachwirken
                     if (g.startBadStar()) { this.renderStar(); break; }
                 }
+                // Münzen, Juwelen und Powerpunkte: Berg wie in der Glücksbox, danach zurück in den Shop
+                if (g.lastDailyReward && typeof BoxUI !== 'undefined' &&
+                    BoxUI.showRewards([g.lastDailyReward], () => this.renderShop(), { head: 'Tagesbelohnung' })) break;
                 this.flashMessage(g.lastDailyText || 'Belohnung abgeholt!');
                 this.renderShop();
                 break;

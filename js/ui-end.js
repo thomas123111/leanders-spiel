@@ -20,8 +20,8 @@
         PER_PAGE: 3,
         qPage: 0,
         _qSig: null,                // die Zusammenfassung, zu der qPage gehört
-        _openedSig: null,           // für diese Zusammenfassung wurde die Tagesbelohnung schon geöffnet
-        _openedDaily: false,
+        _openedSig: null,           // für diese Zusammenfassung wurden die Belohnungen schon gezeigt
+        _openedRewards: false,
 
         // ── Anmeldung bei der Oberflaeche ──
         ext: {
@@ -39,7 +39,7 @@
                 if (act === 'endleave') { g.returnToTitle(); return true; }
                 if (act === 'endqprev') { UIEnd.pageQuests(-1); return true; }
                 if (act === 'endqnext') { UIEnd.pageQuests(1); return true; }
-                if (act === 'endopen') { UIEnd.openDaily(); return true; }
+                if (act === 'endopen') { UIEnd.openRewards(); return true; }
                 return false;
             }
         },
@@ -178,43 +178,71 @@
             if (g.lastReward) rows.push(`<div class="end-row"><span class="end-ic">${Progress.rewardIcon(g.lastReward)}</span><span>Weltbelohnung: ${UI._rewardText(g.lastReward)}</span></div>`);
             if (g.lastUnlockText) rows.push(`<div class="end-row"><span class="end-ic">🎁</span><span>${g.lastUnlockText}</span></div>`);
             const d = s && s.daily;
+            const btn = this.openBtnHtml(s);
             if (d) {
                 const list = Progress.dailyList();
                 rows.push(`<div class="end-row daily"><span class="end-ic">${Progress.rewardIcon(d)}</span>`
                     + `<span>${Progress.rewardText(d)}<br><small>Tagesbelohnung ${list.got}/${DAILY_SLOTS}</small></span>`
-                    + this.openBtnHtml(s, d) + '</div>');
+                    + btn + '</div>');
             } else {
                 const list = Progress.dailyList();
                 if (list.got >= DAILY_SLOTS) rows.push('<div class="end-row muted"><span class="end-ic">🌙</span><span>Alle 10 Tagesbelohnungen geholt!</span></div>');
+                // Ohne Tagesbelohnung bekommt die Zeile den Knopf, damit die Weltbelohnung trotzdem als Berg erscheint
+                if (btn) rows.push(`<div class="end-row"><span class="end-ic">🎁</span><span>Belohnungen als Berg ansehen</span>${btn}</div>`);
             }
             if (!rows.length) rows.push('<div class="end-row muted"><span class="end-ic">🪙</span><span>Diese Runde gab es nichts zu holen.</span></div>');
             return rows.join('');
         },
 
-        // ── Tagesbelohnung der Runde sofort oeffnen (Boeser Stern oder Gluecksbox) ──
-        _openable(d) {
-            if (!d) return false;
-            if (d.stars && !Game.shopRandomStarActive) return true;
-            return d.box !== undefined && d.box !== null && !Progress.box && typeof BoxUI !== 'undefined';
-        },
-        dailyOpened(s) { return this._openedSig === s && this._openedDaily; },
-        openBtnHtml(s, d) {
-            if (this.dailyOpened(s) || !this._openable(d)) return '';
-            return '<button class="btn small green pulse end-open" data-act="endopen">Öffnen!</button>';
-        },
-        // Antippen: Stern bzw. Box gehen sofort auf, danach zurueck auf die Endseite (Knopf dann weg)
-        openDaily() {
-            const s = Game.roundSummary;
+        // ── Belohnungen der Runde ansehen: Berge, Böser Stern und Glücksbox der Reihe nach ──
+        // Zuerst die Weltbelohnung, dann die Tagesleiste (Leander: beide Berge erscheinen nacheinander).
+        // Böse Sterne und Glücksboxen behalten ihren heutigen Weg (gehen sofort auf), Erfahrung gibt es nie.
+        _steps(s) {
+            const steps = [];
+            const w = Game.lastReward;
+            if (w && (w.coins || w.jewels || w.pp)) steps.push({ items: [w], head: 'Weltbelohnung' });
             const d = s && s.daily;
-            if (!d || this.dailyOpened(s) || !this._openable(d)) return false;
-            const back = () => { UIEnd.show(UIEnd.kind); };
+            if (d) {
+                if (d.box !== undefined && d.box !== null && !Progress.box && typeof BoxUI !== 'undefined') steps.push({ box: d.box });
+                else if (d.stars && !Game.shopRandomStarActive) steps.push({ star: true });
+                else if (d.coins || d.jewels || d.pp) steps.push({ items: [d], head: 'Tagesbelohnung' });
+            }
+            return steps;
+        },
+        rewardsOpened(s) { return this._openedSig === s && this._openedRewards; },
+        openBtnHtml(s) {
+            const steps = this._steps(s);
+            if (this.rewardsOpened(s) || !steps.length) return '';
+            // Stern und Box gehen auf, alles andere wird als Berg gezeigt
+            const label = steps.some(x => x.box !== undefined || x.star) ? 'Öffnen!' : 'Ansehen!';
+            return `<button class="btn small green pulse end-open" data-act="endopen">${label}</button>`;
+        },
+        // Antippen: die Belohnungen der Runde einer nach dem anderen. Zurück auf die Endseite geht erst der
+        // letzte Schritt – UIEnd.show baut die ganze Seite neu und startet die Figuren, das soll nicht
+        // zwischen zwei Belohnungen zweimal geschehen.
+        openRewards() {
+            const s = Game.roundSummary;
+            if (this.rewardsOpened(s)) return false;
+            const steps = this._steps(s);
+            if (!steps.length) return false;
             this._openedSig = s;
-            this._openedDaily = true;
-            if (d.stars && !Game.shopRandomStarActive && UI.openBadStarNow(false, back)) return true;
-            if (d.box !== undefined && d.box !== null && typeof BoxUI !== 'undefined' && !Progress.box &&
-                BoxUI.openNow(d.box, back)) return true;
-            this._openedDaily = false;          // doch nichts aufgegangen: Knopf bleibt stehen
-            return false;
+            this._openedRewards = true;
+            let geschafft = false;            // hat wenigstens ein Schritt aufgegangen?
+            const run = i => {
+                const st = steps[i];
+                if (!st) {
+                    if (!geschafft) { UIEnd._openedRewards = false; return; }   // Knopf bleibt stehen
+                    UIEnd.show(UIEnd.kind);
+                    return;
+                }
+                const next = () => run(i + 1);
+                if (st.box !== undefined && BoxUI.openNow(st.box, next)) { geschafft = true; return; }
+                if (st.star && UI.openBadStarNow(false, next)) { geschafft = true; return; }
+                if (st.items && typeof BoxUI !== 'undefined' && BoxUI.showRewards(st.items, next, { head: st.head })) { geschafft = true; return; }
+                run(i + 1);            // dieser Schritt ging nicht auf: weiter zum nächsten
+            };
+            run(0);
+            return true;
         },
 
         // ── Buehne: Canvas scharf und groessenanpasst ──

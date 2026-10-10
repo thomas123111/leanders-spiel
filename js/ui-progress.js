@@ -82,6 +82,8 @@ const UIProgress = {
                 if (r.stars && !Game.shopRandomStarActive && UI.openBadStarNow(false, back)) return true;
                 if (r.box !== undefined && r.box !== null && typeof BoxUI !== 'undefined' && !Progress.box &&
                     BoxUI.openNow(r.box, back)) return true;
+                // Münzen, Juwelen und Powerpunkte: Berg wie in der Glücksbox, danach zurück auf den Pfad
+                if (typeof BoxUI !== 'undefined' && BoxUI.showRewards([r], back, { head: 'Power-Pfad' })) return true;
                 UI.flashMessage('Belohnung: ' + (r.label || Progress.rewardText(r)));
             }
             this.renderPath();

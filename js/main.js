@@ -62,6 +62,7 @@ const Game = {
     lastReward: null,
     lastUnlockText: '',
     lastDailyText: '',
+    lastDailyReward: null,   // was die Gratis-Tagesbelohnung brachte ({ coins }), für den Berg auf der Belohnungsseite
     titleSpin: 0,
     titleIndex: 0,      // vordere Figur im Karussell der Startseite (zählt weiter, Auswahl = Rest durch Anzahl)
     _titleRot: 0,       // gezeichnete Drehung, läuft titleIndex weich hinterher
@@ -556,15 +557,18 @@ const Game = {
     },
 
     // Gratis-Tagesbelohnung im Shop: genau einmal am Tag, kein Nachkaufen (Wunsch von Leander, 03.10.2026).
-    // Ein Böser Stern daraus wird direkt geöffnet (lastDailyStar, siehe ui.js).
+    // Ein Böser Stern daraus wird direkt geöffnet (lastDailyStar, siehe ui.js), Münzen erscheinen als Berg
+    // (lastDailyReward, siehe ui.js und BoxUI.showRewards).
     _grantDailyReward() {
         const today = this._todayKey();
         if (this.dailyRewardClaimDate === today) return false;
         this.lastDailyStar = false;
+        this.lastDailyReward = null;
         const roll = Math.random();
         if (roll < 0.45) {
             const amount = randInt(150, 700);
             this._grantCoins(amount);
+            this.lastDailyReward = { coins: amount };
             this.lastDailyText = amount + ' Münzen! 🪙';
         } else if (roll < 0.7) {
             const upgrades = [
@@ -577,6 +581,7 @@ const Game = {
                 this.lastDailyText = next[1] + ' freigeschaltet! 🎁';
             } else {
                 this._grantCoins(300);
+                this.lastDailyReward = { coins: 300 };
                 this.lastDailyText = '300 Münzen! 🪙';
             }
         } else {

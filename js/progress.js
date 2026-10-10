@@ -433,12 +433,16 @@ const Progress = {
         const tier = b.tier;
         const rar = BOX_RARITIES[tier];
         const n = randInt(rar.count[0], rar.count[1]);
+        // Keine Bösen Sterne mehr aus der Glücksbox (Wunsch von Leander, 10.10.2026). An die Stelle des
+        // Sterns treten Münzen oder Powerpunkte; die Anteile der übrigen Teile bleiben wie sie waren.
         const items = [];
         for (let i = 0; i < n; i++) {
             const x = Math.random();
             let it;
             if (x < 0.04 + tier * 0.01) it = { jewels: round5(5 + Math.random() * (5 + tier * 5)) };       // selten
-            else if (x < 0.07 + tier * 0.02) it = { stars: 1 };                                             // selten
+            else if (x < 0.07 + tier * 0.02) it = Math.random() < 0.5                                       // bisher: ein böser Teil
+                ? { coins: round5((15 + Math.random() * 45) * (1 + tier * 0.5)) }
+                : { pp: round5((8 + Math.random() * 17) * (1 + tier * 0.35)) };
             else if (x < 0.5) it = { pp: round5((8 + Math.random() * 17) * (1 + tier * 0.35)) };
             else it = { coins: round5((15 + Math.random() * 45) * (1 + tier * 0.5)) };
             items.push(it);
