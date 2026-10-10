@@ -16,14 +16,15 @@ const GorillaCfg = {
     furMid: '#2c2c36',
     furDark: '#1e1e26',
     saddle: '#5f5f72',        // Silberrücken (heller Rückenstreifen)
-    chest: '#9c8168',
+    chest: '#6c6c7c',         // Brust und Bauch (heller als das Fell)
     keyFur: '#9aa0ae',        // Schluesseltraeger: graues Fell
     keyMid: '#7e8492',
     keyDark: '#616674',
     keySaddle: '#c6cad6',
-    keyChest: '#cfd3dd',
-    skin: '#b09074',          // Gesicht, Handteller, Fußsohlen
-    skinDark: '#8a6c54',
+    keyChest: '#d8dbe4',
+    skin: '#5e5047',          // Gesicht, Fäuste, Fußsohlen (dunkle Gorillahaut)
+    skinDark: '#463b35',
+    muzzle: '#8d7a6e',        // helle Schnauze, damit das Gesicht auf dem dunklen Fell lesbar bleibt
     leaf: '#6fd44a',          // Blätter im Fell
     vine: '#3f9c46',
     gem: '#ffd23f',
@@ -143,55 +144,112 @@ const GorillaArt = {
         return { x, y };
     },
 
-    // Rumpf mit Silberrücken und ein, zwei Blättern im Fell
-    torso(ctx, by, rx, ry, c, lw, leaves) {
-        Art.body(ctx, 0, by, rx, ry, c.fur, { glossy: true, lineWidth: lw });
-        Art.body(ctx, -rx * 0.22, by - ry * 0.38, rx * 0.62, ry * 0.5, c.saddle, { highlight: false, lineWidth: lw * 0.7 });
-        if (leaves > 0) {
-            Art.body(ctx, rx * 0.5, by - ry * 0.72, 2.2 * leaves, 1.5 * leaves, GorillaCfg.leaf, { lineWidth: 0.9 });
-            Art.body(ctx, -rx * 0.55, by - ry * 0.2, 1.9 * leaves, 1.3 * leaves, GorillaCfg.leaf, { lineWidth: 0.9 });
+    // ── Ganze Figur (Claude, 10.10.2026): von vorn, leicht in Blickrichtung gedreht, Fußpunkt (0, 0).
+    // Eine Einheit = normaler Gorilla, der Boss zeichnet dieselbe Figur größer (ctx.scale vorher).
+    // Breite Schultern, lange Arme mit Fäusten am Boden, kurze Beine, Scheitelkamm, dicker Stirnwulst.
+    // p = { c, lw, t, bob, walk, hands: { b: {x, y}, f: {x, y} }, legLift: [hinten, vorn], mood, look,
+    //       headDy, silver (Schulterfell des Bosses), leaves, scar, red (rote Augen) }
+    figure(ctx, p) {
+        const c = p.c, lw = p.lw;
+        const hip = -8 - p.bob;                 // Hüfthöhe (Oberkörper hebt und senkt sich)
+        // Beine und Füße (s = -1 hinten, +1 vorn; der Schritt hebt abwechselnd einen Fuß)
+        for (const s of [-1, 1]) {
+            const lift = ((p.legLift && p.legLift[s > 0 ? 1 : 0]) || 0) + Math.max(0, s * (p.walk || 0)) * 2.2;
+            const fx = s * 7;
+            Art.limb(ctx, s * 5, hip - 1, fx, -2.6 - lift, 6.6, c.furMid, { lineWidth: lw });
+            Art.body(ctx, fx + s * 0.6, -1.8 - lift, 5.2, 2.6, c.furDark, { lineWidth: lw });
+            Art.body(ctx, fx + s * 0.6, -1.1 - lift, 3.4, 1.1, GorillaCfg.skin, { highlight: false, outline: false });
         }
-    },
-
-    // Gorilla-Kopf: Überaugenwulst, Schnauze mit Nasenlöchern, Knopfaugen.
-    // mood: 'angry' | 'open' (Angriff) | 'tired' | 'dizzy' | 'dead'
-    face(ctx, hx, hy, s, look, mood) {
-        Art.body(ctx, hx, hy, 6.2 * s, 5.4 * s, GorillaCfg.skin, { lineWidth: 1.2 * s });
-        Art.body(ctx, hx + 4.4 * s, hy + 2.4 * s, 3.6 * s, 2.6 * s, GorillaCfg.skinDark, { highlight: false, lineWidth: 1 * s });
-        ctx.fillStyle = GorillaCfg.furDark;
-        for (const dx of [2, 4.8]) {
+        // Rumpf: breit an den Schultern, schmaler an der Hüfte
+        const top = hip - 24;
+        Art.shape(ctx, g => {
+            g.moveTo(-8.5, hip + 1);
+            g.bezierCurveTo(-11.5, hip - 5, -17, hip - 11, -15.5, hip - 18);
+            g.bezierCurveTo(-14.5, top + 1, -7, top - 0.5, 0, top);
+            g.bezierCurveTo(7, top - 0.5, 14.5, top + 1, 15.5, hip - 18);
+            g.bezierCurveTo(17, hip - 11, 11.5, hip - 5, 8.5, hip + 1);
+            g.quadraticCurveTo(0, hip + 3.5, -8.5, hip + 1);
+            g.closePath();
+        }, { x: -17, y: top, w: 34, h: 28 }, c.fur, { glossy: true, lineWidth: lw });
+        if (p.silver) {
+            // Silbernes Schulterfell des alten Anführers
+            for (const s of [-1, 1]) Art.body(ctx, s * 10.5, hip - 19.5, 5.4, 2.8, c.saddle, { highlight: false, outline: false, rot: s * 0.35 });
+        }
+        // Brust (zwei Platten) und Bauch
+        for (const s of [-1, 1]) Art.body(ctx, s * 4.7, hip - 15.5, 5, 3.6, c.chest, { highlight: false, lineWidth: lw * 0.75 });
+        Art.body(ctx, 0, hip - 6.8, 6, 4.8, c.chest, { highlight: false, lineWidth: lw * 0.75 });
+        if (p.leaves) {
+            Art.body(ctx, -12, hip - 21, 2.2, 1.4, GorillaCfg.leaf, { lineWidth: lw * 0.6, rot: -0.5 });
+            Art.body(ctx, 10.5, hip - 3.5, 1.9, 1.2, GorillaCfg.leaf, { lineWidth: lw * 0.6, rot: 0.4 });
+        }
+        // Arme: Oberarm dick, Unterarm etwas dünner, Faust mit Knöcheln
+        const arm = (s, h, col) => {
+            const sx = s * 12.5, sy = hip - 18;
+            const mx = (sx + h.x) / 2 + s * 3.8, my = (sy + h.y) / 2;
+            Art.limb(ctx, sx, sy, mx, my, 7.4, col, { lineWidth: lw });
+            Art.limb(ctx, mx, my, h.x, h.y, 6.4, col, { lineWidth: lw });
+            Art.body(ctx, h.x, h.y, 4.5, 3.9, GorillaCfg.skin, { lineWidth: lw });
+            ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+            ctx.lineWidth = lw * 0.7;
             ctx.beginPath();
-            ctx.arc(hx + dx * s, hy + 2.2 * s, 0.7 * s, 0, TAU);
-            ctx.fill();
-        }
-        ctx.strokeStyle = Art.ink(GorillaCfg.fur);
-        ctx.lineWidth = 2 * s;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(hx - 4.6 * s, hy - 2.2 * s);
-        ctx.quadraticCurveTo(hx + 1 * s, hy - 4.4 * s, hx + 6.4 * s, hy - 2 * s);
-        ctx.stroke();
-        const dead = mood === 'dead';
-        if (dead) LateWorldArt.xEyes(ctx, hx + 0.8 * s, hy - 1 * s, 1.7 * s, 2.1 * s);
+            for (const d of [-1.6, 0, 1.6]) { ctx.moveTo(h.x + d, h.y - 2.4); ctx.lineTo(h.x + d, h.y - 0.8); }
+            ctx.stroke();
+        };
+        arm(-1, p.hands.b, c.furMid);
+        arm(1, p.hands.f, c.fur);
+        // Kopf sitzt tief zwischen den Schultern (kein Hals)
+        const hx = 1.6, hy = top - 2 + (p.headDy || 0);
+        for (const s of [-1, 1]) Art.body(ctx, hx + s * 8.8, hy + 0.5, 2, 2.4, GorillaCfg.skin, { lineWidth: lw * 0.8 });
+        Art.shape(ctx, g => {                                     // Scheitelkamm
+            g.moveTo(hx - 6.8, hy - 3);
+            g.quadraticCurveTo(hx - 3.5, hy - 11.5, hx + 0.8, hy - 11.2);
+            g.quadraticCurveTo(hx + 5.5, hy - 10, hx + 6.8, hy - 3);
+            g.closePath();
+        }, { x: hx - 7, y: hy - 14, w: 14, h: 11 }, c.fur, { lineWidth: lw });
+        Art.body(ctx, hx, hy, 9, 8.2, c.fur, { glossy: true, lineWidth: lw });
+        // Gesicht: dunkle Maske, helle Schnauze mit Nasenlöchern
+        Art.body(ctx, hx, hy + 1.7, 6.9, 5.9, GorillaCfg.skin, { highlight: false, lineWidth: lw * 0.8 });
+        Art.body(ctx, hx, hy + 3.9, 5, 3.2, GorillaCfg.muzzle, { highlight: false, lineWidth: lw * 0.75 });
+        ctx.fillStyle = GorillaCfg.skinDark;
+        for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(hx + s * 1.3, hy + 2.9, 1.05, 0.75, s * 0.4, 0, TAU); ctx.fill(); }
+        const mood = p.mood, look = p.look || { x: 0, y: 0 };
+        if (mood === 'dead') LateWorldArt.xEyes(ctx, hx, hy - 0.4, 1.7, 2.8);
         else if (mood === 'dizzy') {
-            ctx.strokeStyle = Art.INK;
-            ctx.lineWidth = 1.2 * s;
-            for (const dx of [-1.2, 2.8]) {
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = lw * 0.8;
+            for (const s of [-1, 1]) {
                 ctx.beginPath();
-                ctx.arc(hx + dx * s, hy - 1 * s, 1.5 * s, 0.25, Math.PI - 0.25);
+                for (let i = 0; i <= 14; i++) {
+                    const a = i * 0.75 + (p.t || 0) * 6 * s, r = 0.2 + i * 0.11;
+                    const x = hx + s * 2.8 + Math.cos(a) * r, y = hy - 0.4 + Math.sin(a) * r;
+                    if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+                }
                 ctx.stroke();
             }
         } else {
-            for (const dx of [-1.2, 2.8]) {
-                Art.eye(ctx, hx + dx * s, hy - 1 * s, 1.7 * s, { x: look.x, y: look.y },
-                    {
-                        angry: mood !== 'tired', side: dx < 0 ? 'left' : 'right', iris: '#5a3418',
-                        open: mood === 'tired' ? 0.5 : 1,
-                    });
+            for (const s of [-1, 1]) {
+                Art.eye(ctx, hx + s * 2.8, hy - 0.3, 1.9, { x: look.x, y: look.y },
+                    { angry: mood !== 'tired', side: s < 0 ? 'left' : 'right', iris: p.red ? '#ff3b3b' : '#6a3a14',
+                      open: mood === 'tired' ? 0.5 : 1 });
             }
         }
-        Art.mouth(ctx, hx + 2.6 * s, hy + 5.6 * s, 5.4 * s,
-            dead ? 'angry' : mood === 'open' ? 'teeth' : mood === 'dizzy' || mood === 'tired' ? 'o' : 'angry');
+        ctx.lineCap = 'round';                                    // Stirnwulst über den Augen
+        ctx.strokeStyle = GorillaCfg.skinDark;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.moveTo(hx - 5.6, hy - 2.2);
+        ctx.quadraticCurveTo(hx, hy - (mood === 'tired' || mood === 'dizzy' ? 3.6 : 2.4), hx + 5.6, hy - 2.2);
+        ctx.stroke();
+        if (p.scar) {
+            ctx.strokeStyle = '#d9c3b5';
+            ctx.lineWidth = lw * 0.7;
+            ctx.beginPath();
+            ctx.moveTo(hx + 4.6, hy - 4.2); ctx.lineTo(hx + 2.2, hy + 1.6);
+            ctx.moveTo(hx + 4.4, hy - 2); ctx.lineTo(hx + 2.6, hy - 2.6);
+            ctx.stroke();
+        }
+        Art.mouth(ctx, hx, hy + 5.7, 4.4, mood === 'open' ? 'teeth' : (mood === 'dizzy' || mood === 'tired') ? 'o' : 'angry');
+        return { hx, hy };
     },
 };
 
@@ -432,7 +490,7 @@ class Gorilla extends Enemy {
         if (this.isKeyGhost) LateWorldArt.keyBadge(ctx, cx, pos.y - 15 + Math.sin(Art.time * 3 + this.seed) * 2);
     }
 
-    // Gorilla mit Fußpunkt (0, 0)
+    // Gorilla mit Fußpunkt (0, 0); Zeichnung in GorillaArt.figure
     _body(ctx, dead) {
         const t = Art.time + this.seed;
         const st = dead ? 'dead' : this.state;
@@ -440,49 +498,33 @@ class Gorilla extends Enemy {
         const f = this.face;
         const k = this._k();
         const tired = !dead && this.hp <= this.maxHp / 2;
-        const crouch = st === 'leapCrouch' ? Math.sin(k * Math.PI) * 5 : 0;
-        const land = st === 'land' ? Math.sin(k * Math.PI) * 4 : 0;
+        const crouch = st === 'leapCrouch' ? Math.sin(k * Math.PI) * 4 : 0;
+        const land = st === 'land' ? Math.sin(k * Math.PI) * 3 : 0;
         const wind = st === 'punchWind' ? k : 0;
-        const punch = st === 'punch' ? 1 : 0;
-        const beat = st === 'beat' ? Math.abs(Math.sin(t * 17)) : 0;
-        const walk = this.moving ? Math.sin(this.step * 2) : 0;
+        const punch = st === 'punch';
+        const beat = st === 'beat' ? Math.sin(t * 17) : 0;
+        const walk = this.moving && !dead ? Math.sin(this.step * 2) : 0;
         const air = st === 'leapAir' ? Math.sin(clamp(k, 0, 1) * Math.PI) : 0;
-        const bob = dead ? 0 : (this.moving ? Math.abs(walk) * 1.8 : Math.sin(t * 2) * 1) - crouch - land + air * 3;
-        const squ = dead ? 0 : (this.moving ? Math.abs(walk) * 0.05 : Math.sin(t * 2) * 0.02) + (crouch + land) * 0.02;
-        const by = -17 - bob;
+        const bob = dead ? -1 : (this.moving ? Math.abs(walk) * 1.2 : Math.sin(t * 2) * 0.6) - crouch - land + air * 2;
+        const squ = dead ? 0 : (this.moving ? Math.abs(walk) * 0.04 : Math.sin(t * 2) * 0.015) + (crouch + land) * 0.025;
+        const hip = -8 - bob;
+        // Fäuste: am Boden (Knöchelgang), beim Ausholen über dem Kopf, beim Schlag weit vorn
+        let hb = { x: -18, y: -2.5 - Math.max(0, -walk) * 2.5 };
+        let hf = { x: 18, y: -2.5 - Math.max(0, walk) * 2.5 };
+        if (st === 'leapCrouch' || st === 'land') { hb = { x: -21, y: -2 }; hf = { x: 21, y: -2 }; }
+        else if (st === 'leapAir') { hb = { x: -12, y: hip - 34 }; hf = { x: 14, y: hip - 34 }; }
+        else if (wind) hf = { x: 9 - wind * 8, y: hip - 26 - wind * 8 };
+        else if (punch) hf = { x: 29, y: hip - 14 };
+        else if (st === 'beat') { hb = { x: -4.5, y: hip - 16 + beat * 2.5 }; hf = { x: 5.5, y: hip - 16 - beat * 2.5 }; }
         ctx.save();
         Kit915.scaleAt(ctx, 0, 0, 1 + squ, 1 - squ);
-        // Fußsohlen
-        ctx.fillStyle = Art.dark(c.furDark, 0.25);
-        ctx.beginPath();
-        Kit915.oval(ctx, -7 + walk * 1.8, -1.6, 4.6, 2.4);
-        Kit915.oval(ctx, 7 - walk * 1.8, -1.6, 4.6, 2.4);
-        ctx.fill();
         ctx.scale(f, 1);
-        if (this.isKeyGhost && !dead) Art.glow(ctx, 0, by - 4, 24, '#ffd23f', 0.3 + 0.1 * Math.sin(t * 3));
-        // Hinterer Arm (lang, Knöchel am Boden)
-        const bk = { x: -11 - wind * 3, y: by + 12 - beat * 3 };
-        Art.limb(ctx, -6, by + 2, bk.x, bk.y, 5.2, c.furMid, { lineWidth: 1 });
-        Art.body(ctx, bk.x, bk.y, 4, 3.4, GorillaCfg.skinDark, { lineWidth: 1 });
-        // Rumpf mit Silberrücken und Brust
-        GorillaArt.torso(ctx, by, 15, 12, c, 1.5, dead ? 0 : 1);
-        Art.body(ctx, 5, by + 4, 8, 6, c.chest, { highlight: false, lineWidth: 1.1 });
-        // Kopf mit Scheitelkamm und Ohr
-        const hx = 9, hy = by - 10 + wind * 1.5 - punch * 1.5;
-        Art.body(ctx, hx - 1, hy - 5.4, 3.4, 2.4, c.furMid, { lineWidth: 1.1 });
-        Art.body(ctx, hx - 6.6, hy - 1, 2.6, 2.6, GorillaCfg.skinDark, { lineWidth: 1 });
-        Art.body(ctx, hx, hy, 7.6, 6.8, c.fur, { glossy: true, lineWidth: 1.4 });
-        const mood = dead ? 'dead' : (st === 'punch' || st === 'punchWind' || st === 'leapCrouch' || st === 'leapAir') ? 'open'
+        if (this.isKeyGhost && !dead) Art.glow(ctx, 0, hip - 12, 26, '#ffd23f', 0.3 + 0.1 * Math.sin(t * 3));
+        const mood = dead ? 'dead' : (punch || wind || st === 'leapCrouch' || st === 'leapAir') ? 'open'
             : tired ? 'tired' : 'angry';
-        GorillaArt.face(ctx, hx + 1.4, hy + 1, 1.15, { x: this.look.x * f, y: this.look.y }, mood);
-        // Vorderer Arm: Faust zum Boxen, an die Brust beim Trommeln
-        const hand = punch ? { x: 24, y: by + 1 }
-            : wind ? { x: 3 - wind * 9, y: by - 3 - wind * 6 }
-                : beat ? { x: 4, y: by + 2 - beat * 7 }
-                    : { x: 12, y: by + 11 - air * 6 };
-        Art.limb(ctx, 6, by + 2, hand.x, hand.y, 5.6, c.fur, { lineWidth: 1.1 });
-        Art.body(ctx, hand.x, hand.y, 4.6, 4, GorillaCfg.skin, { lineWidth: 1.2 });
-        if (beat > 0.4) Art.ring(ctx, 5, by + 2, 6 + beat * 5, '#ffffff', 1.4, 0.55);
+        GorillaArt.figure(ctx, { c, lw: 1.2, t, bob, walk, hands: { b: hb, f: hf }, mood,
+            look: { x: this.look.x * f, y: this.look.y }, leaves: !dead && !this.gray });
+        if (punch && !dead) Art.glow(ctx, hf.x, hf.y, 14, '#ffe6b8', 0.45);
         ctx.restore();
     }
 }
@@ -863,85 +905,58 @@ class BossGiantGorilla extends Enemy {
         ctx.restore();
     }
 
+    // Riesen-Gorilla: dieselbe Figur wie die normalen Gorillas, 2,6-mal so groß, mit silbernem
+    // Schulterfell und Narbe; Phase 2 mit roten Augen, grünem Zornleuchten und Dampf.
     _body(ctx, dead) {
+        const S = 2.6;
         const t = Art.time + this.seed;
         const st = dead ? 'dead' : this.state;
         const p2 = this.phase === 2;
         const k = this._k();
         const c = C_BLACK;
-        const crouch = st === 'leapCrouch' ? Math.sin(k * Math.PI) * 13 : 0;
-        const land = st === 'land' ? Math.sin(k * Math.PI) * 9 : 0;
+        const crouch = st === 'leapCrouch' ? Math.sin(k * Math.PI) * 5 : 0;
+        const land = st === 'land' ? Math.sin(k * Math.PI) * 3.5 : 0;
         const air = st === 'leapAir' ? Math.sin(clamp(k, 0, 1) * Math.PI) : 0;
         const wind = st === 'punchWind' ? k : 0;
-        const punch = st === 'punch' ? 1 : 0;
-        const stompK = st === 'stomp' || st === 'stompWind' ? k : 0;
+        const punch = st === 'punch';
+        const stompK = st === 'stompWind' ? k : (st === 'stomp' ? 1 : 0);
         const dizzy = st === 'dizzy';
         const rest = st === 'pant';
-        const beat = st === 'intro' ? Math.abs(Math.sin(t * 13)) : 0;
+        const beat = st === 'intro' ? Math.sin(t * 13) : 0;
         const walk = this.moving && !dizzy && !dead ? Math.sin(this.step * 2) : 0;
-        const bob = dead ? 0 : (this.moving ? Math.abs(walk) * 2.8 : Math.sin(t * 1.6) * 2.4) - crouch - land + air * 6;
-        const squ = dead ? 0 : (this.moving ? Math.abs(walk) * 0.04 : Math.sin(t * 1.6) * 0.015) + (crouch + land) * 0.012;
-        const by = -52 - bob;
+        const bob = dead ? -1 : (this.moving ? Math.abs(walk) * 1.1 : Math.sin(t * 1.6) * 0.9) - crouch - land + air * 2.4
+            - (rest ? 1.5 : 0);
+        const squ = dead ? 0 : (this.moving ? Math.abs(walk) * 0.035 : Math.sin(t * 1.6) * 0.015) + (crouch + land) * 0.02;
+        const hip = -8 - bob;
+        // Fäuste je Zustand (Einheiten der kleinen Figur)
+        const sway = dizzy ? Math.sin(t * 5) * 2 : 0;
+        let hb = { x: -18, y: -2.5 - Math.max(0, -walk) * 2.5 };
+        let hf = { x: 18, y: -2.5 - Math.max(0, walk) * 2.5 };
+        if (st === 'leapCrouch' || st === 'land') { hb = { x: -21, y: -2 }; hf = { x: 21, y: -2 }; }
+        else if (st === 'leapAir') { hb = { x: -11, y: hip - 36 }; hf = { x: 13, y: hip - 36 }; }
+        else if (wind) hf = { x: 8 - wind * 9, y: hip - 26 - wind * 9 };
+        else if (punch) hf = { x: 27, y: hip - 13 };
+        else if (st === 'stompWind') { hb = { x: -14, y: hip - 18 - stompK * 14 }; hf = { x: 15, y: hip - 18 - stompK * 14 }; }
+        else if (st === 'stomp') { hb = { x: -20, y: -2 }; hf = { x: 20, y: -2 }; }
+        else if (st === 'intro') { hb = { x: -4.5, y: hip - 16 + beat * 2.5 }; hf = { x: 5.5, y: hip - 16 - beat * 2.5 }; }
+        else if (dizzy) { hb = { x: -17 + sway, y: -4 }; hf = { x: 17 + sway, y: -4 }; }
+        // Stampfender Fuß (stompSide ist die Bildschirmseite, die Figur ist nach this.face gespiegelt)
+        const legLift = [0, 0];
+        if (st === 'stompWind') legLift[this.stompSide * this.face > 0 ? 1 : 0] = 5 * stompK;
         ctx.save();
         Kit915.scaleAt(ctx, 0, 0, 1 + squ, 1 - squ);
-        // Füße: Ferse, helle Fußsohle, Zehen (der stampfende Fuß hebt an und knallt runter)
-        for (const s of [-1, 1]) {
-            const active = (st === 'stompWind' || st === 'stomp') && s === this.stompSide;
-            const lift = active ? (st === 'stomp' ? 0 : 10 * stompK) : 0;
-            const fx = s * 21 + walk * 5 * s;
-            Art.body(ctx, fx, -6 - lift, 13, 6.5, c.furDark, { lineWidth: 1.8 });
-            Art.body(ctx, fx + s * 4, -4 - lift, 8, 4, GorillaCfg.skinDark, { highlight: false, lineWidth: 1.2 });
-            ctx.fillStyle = GorillaCfg.skin;
-            ctx.beginPath();
-            for (let i = 0; i < 3; i++) {
-                ctx.moveTo(fx + s * (11 + i * 2.2), -7 - lift - i * 0.4);
-                ctx.arc(fx + s * (9.6 + i * 2.2), -7 - lift - i * 0.4, 1.9, 0, TAU);
-            }
-            ctx.fill();
-        }
-        ctx.scale(this.face, 1);
-        if (p2 && !dead) Art.glow(ctx, 0, by, 84, GorillaCfg.leaf, 0.2 * this.angry + 0.06 * Math.sin(t * 6));
-        // Hinterer Arm (lange Pranke, Knöchel am Boden)
-        const bk = this._backHand(by, st, stompK, beat);
-        Art.limb(ctx, -14, by + 6, bk.x, bk.y, 15, c.furMid, { lineWidth: 1.6 });
-        Art.body(ctx, bk.x, bk.y, 11, 9, GorillaCfg.skinDark, { lineWidth: 1.5 });
-        // Rumpf mit Silberrücken und Brust
-        GorillaArt.torso(ctx, by, 40, 33, c, 2.4, dead ? 0 : 1.8);
-        Art.body(ctx, 13, by + 12, 22, 16, GorillaCfg.chest, { highlight: false, lineWidth: 1.6 });
-        // Liane als Band mit Edelstein – Merkmal des Endgegners
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(-30, by - 6);
-        ctx.quadraticCurveTo(0, by + 16 + Math.sin(t * 2) * 1.5, 32, by - 2);
-        ctx.strokeStyle = Art.ink(GorillaCfg.vine);
-        ctx.lineWidth = 8.5;
-        ctx.stroke();
-        ctx.strokeStyle = GorillaCfg.vine;
-        ctx.lineWidth = 6;
-        ctx.stroke();
-        Art.body(ctx, 2, by + 13, 5.4, 5.4, p2 ? '#ff4d3d' : GorillaCfg.gem, { lineWidth: 1.2, glossy: true });
-        if (!dead && p2) Art.glow(ctx, 2, by + 13, 24, '#ff4d3d', 0.4 + 0.25 * Math.sin(t * 8));
-        // Blätter im Fell (Dschungel)
-        Art.body(ctx, -22, by - 24, 3.4, 2.2, GorillaCfg.leaf, { lineWidth: 1 });
-        Art.body(ctx, -6, by - 32, 3, 2, GorillaCfg.leaf, { lineWidth: 1 });
-        // Kopf
-        const hx = 22 - wind * 3 + punch * 3, hy = by - 32 + wind * 4 - punch * 2 + (dizzy ? 6 : 0);
-        Art.body(ctx, hx - 3, hy - 20, 9, 6, c.furMid, { lineWidth: 1.6 });       // Scheitelkamm
-        Art.body(ctx, hx - 20, hy - 2, 7, 7, GorillaCfg.skinDark, { lineWidth: 1.4 });  // Ohr
-        Art.body(ctx, hx, hy, 19, 17, c.fur, { glossy: true, lineWidth: 2.1 });
+        ctx.scale(this.face * S, S);
+        if (p2 && !dead) Art.glow(ctx, 0, hip - 16, 32, GorillaCfg.leaf, 0.2 * this.angry + 0.06 * Math.sin(t * 6));
         const mood = dead ? 'dead' : dizzy ? 'dizzy'
-            : (punch || st === 'punchWind' || st === 'leapCrouch' || st === 'leapAir') ? 'open'
+            : (punch || wind || st === 'leapCrouch' || st === 'leapAir' || st === 'stompWind') ? 'open'
                 : rest ? 'tired' : 'angry';
-        GorillaArt.face(ctx, hx + 4, hy + 3, 3, { x: this.look.x * this.face, y: this.look.y }, mood);
-        if (p2 && !dead && !dizzy) Art.glow(ctx, hx + 4, hy - 1, 22, '#ff3b5c', 0.35 + 0.25 * Math.sin(t * 9));
-        if (dizzy && !dead) LateWorldArt.dizzy(ctx, hx + 2, hy - 28, 24, 4.6);
-        // Vorderer Arm (Schlag-, Stampf- und Trommelhaltung)
-        const fh = this._frontHand(by, st, stompK, wind, beat, punch);
-        Art.limb(ctx, 16, by + 4, fh.x, fh.y, 16, c.fur, { lineWidth: 1.8 });
-        Art.body(ctx, fh.x, fh.y, 13, 11, GorillaCfg.skin, { lineWidth: 1.6 });
-        if (punch && !dead) Art.glow(ctx, fh.x, fh.y, 40, '#ffe6b8', 0.4);
-        if (beat > 0.05 && !dead) Art.ring(ctx, 8, by + 6, 12 + beat * 14, '#ffffff', 2, 0.5);
+        const h = GorillaArt.figure(ctx, { c, lw: 0.75, t, bob, walk, hands: { b: hb, f: hf }, legLift, mood,
+            look: { x: this.look.x * this.face, y: this.look.y }, headDy: dizzy ? 1.5 : 0,
+            silver: true, leaves: !dead, scar: true, red: p2 });
+        if (p2 && !dead && !dizzy) Art.glow(ctx, h.hx, h.hy - 0.5, 9, '#ff3b5c', 0.3 + 0.2 * Math.sin(t * 9));
+        if (punch && !dead) Art.glow(ctx, hf.x, hf.y, 15, '#ffe6b8', 0.45);
         ctx.restore();
+        if (dizzy && !dead) LateWorldArt.dizzy(ctx, 1.6 * S * this.face, (hip - 36) * S, 24, 4.6);
         // Zorn-Dampf in Phase 2
         if (p2 && !dizzy && !dead) {
             const prev = ctx.globalAlpha;
@@ -950,29 +965,11 @@ class BossGiantGorilla extends Enemy {
                 const q = (t * 0.85 + i / 3) % 1;
                 ctx.globalAlpha = prev * (1 - q) * 0.5;
                 ctx.beginPath();
-                ctx.arc((i - 1) * 24 + Math.sin(t * 3 + i) * 4, by - 84 - q * 24, 4 + q * 7, 0, TAU);
+                ctx.arc((i - 1) * 24 + Math.sin(t * 3 + i) * 4, (hip - 46) * S - q * 24, 4 + q * 7, 0, TAU);
                 ctx.fill();
             }
             ctx.globalAlpha = prev;
         }
-    }
-
-    // Hintere Faust (Knöchel am Boden; hebt beim Stampfen und Trommeln an)
-    _backHand(by, st, stompK, beat) {
-        if (st === 'stomp' || st === 'stompWind') return { x: -26, y: by + 2 - 14 * stompK };
-        if (st === 'leapCrouch' || st === 'leapAir') return { x: -30, y: by + 18 };
-        if (beat > 0.05) return { x: -8, y: by + 6 - beat * 16 };
-        return { x: -26, y: by + 32 };
-    }
-
-    // Vordere Faust: holt aus, schlägt nach vorn, trommelt auf die Brust
-    _frontHand(by, st, stompK, wind, beat, punch) {
-        if (st === 'leapCrouch' || st === 'leapAir') return { x: 30, y: by + 20 };
-        if (st === 'punchWind') return { x: 14 - wind * 26, y: by - 16 - wind * 14 };
-        if (punch) return { x: 62, y: by + 8 };
-        if (st === 'stomp' || st === 'stompWind') return { x: 26, y: by + 2 - 12 * stompK };
-        if (beat > 0.05) return { x: 12, y: by + 4 - beat * 18 };
-        return { x: 26, y: by + 34 };
     }
 }
 
