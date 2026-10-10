@@ -1,8 +1,8 @@
 # Mark und die geklauten Erfindungen
 
 Ein Action-Abenteuer für den Handy-Browser: Mark, Baseballspieler und Geisterjäger, holt sich in
-43 Welten seine geklauten Erfindungen zurück. Jede Welt hat einen Schlüssel-Träger und einen Boss.
-Die Welten 22 bis 43 hat sich Leander ausgedacht, von der „Zombie Academy“ bis zum „Stachelwald“.
+44 Welten seine geklauten Erfindungen zurück. Jede Welt hat einen Schlüssel-Träger und einen Boss.
+Die Welten 22 bis 44 hat sich Leander ausgedacht, von der „Zombie Academy“ bis zum „Dschungelfelsen“.
 
 **Spielen:** https://thomas123111.github.io/leanders-spiel/
 Auf dem Handy quer halten. Über „Zum Startbildschirm hinzufügen“ wird es eine App (Vollbild, offline).

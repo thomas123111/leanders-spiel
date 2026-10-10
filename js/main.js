@@ -14,7 +14,7 @@ const LEVELS = [TUTORIAL_LEVEL, WORLD1_LEVEL, WORLD2_LEVEL, WORLD3_LEVEL, WORLD4
     WORLD25_LEVEL, WORLD26_LEVEL, WORLD27_LEVEL, WORLD28_LEVEL, WORLD29_LEVEL, WORLD30_LEVEL,
     WORLD31_LEVEL, WORLD32_LEVEL, WORLD33_LEVEL, WORLD34_LEVEL, WORLD35_LEVEL, WORLD36_LEVEL,
     WORLD37_LEVEL, WORLD38_LEVEL, WORLD39_LEVEL, WORLD40_LEVEL, WORLD41_LEVEL, WORLD42_LEVEL,
-    WORLD43_LEVEL];
+    WORLD43_LEVEL, WORLD44_LEVEL];
 
 // Stärkere Bosse in allen Welten (Wunsch von Leander).
 // BOSS_TOUGHNESS: Bosse nehmen nur 1/1,5 des Schadens, halten also 1,5-mal so viel aus. Absichtlich nicht
@@ -508,7 +508,8 @@ const Game = {
             40: { label: '3 BOESE STERNE', coins: 0, jewels: 0, starPack: 3 },
             41: { label: '400 JUWELEN', coins: 0, jewels: 400 },
             42: { label: '500 JUWELEN', coins: 0, jewels: 500 },
-            43: { label: '10000 MUENZEN', coins: 10000, jewels: 0 },
+            43: { label: '500 JUWELEN', coins: 0, jewels: 500 },
+            44: { label: '10000 MUENZEN', coins: 10000, jewels: 0 },
         };
     },
 
@@ -990,6 +991,7 @@ const Game = {
             case 41: add(Eagle, 18); keyCarrier(Eagle); chests(9); break;
             case 42: add(FoxSoldier, 20); keyCarrier(FoxSoldier); chests(10); break;
             case 43: add(Porcupine, 20); keyCarrier(Porcupine); chests(10); break;
+            case 44: add(Gorilla, 20); keyCarrier(Gorilla); chests(10); break;
         }
         this._applyDifficulty(worldNum, diff);
     },
@@ -1029,7 +1031,7 @@ const Game = {
             28: BossPigQueen, 29: BossThunderBall, 30: BossOldWitch,
             31: BossGiantBunny, 32: BossFourArmDevil, 33: BossAlienShip, 34: BossGiantSpider, 35: BossTripleToad,
             36: BossGiantDwarf, 37: BossGiantTree, 38: BossFireGolem, 39: BossPumpkinFather, 40: BossGiantCrab,
-            41: BossGiantEagle, 42: BossGiantFox, 43: BossGiantPorcupine,
+            41: BossGiantEagle, 42: BossGiantFox, 43: BossGiantPorcupine, 44: BossGiantGorilla,
         };
         // Welt 11/12 bekommen eigene Boss-Varianten (Pixel-Roboter, Sternen-Ritter), falls vorhanden
         if (typeof BossPixelRobot !== 'undefined') bosses[11] = BossPixelRobot;

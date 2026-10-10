@@ -50,6 +50,7 @@ const Music = {
         werewolf: 'howl', angel: 'heaven', mummy: 'tomb', firepig: 'forge', thunder: 'storm', witch: 'witch',
         bunny: 'happy', devil: 'witch', alien: 'chip', spider: 'spooky', toad: 'zombie', dwarf: 'happy',
         treemonster: 'chill', golem: 'forge', pumpkin: 'howl', crab: 'happy', eagle: 'heaven', fox: 'epic', porcupine: 'chill',
+        gorilla: 'epic',
     },
 
     _ensure() {
