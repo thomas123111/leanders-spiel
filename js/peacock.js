@@ -745,6 +745,7 @@ class Peacock extends Enemy {
         const h = PeacockArt.figure(ctx, {
             c, lw: 1.15, t, bob, walk, mood, clawK: claw, wingLift: display * 0.7 + claw * 0.8,
             lean: (st === 'scratch' ? 0.5 : wind * -0.4), look: { x: this.look.x * this.face, y: this.look.y },
+            off: 0,
         });
         if (st === 'shot' && !dead) Art.glow(ctx, h.hx + 8, h.hy + 0.5, 12, PeacockCfg.blue, 0.5 * k);
         if (claw > 0.4 && !dead) Art.glow(ctx, 6.6, -6.6 - claw * 4.4, 11, '#ffe6b8', 0.4);
@@ -802,7 +803,6 @@ class Riesenpfau extends Enemy {
         this.fanA = 0;
         this.fanFriend = null;
         this.fanLock = false;
-        this.spinHit = [];
         this.spinSlept = false;
         this.spinTick = 0;
         this.bigHits = 0;             // große Angriffe seit dem Phasenwechsel
@@ -1049,7 +1049,6 @@ class Riesenpfau extends Enemy {
 
     // ── c) Drehangriff: das Rad wirbelt, im Kreis Schaden; der Federtaumel schläfert ein ──
     _startSpin(player) {
-        this.spinHit = [];
         this.spinSlept = false;
         this.spinTick = 0;
         this.spinAngle = this.wheelA;
@@ -1112,14 +1111,14 @@ class Riesenpfau extends Enemy {
             this.aim.x += (c.x + (c.w || 20) / 2 - this.aim.x) * Math.min(1, dt * 1.6);
             this.aim.y += (c.y + (c.h || 20) / 2 - this.aim.y) * Math.min(1, dt * 1.6);
         } else if (!player.dead && this.stateT < this.stateDur * 0.5) {
-            const room = PeacockArt.room(world);
-            let tx = player.x + player.w / 2, ty = player.y + player.h / 2;
-            if (room) {
-                tx = clamp(tx, room.x + this.w / 2 + 6, room.x + room.w - this.w / 2 - 6);
-                ty = clamp(ty, room.y + this.h / 2 + 6, room.y + room.h - this.h / 2 - 6);
-            }
-            this.aim.x += (tx - this.aim.x) * Math.min(1, dt * 1.4);
-            this.aim.y += (ty - this.aim.y) * Math.min(1, dt * 1.4);
+            this.aim.x += (player.x + player.w / 2 - this.aim.x) * Math.min(1, dt * 1.4);
+            this.aim.y += (player.y + player.h / 2 - this.aim.y) * Math.min(1, dt * 1.4);
+        }
+        // Der Zielkreis liegt immer im Raum – auch wenn ein Begleiter an der Wand steht.
+        const room = PeacockArt.room(world);
+        if (room) {
+            this.aim.x = clamp(this.aim.x, room.x + this.w / 2 + 6, room.x + room.w - this.w / 2 - 6);
+            this.aim.y = clamp(this.aim.y, room.y + this.h / 2 + 6, room.y + room.h - this.h / 2 - 6);
         }
         if (this.stateT <= 0) this._set('diveDrop', this.phase === 2 ? 0.24 : 0.32);
     }
