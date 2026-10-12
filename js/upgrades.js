@@ -110,7 +110,9 @@ function upgradesToBuy(g) {
 }
 
 // Kennt diese Liste den Eintrag? (gebraucht, wenn ein alter Spielstand ein Upgrade wiederbringt)
-function upgradeKnown(id) { return !!UPGRADE_BY_ID[id]; }
+// hasOwnProperty statt bloßem Indexieren: ein ausgedachter Schluessel wie "__proto__" oder "constructor"
+// kommt sonst als geerbtes Objekt vom Objektbau und würde als bekannt durchgehen.
+function upgradeKnown(id) { return Object.prototype.hasOwnProperty.call(UPGRADE_BY_ID, id); }
 
 // Frei im Sinn der Waffen-Seite: Eintrag bekannt, und die Bedingung ist erfüllt -
 // erfüllt heißt: über die Welt erreicht ODER im Shop für Juwelen gekauft.
@@ -128,8 +130,8 @@ Object.assign(Game, {
     roundUpgradeSet: false,  // true, solange eine Runde läuft (auch wenn kein Extra gewählt wurde)
     boughtUpgrades: {},      // im Shop für Juwelen gekaufte Extras (Id -> true, im Spielstand)
 
-    // Wird das Extra über den Kauf-Merker gehalten?
-    hasBoughtUpgrade(id) { return !!id && !!this.boughtUpgrades[id]; },
+    // Wird das Extra über den Kauf-Merker gehalten? (wieder hasOwnProperty: "__proto__" ist kein Kauf)
+    hasBoughtUpgrade(id) { return !!id && Object.prototype.hasOwnProperty.call(this.boughtUpgrades, id); },
 
     // Im Shop für Juwelen kaufen: Preis nach Figur, Geld nur bei wirklich fehlenden Extras.
     // Liefert true, wenn das Extra danach frei ist. In einer laufenden Runde geht nichts.

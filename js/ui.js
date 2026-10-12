@@ -350,7 +350,8 @@ const UI = {
     },
 
     // Waagerechte Shop-Reihe: beim Neuzeichnen (nach jedem Kauf) bleibt die Stelle stehen, an der man
-    // stand, und auf dem Computer dreht das Mausrad die Reihe seitwärts.
+    // stand. Auf dem Computer dreht das Mausrad die Reihe seitwärts; die Karten selbst scrollen nicht,
+    // deshalb gibt es hier keine Verzweigung.
     _shopStrip(strip) {
         if (!strip) return;
         strip.scrollLeft = this._shopScroll || 0;
