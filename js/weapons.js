@@ -1,5 +1,10 @@
 // ── Weapons ──
 
+// Baseball-Laserkugeln (Belohnung Welt 45): durch wie viele Gegner ein Ball fliegen darf
+const LASER_PIERCE = 3;
+// Eisball (Belohnung Welt 48): Sekunden, die ein getroffener Gegner einfriert (Bosse: Enemy.freeze)
+const ICE_BALL_SECONDS = 2;
+
 class BaseballBat {
     constructor() {
         this.name = 'Baseballschläger';
@@ -191,10 +196,28 @@ class BaseballLauncher {
         this.poison = false;
         this.knockback = 120;
         this.tripleShot = false;
+        // Die drei neuen Würfe (Welten 45 bis 48, Auswahl in js/upgrades.js). Die Wirkung der
+        // Merkmale am Geschoss (laser / boom / freeze) sitzt in der Geschoss-Schleife von js/main.js.
+        this.laserBalls = false;   // Baseball-Laserkugeln
+        this.boomBall = false;     // Knallball
+        this.iceBall = false;      // Eisball
     }
 
     canAttack() {
         return this.cooldownTimer <= 0;
+    }
+
+    // Scheckt den Wurf mit allen Extra-Merkmalen aus. Die Wirkung liegt an den Geschossen selbst:
+    // laser (Welt 45) und freeze (Welt 48) sowie boom (Welt 46) wertet die Geschoss-Schleife in
+    // js/main.js aus. Wird auch für die drei Splitter-Bälle gebraucht (tripleShot ist Grundausstattung).
+    outfit(p) {
+        if (this.poison) p.poison = true;
+        if (this.shadowCaster) p.shadowCaster = true;
+        if (this.gamerPistol) p.gamerPistol = true;
+        if (this.laserBalls) { p.laser = true; p.pierce = LASER_PIERCE; }
+        if (this.boomBall) p.boom = true;
+        if (this.iceBall) p.freeze = ICE_BALL_SECONDS;
+        return p;
     }
 
     attack(angle, playerPos, projectiles) {
@@ -204,29 +227,27 @@ class BaseballLauncher {
         const cy = playerPos.y + playerPos.h / 2;
 
         const self = this;
+        // Laserkugeln (Welt 45) sind deutlich schneller als normale Bälle
+        const speed = this.laserBalls ? this.projectileSpeed * 1.5 : this.projectileSpeed;
         function spawnBall(a) {
             const p = new Projectile(
                 cx, cy,
-                Math.cos(a) * self.projectileSpeed,
-                Math.sin(a) * self.projectileSpeed,
+                Math.cos(a) * speed,
+                Math.sin(a) * speed,
                 self.damage, 'player', self.knockback
             );
-            if (self.poison) p.poison = true;
-            if (self.shadowCaster) p.shadowCaster = true;
-            if (self.gamerPistol) p.gamerPistol = true;
+            self.outfit(p);
             projectiles.push(p);
         }
 
         if (this.tripleShot) {
             const p = new Projectile(
                 cx, cy,
-                Math.cos(angle) * self.projectileSpeed,
-                Math.sin(angle) * self.projectileSpeed,
+                Math.cos(angle) * speed,
+                Math.sin(angle) * speed,
                 self.damage, 'player', self.knockback
             );
-            if (self.poison) p.poison = true;
-            if (self.shadowCaster) p.shadowCaster = true;
-            if (self.gamerPistol) p.gamerPistol = true;
+            self.outfit(p);
             p.splitBurst = {
                 delay: 0.18,
                 spread: 0.18,
@@ -270,6 +291,8 @@ class BaseballLauncher {
 
     // Standard: blauer Werfer mit orangem Mündungsring und Glaskuppel voller Bälle.
     _drawBasic(ctx, k) {
+        // Der gewählte Extra-Wurf (Welt 45 bis 48) ist an Ball und Mündung zu erkennen
+        const extra = this.laserBalls ? '#7cf2ff' : (this.iceBall ? '#9fe6ff' : (this.boomBall ? '#ff9f1c' : null));
         Art.shape(ctx, c => {
             c.moveTo(-3.8, 1);
             c.lineTo(0.4, 1);
@@ -285,16 +308,16 @@ class BaseballLauncher {
         ctx.roundRect(-4.5, -0.5, 10.5, 1.3, 0.6);
         ctx.fill();
         Art.body(ctx, 0.2, -4.7, 3.8, 3.1, '#c9f1ff', { glossy: true, lineWidth: 1.2, outline: '#3a6f9a' });
-        ctx.fillStyle = this.poison ? '#9dff72' : '#ffffff';
+        ctx.fillStyle = extra || (this.poison ? '#9dff72' : '#ffffff');
         ctx.beginPath();
         ctx.arc(0.5, -4.1, 1.9, 0, TAU);
         ctx.fill();
-        ctx.strokeStyle = this.poison ? '#1f8a3a' : '#e8323c';
+        ctx.strokeStyle = extra ? Art.dark(extra, 0.35) : (this.poison ? '#1f8a3a' : '#e8323c');
         ctx.lineWidth = 0.5;
         ctx.beginPath();
         ctx.arc(-0.9, -4.1, 1.3, -0.8, 0.8);
         ctx.stroke();
-        if (k > 0.55) this._muzzle(ctx, 17.6, (k - 0.55) / 0.45, this.poison ? '#7dff6a' : '#ffe27a');
+        if (k > 0.55) this._muzzle(ctx, 17.6, (k - 0.55) / 0.45, extra || (this.poison ? '#7dff6a' : '#ffe27a'));
     }
 
     // Schattenwerfer: dunkellila, Regenbogenstreifen, schimmernde Mündung.
@@ -372,6 +395,13 @@ class Projectile {
         this.age = 0;
         this.bouncesLeft = owner === 'player' ? 2 : 0;
         this.splitBurst = null;
+        // Extra-Würfe (Welten 45 bis 48): setzt BaseballLauncher.outfit, wirkt in js/main.js
+        this.laser = false;    // Laserkugel: Leuchtspur, fliegt durch Gegner hindurch
+        this.pierce = 0;       // Gegner, die dieser Ball noch durchfliegen darf
+        this.pierceHits = null; // schon getroffene Gegner (jeder nur einmal)
+        this.boom = false;     // Knallball: explodiert beim Aufprall
+        this.boomed = false;   // Explosion hat stattgefunden (genau einmal)
+        this.freeze = 0;       // Eisball: Sekunden, die ein Getroffener einfriert
     }
 
     update(dt, world) {
@@ -387,6 +417,10 @@ class Projectile {
                     p.poison = this.poison;
                     p.shadowCaster = this.shadowCaster;
                     p.gamerPistol = this.gamerPistol;
+                    p.laser = this.laser;
+                    p.pierce = this.pierce;
+                    p.boom = this.boom;
+                    p.freeze = this.freeze;
                     p.bouncesLeft = this.bouncesLeft;
                     Game.projectiles.push(p);
                 }
@@ -511,6 +545,36 @@ class Projectile {
                 ctx.restore();
                 return;
             }
+            if (this.laser) {
+                // Baseball-Laserkugeln (Welt 45): leuchtende Spur, glühender Kern, Nähte bleiben sichtbar
+                this._streak(ctx, x, y, dx, dy, r * 1.15, r * 6.5, '#7cf2ff', 0.6);
+                this._streak(ctx, x, y, dx, dy, r * 0.5, r * 3.2, '#ffffff', 0.75);
+                Art.glow(ctx, x, y, r * 4.2, '#39d5ff', 0.85);
+                Art.body(ctx, x, y, r, r, '#eafcff', { glossy: true, outline: '#1f7fae' });
+                this._seams(ctx, x, y, r, age, '#ff5a1f');
+                return;
+            }
+            if (this.freeze) {
+                // Eisball (Welt 48): eiskalter Ball mit Kristall und kalter Spur
+                this._streak(ctx, x, y, dx, dy, r * 0.9, r * 3, '#c9f2ff', 0.5);
+                Art.glow(ctx, x, y, r * 3.2, '#6fd6ff', 0.7);
+                Art.body(ctx, x, y, r, r, '#dff6ff', { glossy: true, outline: '#2a6f9e' });
+                this._crystal(ctx, x, y, r, age * 4);
+                return;
+            }
+            if (this.boom) {
+                // Knallball (Welt 46): dunkler Ball mit glimmender Lunte
+                this._streak(ctx, x, y, dx, dy, r * 0.85, r * 2.8, '#ff9f1c', 0.45);
+                Art.glow(ctx, x, y, r * 3 + Math.sin(age * 18) * r * 0.5, '#ff7a1f', 0.6);
+                Art.body(ctx, x, y, r * 1.1, r * 1.1, '#2c2a4a', { glossy: true, outline: '#12081f' });
+                ctx.fillStyle = '#ff9f1c';
+                ctx.beginPath();
+                ctx.arc(x - dx * r * 0.2, y - dy * r * 0.2, Math.max(0.8, r * 0.34), 0, TAU);
+                ctx.fill();
+                Art.sparkle(ctx, x - dx * r * 0.2, y - dy * r * 0.2,
+                    r * (0.5 + 0.25 * Math.sin(age * 22)), '#ffe27a', 0.9);
+                return;
+            }
             if (this.explosive) {
                 this._fireball(ctx, x, y, r, dx, dy, t, age);
                 return;
@@ -552,18 +616,7 @@ class Projectile {
             this._streak(ctx, x, y, dx, dy, r * 0.85, r * 2.8, poison ? '#9dff72' : '#ffffff', 0.38);
             Art.glow(ctx, x, y, r * 2.6, poison ? '#5dff3a' : '#fff2c0', poison ? 0.6 : 0.45);
             Art.body(ctx, x, y, r, r, poison ? '#a8ff7e' : '#ffffff', { glossy: true, outline: poison ? '#2a7a30' : '#8e9ab8' });
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(age * 14);
-            ctx.strokeStyle = poison ? '#1f7a3a' : '#e8323c';
-            ctx.lineWidth = Math.max(0.7, r * 0.16);
-            ctx.lineCap = 'round';
-            ctx.beginPath();
-            ctx.arc(-r * 0.95, 0, r * 0.62, -0.95, 0.95);
-            ctx.moveTo(r * 0.95 + r * 0.62 * Math.cos(Math.PI - 0.95), r * 0.62 * Math.sin(Math.PI - 0.95));
-            ctx.arc(r * 0.95, 0, r * 0.62, Math.PI - 0.95, Math.PI + 0.95);
-            ctx.stroke();
-            ctx.restore();
+            this._seams(ctx, x, y, r, age, poison ? '#1f7a3a' : '#e8323c');
             return;
         }
         // ── Gegner-Geschosse ──
@@ -573,20 +626,7 @@ class Projectile {
             this._streak(ctx, x, y, dx, dy, r * 0.85, r * 2.8, '#c9f2ff', 0.45);
             Art.glow(ctx, x, y, r * 3, '#6fd6ff', 0.7);
             Art.body(ctx, x, y, r, r, '#9fe6ff', { glossy: true, outline: '#2a6f9e' });
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(age * 3);
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = Math.max(0.7, r * 0.18);
-            ctx.lineCap = 'round';
-            ctx.beginPath();
-            for (let i = 0; i < 3; i++) {
-                const a = i * Math.PI / 3;
-                ctx.moveTo(Math.cos(a) * r * 0.72, Math.sin(a) * r * 0.72);
-                ctx.lineTo(-Math.cos(a) * r * 0.72, -Math.sin(a) * r * 0.72);
-            }
-            ctx.stroke();
-            ctx.restore();
+            this._crystal(ctx, x, y, r, age * 3);
             return;
         }
         if (this.poison) {
@@ -692,6 +732,40 @@ class Projectile {
         }
         // 'orb' und 'poison' zeichnen die normalen Zweige (Energiekugel bzw. Gifttropfen)
         return false;
+    }
+
+    // Mitrollende Baseball-Nähte (normaler Ball, Laser- und Eisball)
+    _seams(ctx, x, y, r, age, color) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(age * 14);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = Math.max(0.7, r * 0.16);
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(-r * 0.95, 0, r * 0.62, -0.95, 0.95);
+        ctx.moveTo(r * 0.95 + r * 0.62 * Math.cos(Math.PI - 0.95), r * 0.62 * Math.sin(Math.PI - 0.95));
+        ctx.arc(r * 0.95, 0, r * 0.62, Math.PI - 0.95, Math.PI + 0.95);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // Eiskristall: sechs Speichen, drei durchgehende Linien
+    _crystal(ctx, x, y, r, rot) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(rot);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = Math.max(0.7, r * 0.18);
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        for (let i = 0; i < 3; i++) {
+            const a = i * Math.PI / 3;
+            ctx.moveTo(Math.cos(a) * r * 0.72, Math.sin(a) * r * 0.72);
+            ctx.lineTo(-Math.cos(a) * r * 0.72, -Math.sin(a) * r * 0.72);
+        }
+        ctx.stroke();
+        ctx.restore();
     }
 
     // Kurzer, spitz zulaufender Schweif hinter dem Geschoss.

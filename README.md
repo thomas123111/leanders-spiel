@@ -33,14 +33,14 @@ werden im Browser erzeugt (keine Bild- oder Tondateien).
 | `js/art.js` | gemeinsamer Zeichenstil (Schattierung, Umriss, Augen, Leuchten) |
 | `js/fx.js` | Partikel, schwebende Zahlen, Schockwellen, Umgebungseffekte |
 | `js/world.js` | Karten, Kollision, Welt-Grafik |
-| `js/entities.js`, `js/entities2.js` | Gegner, Bosse, Begleiter |
+| `js/entities.js`, `js/entities2.js` | Gegner, Bosse, Begleiter; Gegner-Grundklasse `freeze()` (Eisball, Eishammer) und die Schattenwolke des Krokodils |
 | `js/zombie.js`, `js/butterfly.js`, `js/dragon.js` | Welt 22 (Zombies, Riesen-Zombie), Welt 23 (Schmetterlinge, Drei-Kopf-Schmetterling), Welt 24 (Drachenkinder, Drachenvater) |
 | `js/werewolf.js`, `js/angel.js`, `js/mummy.js`, `js/firepig.js`, `js/thunder.js`, `js/witch.js` | Welt 25–30 (Werwölfe, böse Engel, Mumien, Feuerschweine, Blitzbälle, Hexenkinder und ihre Bosse) |
 | `js/bunny.js` … `js/fox.js` (12 Dateien) | Welt 31–42 (Hasen, Teufel, Aliens, Spinnen, Frösche, Zwerge, Baummonster, Feuergolems, Kürbiskinder, Krebse, Adler, Fuchssoldaten) |
 | `js/porcupine.js`, `js/gorilla.js` | Welt 43–44 (Stachelschwein, Gorilla und ihre Bosse) |
 | `js/peacock.js` … `js/snowman.js` (6 Dateien) | Welt 45–50 (Pfauen, Clowns, Pandas, Einhörner, Vampire, Schneemänner und ihre Bosse) – noch Platzhalter aus dem Gerüst |
 | `js/progress.js`, `js/ui-box.js`, `js/ui-end.js`, `js/ui-progress.js` | Powerpunkte, Quests, Power-Pfad, Tagesleiste, Glücksboxen, Endseite |
-| `js/player.js`, `js/weapons.js`, `js/loot.js` | Mark, Waffen, Truhen, Schlüssel, Münzen |
+| `js/player.js`, `js/weapons.js`, `js/loot.js` | Mark, Waffen (Baseball-Werfer: Laserkugel, Knallball, Eisball), Truhen, Schlüssel, Münzen |
 | `js/upgrades.js`, `js/ui-waffen.js`, `css/waffen.css` | auswählbare Upgrades: die Liste, die Auswahl für eine Runde und die Seite „Waffen“ |
 | `js/hud.js`, `js/ui.js`, `css/game.css` | Anzeige im Spiel und Menüs |
 | `js/sound.js`, `js/music.js` | Geräusche und Musik (Web Audio) |

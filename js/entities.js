@@ -17,6 +17,9 @@ class Enemy {
         this.knockbackVy = 0;
         this.phasesThroughWalls = false;
         this.contactDamage = true;
+        // Einfrieren (Eisball, Eishammer) - sitzt an der Grundklasse, damit alle 50 Welten es können
+        this.freezeTimer = 0;      // > 0: eingefroren, bewegt und schießt nicht
+        this.freezeCooldown = 0;   // Bosse: höchstens alle 4 Sekunden wieder einfrierbar
     }
 
     centerX() { return this.x + this.w / 2; }
@@ -25,6 +28,28 @@ class Enemy {
     rect() { return { x: this.x, y: this.y, w: this.w, h: this.h }; }
     isFlashing() { return this.iFrames > 0 && Math.floor(this.iFrames * 20) % 2; }
     deathProgress() { return 1 - this.deathTimer / 0.4; }
+
+    // Einfrieren (Eisball, Eishammer): steht `seconds` Sekunden blau und mit Eiskristallen ein,
+    // bewegt und schießt nicht - die Gegner-Schleife in js/main.js hält ihn in dieser Zeit an.
+    // Bosse frieren höchstens 0,6 Sekunden ein und höchstens alle 4 Sekunden wieder.
+    // Gibt true zurück, wenn das Einfrieren gewirkt hat.
+    freeze(seconds) {
+        if (this.dead || !(seconds > 0)) return false;
+        if (this.isBoss) {
+            if (this.freezeCooldown > 0) return false;
+            this.freezeTimer = Math.min(seconds, 0.6);
+            this.freezeCooldown = 4;
+        } else {
+            this.freezeTimer = Math.max(this.freezeTimer, seconds);
+        }
+        if (typeof FX !== 'undefined') {
+            FX.burst(this.centerX(), this.centerY(), ['#c9f2ff', '#6fd6ff', '#ffffff'], 7, 95, 0.45, { kind: 'spark' });
+        }
+        return true;
+    }
+
+    // Eingefroren? Wird zentral für alle Gegner abgefragt (js/main.js)
+    isFrozen() { return this.freezeTimer > 0; }
 
     takeDamage(amount, knockbackAngle, knockbackForce) {
         if (this.iFrames > 0 || this.dead) return;
@@ -2569,6 +2594,7 @@ class Juri {
         this.dead = false; this.iFrames = 0; this.hitFlash = 0;
         this.attackTimer = 0; this.attackCooldown = 0.8;
         this.hitCount = 0; this.fireCircle = false; this.melonHammers = false;
+        this.iceHammer = false;      // Eishammer (Belohnung Welt 50): Schläge frieren den Gegner ein
         this.target = null; this.swingAngle = 0;
         this.swinging = false; this.swingTimer = 0;
         // Anzeige: Blickrichtung, Laufen, Feuerkreis-Aufblitzen
@@ -2920,6 +2946,9 @@ class Juri {
         // Der Feuerkreis zählt beim Hauptziel mit – sonst verschluckt dessen Unverwundbarkeit den Feuerschaden
         if (fire) dmg += 4;
         tg.takeDamage(dmg, ang, this.melonHammers ? 170 : 120);
+        // Eishammer (Belohnung Welt 50): der getroffene Gegner friert ein.
+        // Wie lange und wie oft bei Bossen entscheidet Enemy.freeze (js/entities.js).
+        if (this.iceHammer) tg.freeze(2);
         const r = Math.max(tg.w, tg.h) * 0.35;
         const ix = tx - Math.cos(ang) * r, iy = ty - Math.sin(ang) * r;
         if (typeof FX !== 'undefined') {
@@ -2927,6 +2956,10 @@ class Juri {
                 // Melonen-Stückchen und Kerne
                 FX.burst(ix, iy, ['#ff4d6d', '#ff8fa3', '#3ddc6e', '#1f8a3a'], 10, 150, 0.55, { gravity: 260 });
                 FX.burst(ix, iy, '#2a1a14', 4, 120, 0.45, { size: 1.4, gravity: 260 });
+            } else if (this.iceHammer) {
+                // Eissplitter und Kristalle
+                FX.burst(ix, iy, ['#c9f2ff', '#6fd6ff', '#ffffff'], 9, 130, 0.5, { kind: 'spark' });
+                FX.ring(ix, iy, '#9fe6ff', Math.max(12, r * 1.6), 0.3, 2);
             } else {
                 FX.burst(ix, iy, ['#fff6a8', '#ffd23f', '#ffffff'], 6, 120, 0.35, { kind: 'star' });
             }
@@ -3099,7 +3132,9 @@ class Juri {
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(ang);
-        Art.limb(ctx, -1.5, 0, 10.5, 0, 2.1, '#ffd23f', { lineWidth: 1, outline: '#8a5a00' });
+        const icy = !!this.iceHammer;
+        Art.limb(ctx, -1.5, 0, 10.5, 0, 2.1, icy ? '#8fd6ff' : '#ffd23f',
+            { lineWidth: 1, outline: icy ? '#2a6f9e' : '#8a5a00' });
         // kurzes Stauchen beim Aufprall
         const squash = sw >= 0.4 && sw < 0.7 ? Math.sin((sw - 0.4) / 0.3 * Math.PI) * 0.22 : 0;
         ctx.translate(13, 0);
@@ -3113,6 +3148,19 @@ class Juri {
             ctx.moveTo(0, -5.6);
             ctx.lineTo(0, 5.6);
             ctx.stroke();
+        } else if (icy) {
+            // Eishammer: Kopf aus hellem Eis mit Rissen und kaltem Leuchten
+            Art.glow(ctx, 0, 0, 9, '#6fd6ff', 0.45);
+            Art.box(ctx, -3, -4.4, 6, 8.8, 2, '#9fe6ff', { outline: '#2a6f9e', highlight: false, glossy: true });
+            ctx.strokeStyle = '#e6fbff';
+            ctx.lineWidth = 0.8;
+            ctx.beginPath();
+            ctx.moveTo(-2.2, -2.6);
+            ctx.lineTo(0.4, -0.4);
+            ctx.lineTo(-1.2, 1.6);
+            ctx.lineTo(1.8, 3.2);
+            ctx.stroke();
+            Art.sparkle(ctx, 2.6, -3.6, 1.6 + Math.sin(Art.time * 6) * 0.5, '#ffffff', 0.85);
         } else {
             Art.box(ctx, -3, -4.4, 6, 8.8, 2, '#ff4d5e', { outline: '#7a1020', highlight: false });
             ctx.fillStyle = '#ffd23f';
@@ -3154,6 +3202,8 @@ class ShadowCrocodile {
         this.dead = false; this.iFrames = 0; this.hitFlash = 0;
         this.shootTimer = 0; this.shootCooldown = 1.2;
         this.fireExplosion = false; this.fruitAmmo = false;
+        this.shadowVeil = false;   // Schattenwolke (Belohnung Welt 49): alle 12 Sekunden eine Wolke um Mark
+        this.cloudTimer = 2.5;     // Sekunden bis zur nächsten Wolke
         this.target = null; this.facingAngle = 0;
         // Anzeige: Blickrichtung, Laufen, Maul nach dem Spucken
         this.faceX = 1; this.moving = false; this.walkT = 0;
@@ -3270,6 +3320,21 @@ class ShadowCrocodile {
                     p.radius = 4.5;
                 }
                 Game.projectiles.push(p);
+            }
+        }
+
+        // Schattenwolke (Belohnung Welt 49): alle 12 Sekunden eine dunkle Wolke um Mark. Solange er
+        // darin steht, gibt die Gegner-Schleife (js/main.js) allen Gegnern ein Ersatzziel.
+        if (this.shadowVeil && typeof Game !== 'undefined' && Game.shadowClouds) {
+            this.cloudTimer -= dt;
+            if (this.cloudTimer <= 0) {
+                this.cloudTimer = 12;
+                Game.shadowClouds.push(new ShadowCloud(px, py));
+                if (typeof FX !== 'undefined') {
+                    FX.ring(px, py, '#8a5cff', SHADOW_CLOUD_RADIUS, 0.55, 4);
+                    FX.burst(px, py, ['#2b1466', '#6a3fd6', '#b28cff'], 14, 120, 0.6, { kind: 'smoke', size: 6 });
+                    FX.text(px, py - 20, 'Schattenwolke!', '#b28cff', 11, { life: 1.4 });
+                }
             }
         }
 
@@ -3469,6 +3534,96 @@ class ShadowCrocodile {
         }
         if (this.poisonTimer > 0) Juri.poisonMark(ctx, cx + f * 10, pos.y - 13, t);
         Juri.hpBar(ctx, cx, pos.y - 14, this.hp, this.maxHp);
+    }
+}
+
+// ══════════════════════════════════════════
+// ── Schattenwolke (Belohnung des Schattenkrokodils, Welt 49) ──
+// ══════════════════════════════════════════
+
+// Eine dunkle Wolke, die das Krokodil alle 12 Sekunden um Mark legt (etwa 4 Sekunden).
+// Solange Mark in der Wolke steht, bekommen die Gegner in der Gegner-Schleife (js/main.js)
+// dieses Ersatzziel statt Mark: Sie zielen nicht auf ihn und laufen ihm nicht nach.
+// Bosse durchschauen die Wolke nach 1,5 Sekunden wieder (bossTimer).
+const SHADOW_CLOUD_LIFE = 4;          // Sekunden
+const SHADOW_CLOUD_RADIUS = 46;       // Welt-Einheiten
+const SHADOW_CLOUD_BOSS_BLIND = 1.5;  // so lange verlieren auch Bosse Mark
+
+class ShadowCloud {
+    constructor(x, y) {
+        this.x = x; this.y = y;
+        this.r = SHADOW_CLOUD_RADIUS;
+        this.w = this.r * 2; this.h = this.r * 2;
+        this.timer = SHADOW_CLOUD_LIFE;
+        this.maxLife = SHADOW_CLOUD_LIFE;
+        this.bossTimer = SHADOW_CLOUD_BOSS_BLIND;
+        this.seed = Math.random() * 10;
+        this.noShadow = true;
+        this.puffs = [];
+        for (let i = 0; i < 8; i++) {
+            this.puffs.push({
+                a: (TAU * i) / 8 + Math.random() * 0.6,
+                d: this.r * (0.1 + Math.random() * 0.6),
+                rad: this.r * (0.34 + Math.random() * 0.3),
+                spin: 0.5 + Math.random() * 0.9,
+            });
+        }
+        // Ersatzziel: liest die Position der Wolke, schreibt aber alles Unveränderte an Mark selbst.
+        // Darum ein Proxy auf Mark und kein Kopie-Objekt: Gegner-Methoden wie player.stun(…) wirken
+        // weiterhin auf den echten Mark, während sie ihn an einem anderen Ort vermuten.
+        const cloud = this;
+        this.decoy = (typeof Game !== 'undefined' && Game.player)
+            ? new Proxy(Game.player, {
+                get(t, k) {
+                    if (k === 'x') return cloud.x - t.w / 2;
+                    if (k === 'y') return cloud.y - t.h / 2;
+                    return Reflect.get(t, k);
+                },
+                set(t, k, v) { return Reflect.set(t, k, v); },
+            })
+            : null;
+    }
+
+    // Stillstand der Zeit: die Wolke löst sich von selbst auf. true, solange sie noch da ist.
+    update(dt) {
+        this.timer -= dt;
+        if (this.bossTimer > 0) this.bossTimer -= dt;
+        return this.timer > 0;
+    }
+
+    // Steht die Welt-Position (px, py) in der Wolke?
+    covers(px, py) { return Math.hypot(px - this.x, py - this.y) <= this.r; }
+
+    centerX() { return this.x; }
+    centerY() { return this.y; }
+
+    // Dunkle, weich wandernde Pusteblume über der Szenerie. Mark bleibt darin schemenhaft zu sehen.
+    draw(ctx, camera) {
+        if (this.timer <= 0) return;
+        const p = camera.worldToScreen(this.x, this.y);
+        const t = Art.time;
+        const fade = clamp(Math.min(this.timer / 0.5, (this.maxLife - this.timer) / 0.35 + 0.25), 0, 1);
+        ctx.save();
+        Art.glow(ctx, p.x, p.y, this.r * 1.5, '#2b1466', 0.5 * fade);
+        for (const puff of this.puffs) {
+            const a = puff.a + t * 0.5 * puff.spin + this.seed;
+            const x = p.x + Math.cos(a) * puff.d;
+            const y = p.y + Math.sin(a) * puff.d * 0.74;
+            const rad = puff.rad * (0.92 + Math.sin(t * 1.7 + puff.a * 3) * 0.08);
+            ctx.globalAlpha = 0.5 * fade;
+            ctx.fillStyle = '#170b2b';
+            ctx.beginPath();
+            ctx.ellipse(x, y, rad, rad * 0.82, 0, 0, TAU);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 0.34 * fade;
+        Art.ring(ctx, p.x, p.y, this.r * 0.96, '#8a5cff', 1.6, 1);
+        for (let i = 0; i < 3; i++) {
+            const a = t * 1.1 + (TAU * i) / 3 + this.seed;
+            Art.sparkle(ctx, p.x + Math.cos(a) * this.r * 0.9, p.y + Math.sin(a) * this.r * 0.66,
+                2 + Math.sin(t * 4 + i) * 0.9, '#b28cff', 0.5 * fade);
+        }
+        ctx.restore();
     }
 }
 

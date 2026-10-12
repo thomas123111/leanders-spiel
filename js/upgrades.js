@@ -15,7 +15,7 @@ const UPGRADE_HEROES = [
 // figur: 'mark' | 'juri' | 'croc' | 'panda'
 // istFrei(game): frei, sobald der Merker gesetzt ist ODER die Welt erreicht wurde, die es früher automatisch gab
 // where: Hinweis, wo man das Upgrade bekommt (steht auf der gesperrten Karte)
-// bald: Wirkung baut ein späterer Auftrag, hier sind nur Eintrag, Auswahl und Merker
+// bald: ein Eintrag ist nur Vorbereitet, die Wirkung baut ein späterer Auftrag (heute hat keines mehr)
 const UPGRADES = [
     // ── Mark ──
     { id: 'tripleShot', figur: 'mark', name: 'Schnell-Wurf', emoji: '⚡',
@@ -50,16 +50,16 @@ const UPGRADES = [
         text: 'Die Krone startet die Runde mit einem schützenden Schild.',
         where: 'Welt 4 schaffen oder 500 🪙 im Shop',
         istFrei: g => !!g.unlockedCrown },
-    { id: 'laserBalls', figur: 'mark', name: 'Baseball-Laserkugeln', emoji: '🔮', bald: true,
-        text: 'Marks Bälle glühen als Laserkugeln. Die Wirkung kommt gleich.',
+    { id: 'laserBalls', figur: 'mark', name: 'Baseball-Laserkugeln', emoji: '🔮',
+        text: 'Marks Werfer schießt leuchtende Laser-Baseballs: schneller als Bälle und durch bis zu drei Gegner hindurch.',
         where: 'Welt 45 schaffen',
         istFrei: g => !!g.unlockedLaserBalls },
-    { id: 'boomBall', figur: 'mark', name: 'Knallball', emoji: '💥', bald: true,
-        text: 'Ein Ball, der laut knallt und Gegner wegschleudert. Die Wirkung kommt gleich.',
+    { id: 'boomBall', figur: 'mark', name: 'Knallball', emoji: '💥',
+        text: 'Marks Würfe knallen beim Aufprall und treffen alle Gegner im Umkreis - auch hinter Ecken.',
         where: 'Welt 46 schaffen',
         istFrei: g => !!g.unlockedBoomBall },
-    { id: 'iceBall', figur: 'mark', name: 'Eisball', emoji: '❄️', bald: true,
-        text: 'Würfe frieren Gegner zwei Sekunden ein. Die Wirkung kommt gleich.',
+    { id: 'iceBall', figur: 'mark', name: 'Eisball', emoji: '❄️',
+        text: 'Getroffene Gegner frieren zwei Sekunden ein und können sich nicht bewegen. Bosse halten nur 0,6 Sekunden dicht.',
         where: 'Welt 48 schaffen',
         istFrei: g => !!g.unlockedIceBall },
     // ── Juri ──
@@ -67,8 +67,8 @@ const UPGRADES = [
         text: 'Juri zündet um sich herum einen brennenden Kreis an.',
         where: 'Ab Welt 8 dabei',
         istFrei: g => g.maxWorldUnlocked >= 8 },
-    { id: 'juriIceHammer', figur: 'juri', name: 'Eishammer', emoji: '🧊', bald: true,
-        text: 'Juris Hammer trifft eiskalt. Die Wirkung kommt gleich.',
+    { id: 'juriIceHammer', figur: 'juri', name: 'Eishammer', emoji: '🧊',
+        text: 'Juris Hammerschläge frieren Gegner ein, und der Hammer sieht eisig aus. Für Bosse gilt dasselbe wie beim Eisball.',
         where: 'Welt 50 schaffen',
         istFrei: g => !!g.unlockedIceHammer },
     // ── Schattenkrokodil ──
@@ -76,8 +76,8 @@ const UPGRADES = [
         text: 'Die Schüsse des Krokodils explodieren in Feuer.',
         where: 'Ab Welt 9 dabei',
         istFrei: g => g.maxWorldUnlocked >= 9 },
-    { id: 'crocShadowCloud', figur: 'croc', name: 'Schattenwolke', emoji: '🌑', bald: true,
-        text: 'Das Krokodil hüllt Gegner in eine Schattenwolke. Die Wirkung kommt gleich.',
+    { id: 'crocShadowCloud', figur: 'croc', name: 'Schattenwolke', emoji: '🌑',
+        text: 'Alle 12 Sekunden legt das Krokodil eine dunkle Wolke um Mark. Solange er darin steht, suchen ihn die Gegner woanders.',
         where: 'Welt 49 schaffen',
         istFrei: g => !!g.unlockedShadowCloud },
 ];

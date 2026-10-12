@@ -38,6 +38,9 @@ const KEEP_ALIVE = o => !o.dead;
 const KEEP_ENEMY = e => !(e.dead && e.deathTimer <= 0 && !e.isBoss);
 const KEEP_COIN = c => !c.collected;
 
+// Knallball (Belohnung Welt 46): Radius der Explosionswelle in Welt-Einheiten
+const BOOM_BALL_RADIUS = 60;
+
 const Game = {
     canvas: null,
     ctx: null,
@@ -49,6 +52,7 @@ const Game = {
     enemies: [],
     projectiles: [],
     companions: [], // Juri, Krokodil
+    shadowClouds: [], // Schattenwolken des Krokodils (Belohnung Welt 49)
     particles: [],
     chests: [],
     coinDrops: [],
@@ -784,6 +788,7 @@ const Game = {
         this.coinDrops = [];
         this.props = [];
         this.companions = [];
+        this.shadowClouds = [];
         this.keyDrops = [];
         this.hasKey = false;
         this.bossActive = false;
@@ -819,12 +824,14 @@ const Game = {
             const juri = new Juri(this.player.x + 30, this.player.y + 20);
             if (this.upgradeOn('juriFireCircle')) juri.fireCircle = true;
             if (this.upgradeOn('fruit')) juri.melonHammers = true;
+            if (this.upgradeOn('juriIceHammer')) juri.iceHammer = true;
             this.companions.push(juri);
         }
         if (worldNum >= 8) {
             const croc = new ShadowCrocodile(this.player.x - 30, this.player.y + 20);
             if (this.upgradeOn('crocFire')) croc.fireExplosion = true;
             if (this.upgradeOn('fruit')) croc.fruitAmmo = true;
+            if (this.upgradeOn('crocShadowCloud')) croc.shadowVeil = true;
             this.companions.push(croc);
         }
 
@@ -844,6 +851,10 @@ const Game = {
             }
             // Stern „Scharf“ (Schnell-Wurf): schnellere Würfe
             if (this.upgradeOn('tripleShot')) w.cooldown = 0.22;
+            // Die drei neuen Würfe aus Welten 45 bis 48 (Wirkung in js/weapons.js und der Geschoss-Schleife)
+            if (this.upgradeOn('laserBalls')) w.laserBalls = true;
+            if (this.upgradeOn('boomBall')) w.boomBall = true;
+            if (this.upgradeOn('iceBall')) w.iceBall = true;
             this.player.rangedWeapon = w;
             if (worldNum >= 3) this.player.activeWeapon = w;
         }
@@ -1370,6 +1381,10 @@ const Game = {
             return;
         }
 
+        // Schattenwolken (Belohnung des Schattenkrokodils) zuerst: die Gegner-Schleife gleich
+        // braucht ihren aktuellen Zustand, und Bosse finden Mark nach 1,5 Sekunden zurück.
+        if (this.shadowClouds.length) compactInPlace(this.shadowClouds, c => c.update(dt));
+
         // Gegner
         const playerBush = this.world.isBush(this.player.x + this.player.w / 2, this.player.y + this.player.h / 2);
         for (const enemy of this.enemies) {
@@ -1379,9 +1394,12 @@ const Game = {
                 if (!enemy._deathFxDone) this._onEnemyDeathFx(enemy);
                 continue;
             }
-            // Versteinert (Stein-Gift aus Welt 15) oder im Busch versteckt: wartet, bleibt aber verwundbar
-            const frozen = enemy.stoneTimer > 0;
-            if (frozen) enemy.stoneTimer -= dt;
+            // Versteinert (Stein-Gift Welt 15), eingefroren (Eisball, Eishammer) oder im Busch
+            // versteckt: wartet, bleibt aber verwundbar
+            const frozen = enemy.stoneTimer > 0 || enemy.freezeTimer > 0;
+            if (enemy.stoneTimer > 0) enemy.stoneTimer -= dt;
+            if (enemy.freezeTimer > 0) enemy.freezeTimer -= dt;
+            if (enemy.freezeCooldown > 0) enemy.freezeCooldown -= dt;
             const enemyBush = this.world.isBush(enemy.centerX(), enemy.centerY());
             if (frozen || (enemyBush && !playerBush && !enemy.isBoss)) {
                 if (enemy.iFrames > 0) enemy.iFrames -= dt;
@@ -1390,7 +1408,8 @@ const Game = {
             // Alle Gegner bekommen die Geschoss-Liste. Früher bekamen Bosse die Partikel-Liste –
             // Bosse aus Welt 5–8 legten ihre Geschosse dort ab, was das Spiel abstürzen ließ.
             // tempo: Bosse BOSS_TEMPO, normale Gegner je nach Schwierigkeit (für sie läuft die Zeit schneller)
-            enemy.update(dt * (enemy.tempo || 1), this.world, this.player, this.enemies, this.projectiles);
+            // Steht Mark in einer Schattenwolke, erhält er statt Mark ein Ersatzziel (zielen und folgen).
+            enemy.update(dt * (enemy.tempo || 1), this.world, this._aimTarget(enemy), this.enemies, this.projectiles);
 
             // Berührungsschaden
             if (!enemy.dead && enemy.contactDamage && !this.player.dead &&
@@ -1456,19 +1475,24 @@ const Game = {
         // Geschosse
         for (const proj of this.projectiles) {
             proj.update(dt, this.world);
+            // Knallball (Welt 46): explodiert auch, wenn er an eine Wand läuft oder abläuft
+            if (proj.boom && proj.dead) this._boomSplash(proj, null);
             if (proj.dead) continue;
             if (proj.owner === 'player') {
                 for (const enemy of this.enemies) {
                     if (enemy.dead) continue;
+                    // Laserkugeln fliegen durch Gegner hindurch - jeder Gegner wird pro Ball nur einmal getroffen
+                    if (proj.pierceHits && proj.pierceHits.indexOf(enemy) >= 0) continue;
                     const dist = Math.hypot(proj.x - enemy.centerX(), proj.y - enemy.centerY());
                     if (dist < proj.radius + Math.max(enemy.w, enemy.h) / 2) {
                         let damage = proj.damage;
                         if (this.player.hasPowerUp('attack')) damage += 1;
                         enemy.takeDamage(damage, Math.atan2(proj.vy, proj.vx), proj.knockback);
-                        proj.dead = true;
                         Sound.hit();
                         if (enemy.dead) Sound.enemyDeath();
-                        FX.burst(proj.x, proj.y, ['#ffffff', proj.poison ? '#7dff6a' : '#ffd23f'], 4, 90, 0.25, { kind: 'spark' });
+                        FX.burst(proj.x, proj.y, ['#ffffff', proj.laser ? '#6fd6ff' : (proj.poison ? '#7dff6a' : '#ffd23f')], 4, 90, 0.25, { kind: 'spark' });
+                        // Eisball (Welt 48): getroffene Gegner frieren ein (Dauer und Bosse: Enemy.freeze)
+                        if (proj.freeze) enemy.freeze(proj.freeze);
                         // Welt 15: Stein-Gift versteinert manchmal kurz
                         if (this.upgradeOn('petrifyStone') && !enemy.dead && !enemy.isBoss && Math.random() < 0.2) {
                             enemy.stoneTimer = 1.5;
@@ -1478,7 +1502,16 @@ const Game = {
                         if (this.player.orangeExplosion) this._orangeSplash(proj.x, proj.y, enemy);
                         // Feuer-Geschosse (z. B. Schatten-Krokodil ab Welt 9) explodieren
                         if (proj.explosive) this._orangeSplash(proj.x, proj.y, enemy, ['#ff5a1f', '#ffd23f', '#ff9f1c']);
-                        break;
+                        // Knallball (Welt 46): beim Aufprall auf einen Gegner
+                        if (proj.boom) this._boomSplash(proj, enemy);
+                        // Baseball-Laserkugeln (Welt 45): durch bis zu drei Gegner, erst dann weg
+                        if (proj.pierce > 0) {
+                            proj.pierce--;
+                            (proj.pierceHits || (proj.pierceHits = [])).push(enemy);
+                        } else {
+                            proj.dead = true;
+                            break;
+                        }
                     }
                 }
             } else if (proj.owner === 'enemy' && proj.hitsCompanions && this._hitCompanion(proj)) {
@@ -1730,6 +1763,43 @@ const Game = {
         // Kein Auto-Angriff mehr: Mark greift nur an, wenn Leander es selbst auslöst (p.autoAttack bleibt aus)
     },
 
+    // ── Schattenwolke (Belohnung des Schattenkrokodils, Welt 49) ──
+    // Steht Mark in einer der Wolken, sehen die normalen Gegner ihn nicht mehr: sie bekommen das
+    // Ersatzziel der Wolke und zielen und laufen danach. Bosse verlieren ihn nur für 1,5 Sekunden.
+    _aimTarget(enemy) {
+        if (!this.shadowClouds.length || this.player.dead) return this.player;
+        const px = this.player.x + this.player.w / 2;
+        const py = this.player.y + this.player.h / 2;
+        for (const c of this.shadowClouds) {
+            if (c.timer <= 0 || !c.decoy || !c.covers(px, py)) continue;
+            if (enemy.isBoss && c.bossTimer <= 0) continue;
+            return c.decoy;
+        }
+        return this.player;
+    },
+
+    // Knallball (Belohnung Welt 46): der Ball explodiert beim Aufprall auf einen Gegner oder an der
+    // Wand. Die Welle trifft alle Gegner im Umkreis - auch hinter Ecken, denn sie geht durch Wände.
+    _boomSplash(proj, except) {
+        if (proj.boomed) return;
+        proj.boomed = true;
+        proj.dead = true;
+        const x = proj.x, y = proj.y;
+        FX.ring(x, y, '#ffd23f', BOOM_BALL_RADIUS, 0.35, 6);
+        FX.ring(x, y, '#ff7a1f', BOOM_BALL_RADIUS * 0.6, 0.3, 4);
+        FX.burst(x, y, ['#ff5a1f', '#ffd23f', '#ffe9a8', '#ffffff'], 16, 210, 0.5);
+        if (this.camera) this.camera.shake(5, 0.2);
+        if (!except) Sound.hit();     // Wand: es hat nur geknallt, vorher lief kein Treffer-Sound
+        for (const e of this.enemies) {
+            if (e === except || e.dead) continue;
+            const ex = e.centerX(), ey = e.centerY();
+            if (Math.hypot(ex - x, ey - y) < BOOM_BALL_RADIUS + Math.max(e.w, e.h) / 2) {
+                e.takeDamage(proj.damage, Math.atan2(ey - y, ex - x), 220);
+                if (e.dead) Sound.enemyDeath();
+            }
+        }
+    },
+
     _orangeSplash(x, y, except, colors = ['#ff9f1c', '#ffd23f', '#ffe9a8']) {
         FX.burst(x, y, colors, 8, 120, 0.35);
         FX.ring(x, y, '#ffb347', 34, 0.25, 3);
@@ -1857,6 +1927,46 @@ const Game = {
                 console.error('Zeichenfehler in ' + name + ':', err);
             }
         }
+        // Eingefroren (Eisball, Eishammer): der Eispanzer kommt über die Figur, auch bei Treffer-Blitz
+        if (e.freezeTimer > 0 && !e.dead) this._drawFrozen(ctx, e, camera);
+        ctx.restore();
+    },
+
+    // Eispanzer eines eingefrorenen Gegners: blauer Schimmer, helle Schale, Eiskristall und Funkeln.
+    // Läuft in den letzten 0,4 Sekunden weich aus.
+    _drawFrozen(ctx, e, camera) {
+        const p = camera.worldToScreen(e.x, e.y);
+        const cx = p.x + e.w / 2;
+        const cy = p.y + e.h / 2;
+        const rx = Math.max(e.w, e.h) * 0.6 + 2;
+        const t = Art.time;
+        const a = clamp(e.freezeTimer / 0.4, 0, 1);
+        ctx.save();
+        ctx.globalAlpha *= 0.5 * a;
+        ctx.fillStyle = '#6fd6ff';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx * 0.82, rx * 0.92, 0, 0, TAU);
+        ctx.fill();
+        ctx.globalAlpha = Math.min(1, 0.7 * a);
+        ctx.fillStyle = 'rgba(201,242,255,0.5)';
+        ctx.strokeStyle = '#2a6f9e';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, rx * 1.06, 0, 0, TAU);
+        ctx.fill();
+        ctx.stroke();
+        ctx.globalAlpha = Math.min(1, 0.9 * a);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        const cr = rx * 0.52;
+        for (let i = 0; i < 3; i++) {
+            const ang = i * Math.PI / 3 + t * 0.35;
+            ctx.moveTo(cx + Math.cos(ang) * cr, cy + Math.sin(ang) * cr);
+            ctx.lineTo(cx - Math.cos(ang) * cr, cy - Math.sin(ang) * cr);
+        }
+        ctx.stroke();
+        Art.sparkle(ctx, cx + Math.cos(t * 2 + e.x) * rx * 0.78, cy + Math.sin(t * 2 + e.y) * rx * 0.8, 2.2, '#ffffff', 0.75);
         ctx.restore();
     },
 
@@ -2082,6 +2192,8 @@ const Game = {
             if (typeof p.x === 'number' && !pointOnScreen(p.x, p.y, camera, 60)) continue;
             try { p.draw(ctx, camera); } catch (err) { p.dead = true; }
         }
+        // Schattenwolken (Belohnung Welt 49) über den Figuren: Mark bleibt darin nur schemenhaft sichtbar
+        for (const c of this.shadowClouds) c.draw(ctx, camera);
         if (this.world.drawOverlay) this.world.drawOverlay(ctx, camera);
         this._drawEnemyBars(ctx);
         FX.drawFloaters(ctx, camera);
