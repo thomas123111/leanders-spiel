@@ -14,7 +14,7 @@ const CORE = [
     './icons/icon-512.png',
     ...['game', 'box', 'end', 'progress', 'waffen'].map(n => './css/' + n + '.css' + V),
     ...['utils', 'art', 'fx', 'data', 'sound', 'music', 'input', 'camera', 'world', 'weapons', 'loot',
-        'entities', 'entities2', 'zombie', 'butterfly', 'dragon',
+        'entities', 'entities2', 'pandafreund', 'zombie', 'butterfly', 'dragon',
         'werewolf', 'angel', 'mummy', 'firepig', 'thunder', 'witch',
         'bunny', 'devil', 'alien', 'spider', 'toad', 'dwarf', 'treemonster', 'golem', 'pumpkin', 'crab', 'eagle', 'fox', 'porcupine', 'gorilla',
         'peacock', 'clown', 'panda', 'unicorn', 'vampire', 'snowman', 'player', 'hud', 'progress', 'ui',

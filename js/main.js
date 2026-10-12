@@ -834,6 +834,11 @@ const Game = {
             if (this.upgradeOn('crocShadowCloud')) croc.shadowVeil = true;
             this.companions.push(croc);
         }
+        // Der kleine Panda ist die Belohnung für Welt 47: ab der Freischaltung rollt er in jeder Welt
+        // mit (nur im Training nicht). Stufen aus den Power-Upgrades wendet js/progress.js an.
+        if (worldNum > 0 && this.unlockedPandaFriend && typeof PandaBuddy !== 'undefined') {
+            this.companions.push(new PandaBuddy(this.player.x + 16, this.player.y + 28));
+        }
 
         // Grundausstattung und die Extras, für die genau das gewählte Upgrade steht (js/upgrades.js)
         if (this.unlockedRanged || worldNum >= 3) {
@@ -1495,6 +1500,11 @@ const Game = {
                         FX.burst(proj.x, proj.y, ['#ffffff', proj.laser ? '#6fd6ff' : (proj.poison ? '#7dff6a' : '#ffd23f')], 4, 90, 0.25, { kind: 'spark' });
                         // Eisball (Welt 48): getroffene Gegner frieren ein (Dauer und Bosse: Enemy.freeze)
                         if (proj.freeze) enemy.freeze(proj.freeze);
+                        // Bambus-Pflanze des kleinen Pandas: Gift, das über ein paar Sekunden Leben zieht
+                        // (Zähler und Tropfen in js/pandafreund.js, ab der Welt-47-Freischaltung)
+                        if (proj.pandaPlant && typeof PandaBuddy !== 'undefined') {
+                            PandaBuddy.poisonEnemy(enemy, proj.poisonSeconds, proj.poisonDamage);
+                        }
                         // Welt 15: Stein-Gift versteinert manchmal kurz
                         if (this.upgradeOn('petrifyStone') && !enemy.dead && !enemy.isBoss && Math.random() < 0.2) {
                             enemy.stoneTimer = 1.5;
@@ -2047,13 +2057,19 @@ const Game = {
     // stehen dahinter im Kreis, kleiner und etwas blasser. Alle schauen immer nach vorne.
     // Wischen dreht den Kreis (UI.titleTurn), Tippen lässt die vordere Figur springen.
     _drawTitleCarousel(ctx, mx, my, scale) {
-        if (!this._titleChars) {
-            this._titleChars = TITLE_CHARS.map(c => {
+        // Der Panda steht nur im Kreis, wenn er freigeschaltet ist – die Liste deshalb an den
+        // Freischaltungsstand binden (titleCharList in js/ui.js) und bei Änderung neu bauen.
+        const visible = titleCharList();
+        const shownKey = visible.map(c => c.id).join(',');
+        if (!this._titleChars || this._titleCharsKey !== shownKey) {
+            this._titleCharsKey = shownKey;
+            this._titleChars = visible.map(c => {
                 let obj = null;
                 try {
                     if (c.id === 'mark') obj = new Player(0, 0);
                     else if (c.id === 'juri') obj = new Juri(0, 0);
                     else if (c.id === 'croc') obj = new ShadowCrocodile(0, 0);
+                    else if (c.id === 'panda' && typeof PandaBuddy !== 'undefined') obj = new PandaBuddy(0, 0);
                 } catch (e) { /* Figur fehlt: Platz bleibt leer */ }
                 return { id: c.id, obj };
             });

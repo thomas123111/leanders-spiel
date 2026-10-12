@@ -28,7 +28,14 @@ const TITLE_CHARS = [
     { id: 'mark', name: 'Mark', text: 'Mark ist Baseballspieler und Geisterjäger. Seit er bestohlen wurde, hat er sich verwandelt … Findet es selbst heraus!' },
     { id: 'juri', name: 'Juri', text: 'Juri ist Marks bester Freund. Er haut mit seinem Hammer auf die Gegner und kämpft ab Welt 7 an deiner Seite, ab Welt 8 sogar mit einem Feuerkreis.' },
     { id: 'croc', name: 'Schatten-Krokodil', text: 'Das Schatten-Krokodil spuckt auf alle Gegner in der Nähe. Es hilft dir ab Welt 8, ab Welt 9 explodieren seine Schüsse in Feuer.' },
+    { id: 'panda', name: 'Kleiner Panda', needs: 'unlockedPandaFriend', text: 'Der kleine Panda rollt an deiner Seite und vergiftet Gegner mit Bambus-Pflanzen. Er hilft dir, seit du Welt 47 geschafft hast.' },
 ];
+
+// Die Figuren, die wirklich im Karussell stehen: Einträge mit `needs` sind nur sichtbar, wenn ihr
+// Merker gesetzt ist (der Panda kommt erst mit der Belohnung aus Welt 47 dazu).
+function titleCharList() {
+    return TITLE_CHARS.filter(c => !c.needs || !!(typeof Game !== 'undefined' && Game[c.needs]));
+}
 
 // Werfer-Upgrades (Game-Flag → Name), mit Bild auf der Belohnungsseite der Bösen Sterne
 const UPGRADE_INFO = {
@@ -150,10 +157,11 @@ const UI = {
         });
     },
 
-    // Text der vorderen Figur im Karussell
+    // Text der vorderen Figur im Karussell (nur freigeschaltete Figuren, siehe titleCharList)
     _titleCharText() {
-        const n = TITLE_CHARS.length;
-        const c = TITLE_CHARS[((Game.titleIndex || 0) % n + n) % n];
+        const list = titleCharList();
+        const n = list.length;
+        const c = list[((Game.titleIndex || 0) % n + n) % n];
         return `<b>${c.name}:</b> ${c.text}`;
     },
 

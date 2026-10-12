@@ -10,11 +10,13 @@ const POWER_COSTS = [10, 50, 100, 135, 185, 200, 235, 250, 300, 350, 400, 450];
 const POWER_MAX = POWER_COSTS.length;
 
 // Wer upgraden kann. from = ab welcher geschafften Welt die Figur dabei ist (Juri ab Welt 6, Krokodil ab 7).
+// needs = ein Merker im Spielstand muss gesetzt sein (der Panda ist die Belohnung aus Welt 47).
 // Wirkung je Stufe: Mark +1 Lebenspunkt (¼ Herz) und +5 % Schaden; Freunde +8 % Leben und +6 % Schaden.
 const POWER_HEROES = [
     { id: 'mark', name: 'Mark', emoji: '🧢', from: 0, hpPerLevel: 1, dmgPerLevel: 0.05 },
     { id: 'juri', name: 'Juri', emoji: '🔨', from: 6, hpMulPerLevel: 0.08, dmgPerLevel: 0.06 },
     { id: 'croc', name: 'Schatten-Krokodil', emoji: '🐊', from: 7, hpMulPerLevel: 0.08, dmgPerLevel: 0.06 },
+    { id: 'panda', name: 'Kleiner Panda', emoji: '🐼', from: 47, needs: 'unlockedPandaFriend', hpMulPerLevel: 0.08, dmgPerLevel: 0.06 },
 ];
 
 // Glücksboxen: fünf Seltenheiten. count = [min, max] Zahl der Belohnungen in der Box,
@@ -196,6 +198,8 @@ const Progress = {
         const h = POWER_HEROES.find(x => x.id === id);
         if (!h) return false;
         if (!h.from) return true;
+        // Feste Freischaltung im Spielstand (Panda: Belohnung für Welt 47)
+        if (h.needs) return !!(Game[h.needs]);
         return !!(Game.worldRewardClaims && Game.worldRewardClaims['w' + h.from]) || (Game.maxWorldUnlocked || 1) > h.from;
     },
     nextCost(id) {
@@ -226,7 +230,9 @@ const Progress = {
             if (p.rangedWeapon) p.rangedWeapon.damage *= k;
         }
         for (const c of game.companions) {
-            const id = c instanceof Juri ? 'juri' : (typeof ShadowCrocodile !== 'undefined' && c instanceof ShadowCrocodile ? 'croc' : null);
+            const id = c instanceof Juri ? 'juri'
+                : (typeof ShadowCrocodile !== 'undefined' && c instanceof ShadowCrocodile ? 'croc'
+                    : (typeof PandaBuddy !== 'undefined' && c instanceof PandaBuddy ? 'panda' : null));
             const lv = id ? this.levels[id] || 0 : 0;
             if (!lv) continue;
             const h = POWER_HEROES.find(x => x.id === id);

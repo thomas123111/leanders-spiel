@@ -279,11 +279,11 @@ const UIProgress = {
             for (let i = 1; i <= POWER_MAX; i++) box += `<i class="${i <= lv ? 'on' : ''}"></i>`;
             const effect = lv ? this._heroEffect(h, lv) : (max ? 'keine Wirkung' : 'Ab der nächsten Stufe: ' + this._heroEffect(h, 1));
             const foot = !open
-                ? `<span class="pg-lock">🔒 Kommt ab Welt ${h.from + 1}</span>`
+                ? `<span class="pg-lock">🔒 ${h.needs ? 'Erst mit dem Panda-Freund (Welt 47)' : 'Kommt ab Welt ' + (h.from + 1)}</span>`
                 : (max
                     ? '<button class="btn small gold" disabled>MAX</button>'
                     : `<button class="btn small ${can ? 'green pulse' : 'gray'}" data-act="powerup" data-id="${h.id}" ${can ? '' : 'disabled'}>Upgrade · <span class="pp-orb"></span> ${cost}</button>`);
-            cards += `<div class="card pg-hero${open ? '' : ' locked'}" data-id="${h.id}" style="--a:${h.id === 'mark' ? '#ffd23f' : (h.id === 'juri' ? '#3fa7ff' : '#3ddc97')}">
+            cards += `<div class="card pg-hero${open ? '' : ' locked'}" data-id="${h.id}" style="--a:${h.id === 'mark' ? '#ffd23f' : (h.id === 'juri' ? '#3fa7ff' : (h.id === 'panda' ? '#b8e05a' : '#3ddc97'))}">
                 <canvas class="pg-cv"></canvas>
                 <span class="head"><span class="ico">${h.emoji}</span><h3>${h.name}</h3></span>
                 <span class="pg-lab">Stufe ${lv}/${POWER_MAX}</span>
@@ -332,6 +332,7 @@ const UIProgress = {
             if (id === 'mark') o = new Player(0, 0);
             else if (id === 'juri') o = new Juri(0, 0);
             else if (id === 'croc' && typeof ShadowCrocodile !== 'undefined') o = new ShadowCrocodile(0, 0);
+            else if (id === 'panda' && typeof PandaBuddy !== 'undefined') o = new PandaBuddy(0, 0);
         } catch (e) { return; }
         if (!o || !o.w || !o.h) return;
         const cam = { x: 0, y: 0, width: 100, height: 100, shakeX: 0, shakeY: 0, worldToScreen(x, y) { return { x, y }; } };
