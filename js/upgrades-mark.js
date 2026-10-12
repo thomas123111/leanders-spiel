@@ -32,7 +32,11 @@
 //   knockBack(gegner, winkel, kraft)                Gegner wegschubsen
 //   slowEnemy(gegner, sekunden, faktor)             Gegner zeitweise verlangsamen
 //   spawnHelper(objektOderKlasse, x, y, sekunden)   zeitweiliger Begleiter
-//   companionShoot(figur, winkel, tempo, schaden)   Schuss eines Begleiters
+//   companionShoot(figur, winkel, tempo, schaden)   Schuss eines Begleiters (löst onShoot aus)
+//     Achtung: companionShoot loest den onShoot-Haken derselben Figur aus. Ein onShoot-Haken,
+//     der selbst companionShoot aufruft, loest sich damit immer wieder selbst - deshalb immer
+//     erst pruefen (if (this._schon) return; this._schon = true; ... this._schon = false;),
+//     sonst kappt das Geruest die Kette nach acht Runden (Meldung in der Konsole).
 //
 // Regeln: kein neuer Welt-Datei-Griff, keine APP_VERSION, kein ?v=. Pro Runde gilt
 // genau EIN Extra - die Auswahl und das Kaufen im Shop übernimmt js/upgrades.js von selbst.

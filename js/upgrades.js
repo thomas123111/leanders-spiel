@@ -214,15 +214,20 @@ const hookRuns = new Set();  // läuft gerade "(figur)|onX" auf? (Schutz gegen e
 const hookPending = [];      // Haken, die mitten in einer Auslösung erneut gewünscht wurden
 let hookRunDepth = 0;        // Tiefe der äußeren Auslösung
 let hookDraining = false;    // die nachgeholten Haken laufen gerade (ein einziger Stapel, keine Rekursion)
+let hookZaehler = 0;         // vergibt die eigene Nummer jeder Haken-Liste
 let hookErrorCount = 0;      // wie oft ein Upgrade-Haken schon daneben ging
+const hookMeldeBudget = { haken: 5, sicherheit: 5 };   // Meldungen je Art, damit die Konsole voll bleibt
 const HOOK_NACHHOL_RUNDEN = 8;   // höchstens so viele Nachhol-Runden, dann ist die Kette kappt
 
-// Ein Fehler im Upgrade-Code wird gezählt und nur die ersten paar Male gemeldet,
-// damit ein kaputtes Upgrade die Konsole nicht zumüllt.
-function hookProblem(where, e) {
+// Ein Fehler im Upgrade-Code wird gezählt und nur die ersten paar Male gemeldet, damit ein
+// kaputtes Upgrade die Konsole nicht zumüllt. Schutz-Meldungen ("Kette gekappt", "Liste voll")
+// haben ein eigenes Budget - sie dürfen nicht hinter fünf gewöhnlichen Hakenfehlern verschwinden.
+function hookProblem(where, e, sicherheit) {
     hookErrorCount++;
-    if (typeof console !== 'undefined' && console.error && hookErrorCount <= 5) {
-        console.error('Upgrade-Hak' + (where ? ' ' + where : '') + ':', e && e.message ? e.message : e);
+    const art = sicherheit ? 'sicherheit' : 'haken';
+    if (typeof console !== 'undefined' && console.error && hookMeldeBudget[art] > 0) {
+        hookMeldeBudget[art]--;
+        console.error('Upgrade-Haken' + (where ? ' ' + where : '') + ':', e && e.message ? e.message : e);
     }
 }
 
@@ -236,6 +241,7 @@ function setupHooks(figure, figur) {
         if (!Array.isArray(figure.hooks[name])) figure.hooks[name] = [];
     }
     figure.hooks.figur = figur;
+    figure.hooks._nr = ++hookZaehler;   // eigene Nummer: zwei Figuren derselben Art teilen sich nichts
     return figure.hooks;
 }
 
@@ -246,12 +252,13 @@ function setupHooks(figure, figur) {
 // (onHit bekommt also (gegner, schaden), onDamaged die Menge). Gibt eine Funktion eine Zahl
 // zurück, wirkt die weiter: der letzte Zahlenwert zählt.
 function dispatchHooks(figur, name, args, value) {
-    const hooks = figur ? (figur.hooks && figur.hooks[name]) : (Game.roundHooks && Game.roundHooks[name]);
+    const besitzer = figur ? figur.hooks : Game.roundHooks;
+    const hooks = besitzer && besitzer[name];
     if (!hooks || !hooks.length) return value;
-    const key = (figur ? (figur.hooks.figur || 'objekt') : 'runde') + '|' + name;
+    const key = (besitzer ? (besitzer._nr || besitzer.figur || 'objekt') : 'runde') + '|' + name;
     if (hookRuns.has(key)) {   // Rückruf-Kette: nicht wiederholt aufrufen, nach dem outersten Lauf nachholen
         if (hookPending.length < 16) hookPending.push({ figur, name, args, value });
-        else hookProblem('Nachhole-Liste voll', new Error(name));
+        else hookProblem('Nachhole-Liste voll', new Error(name), true);
         return value;
     }
     const aeussersterLauf = hookRunDepth === 0;
@@ -263,7 +270,7 @@ function dispatchHooks(figur, name, args, value) {
                 const out = value === undefined ? fn(...args) : fn(...args, value);
                 if (typeof out === 'number' && Number.isFinite(out)) value = out;
             } catch (e) {
-                hookProblem((figur ? (figur.constructor && figur.constructor.name) || figur.hooks.figur : 'Runde') + '.' + name, e);
+                hookProblem(((figur && figur.constructor && figur.constructor.name) || (besitzer && besitzer.figur) || 'Runde') + '.' + name, e);
             }
         }
     } finally {
@@ -286,7 +293,7 @@ function holHakenNach() {
     try {
         while (hookPending.length) {
             if (++runden > HOOK_NACHHOL_RUNDEN) {
-                hookProblem('Kette gekappt', new Error(hookPending.length + ' Hakenwünsche'));
+                hookProblem('Kette gekappt', new Error(hookPending.length + ' Hakenwünsche'), true);
                 hookPending.length = 0;
                 break;
             }
@@ -307,7 +314,7 @@ function holHakenNach() {
 Object.assign(Game, {
     roundHooks: null,
     setupRoundHooks() {
-        this.roundHooks = { onUpdate: [], onEnemyKilled: [], onDrawWorld: [] };
+        this.roundHooks = { onUpdate: [], onEnemyKilled: [], onDrawWorld: [], figur: 'runde', _nr: ++hookZaehler };
         for (const u of UPGRADES) u._appliedRound = false;
     },
 });
@@ -380,8 +387,11 @@ function knockBack(e, angle, force) {
 // im Tempo `factor` (0,5 = halb so schnell). Die Engine zählt in js/main.js ab.
 function slowEnemy(e, seconds, factor) {
     if (!e || e.dead) return false;
+    // Faktor nie ganz 0: sonst steht der Gegner still, stellt aber auch nichts mehr fertig
+    // (und seine Schutzzeit würde gar nicht mehr ablaufen) - 0,05 ist die unterste Stufe.
+    const f = Math.max(0.05, factor !== undefined ? factor : 0.6);
     e.slowTimer = Math.max(e.slowTimer || 0, seconds || 2);
-    e.slowFactor = Math.min(e.slowFactor !== undefined ? e.slowFactor : 1, factor !== undefined ? factor : 0.6);
+    e.slowFactor = Math.min(e.slowFactor !== undefined ? e.slowFactor : 1, f);
     return true;
 }
 
