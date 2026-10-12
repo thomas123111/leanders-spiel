@@ -142,7 +142,12 @@ button { font-family: inherit; color: inherit; border: 0; background: none; curs
 .story b { color: #fff; }
 .story.swap { animation: story-in 0.35s ease-out; }
 @keyframes story-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.menu-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+/* Vier Knöpfe unter SPIELEN (Shop, Training, Extra, Waffen): zwei pro Reihe, immer gleich breit */
+.menu-row {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
+    width: 100%; max-width: 420px;
+}
+.menu-row .btn { padding: 0 12px; }
 
 /* ── Kopfzeile der Unterseiten ── */
 .page { flex-direction: column; gap: 10px; background: radial-gradient(120% 90% at 50% 0%, #3a1f7a 0%, var(--night) 70%); }

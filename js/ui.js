@@ -130,6 +130,7 @@ const UI = {
                     <button class="btn blue" data-act="shop">🛒 Shop</button>
                     <button class="btn green" data-act="training">🎯 Training</button>
                     <button class="btn purple" data-act="extra">✨ Extra</button>
+                    <button class="btn pink" data-act="waffen">🗡️ Waffen</button>
                 </div>
             </div>
             <div class="title-ext">${this._extHtml('titleButtons')}</div>`;

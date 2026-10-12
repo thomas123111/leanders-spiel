@@ -373,6 +373,7 @@ const Game = {
         }
         this.activeMode = null;
         this.paused = false;
+        this.unlockRoundUpgrade();
         this._resultDelay = 0;
         this._resultState = null;
         this.setState('TITLE');
@@ -409,6 +410,7 @@ const Game = {
                 iceBall: this.unlockedIceBall,
                 shadowCloud: this.unlockedShadowCloud,
                 iceHammer: this.unlockedIceHammer,
+                upgrade: this.activeUpgrade,
                 star: this.shopRandomStarActive ? {
                     tier: this.shopRandomStarTier, tries: this.shopRandomStarAttempts, done: this.shopRandomStarFinished,
                     earned: !!this.shopRandomStarWithStar,
@@ -460,6 +462,8 @@ const Game = {
                 this.unlockedIceBall = !!data.iceBall;
                 this.unlockedShadowCloud = !!data.shadowCloud;
                 this.unlockedIceHammer = !!data.iceHammer;
+                // Ausgewähltes Extra (Knopf „Waffen“): unbekannte Einträge fallen weg
+                this.activeUpgrade = upgradeKnown(data.upgrade) ? data.upgrade : null;
                 if (data.star && typeof data.star === 'object') {
                     this.shopRandomStarActive = true;
                     this.shopRandomStarTier = clamp(data.star.tier | 0, 0, STAR_RARITIES.length - 1);
@@ -805,48 +809,53 @@ const Game = {
         this._resultDelay = 0;
         this._resultState = null;
 
-        // Begleiter: Juri ist die Belohnung aus Welt 6 (ab Welt 7 dabei), das Krokodil die aus Welt 7 (ab Welt 8)
+        // Das eine ausgewählte Extra wird hier für die ganze Runde festgehalten (js/upgrades.js):
+        // Pause und andere Menüs können es in der Runde nicht mehr ändern.
+        this.lockRoundUpgrade();
+
+        // Begleiter: Juri ist die Belohnung aus Welt 6 (ab Welt 7 dabei), das Krokodil die aus Welt 7 (ab Welt 8).
+        // Dabei sein ist Grundausstattung - ihre Extras wirken nur, wenn genau sie gewählt wurden.
         if (worldNum >= 7) {
             const juri = new Juri(this.player.x + 30, this.player.y + 20);
-            if (worldNum >= 8) juri.fireCircle = true;
-            if (this.unlockedFruitUpgrades) juri.melonHammers = true;
+            if (this.upgradeOn('juriFireCircle')) juri.fireCircle = true;
+            if (this.upgradeOn('fruit')) juri.melonHammers = true;
             this.companions.push(juri);
         }
         if (worldNum >= 8) {
             const croc = new ShadowCrocodile(this.player.x - 30, this.player.y + 20);
-            if (worldNum >= 9) croc.fireExplosion = true;
-            if (this.unlockedFruitUpgrades) croc.fruitAmmo = true;
+            if (this.upgradeOn('crocFire')) croc.fireExplosion = true;
+            if (this.upgradeOn('fruit')) croc.fruitAmmo = true;
             this.companions.push(croc);
         }
 
-        // Freigeschaltete Fähigkeiten
+        // Grundausstattung und die Extras, für die genau das gewählte Upgrade steht (js/upgrades.js)
         if (this.unlockedRanged || worldNum >= 3) {
             this.unlockedRanged = true;
             const w = new BaseballLauncher();
             w.tripleShot = true;
             w.poison = true;
-            if (this.unlockedShadowCaster || worldNum >= 10) {
+            if (this.upgradeOn('shadowCaster')) {
                 w.damage = 5;
                 w.shadowCaster = true;
             }
-            if (this.unlockedGamerPistol || worldNum >= 12) {
+            if (this.upgradeOn('gamerPistol')) {
                 w.damage = 7;
                 w.gamerPistol = true;
             }
             // Stern „Scharf“ (Schnell-Wurf): schnellere Würfe
-            if (this.unlockedTripleShot) w.cooldown = 0.22;
+            if (this.upgradeOn('tripleShot')) w.cooldown = 0.22;
             this.player.rangedWeapon = w;
             if (worldNum >= 3) this.player.activeWeapon = w;
         }
-        // Welt 10: Obst-Upgrades (Orangen-Explosion bei Treffern, Begleiter mit Obst)
-        if (this.unlockedFruitUpgrades) this.player.orangeExplosion = true;
-        // Welt 13: Knochen-Schläger (mehr Schaden)
-        if (this.unlockedBoneBat) {
+        // Obst-Upgrades (Orangen-Explosion bei Treffern, Begleiter mit Obst)
+        if (this.upgradeOn('fruit')) this.player.orangeExplosion = true;
+        // Knochen-Schläger (mehr Schaden)
+        if (this.upgradeOn('boneBat')) {
             this.player.meleeWeapon.damage += 2;
             this.player.meleeWeapon.boneBat = true;
         }
-        // Welt 14: kleine Schlange auf Marks Schulter spuckt Gift
-        if (this.unlockedSnakeCompanion && worldNum > 0 && typeof SnakeBuddy !== 'undefined') {
+        // Kleine Schlange auf Marks Schulter spuckt Gift
+        if (this.upgradeOn('snake') && worldNum > 0 && typeof SnakeBuddy !== 'undefined') {
             this.companions.push(new SnakeBuddy(this.player.x, this.player.y));
         }
         if (this.unlockedAuto) {
@@ -857,7 +866,7 @@ const Game = {
                 this.player.autoCharges = 0;
             }
         }
-        if (this.unlockedCrown) {
+        if (this.upgradeOn('crown')) {
             this.player.hasCrown = true;
             this.player.startCrownShield();
         }
@@ -1461,7 +1470,7 @@ const Game = {
                         if (enemy.dead) Sound.enemyDeath();
                         FX.burst(proj.x, proj.y, ['#ffffff', proj.poison ? '#7dff6a' : '#ffd23f'], 4, 90, 0.25, { kind: 'spark' });
                         // Welt 15: Stein-Gift versteinert manchmal kurz
-                        if (this.unlockedPetrifyStone && !enemy.dead && !enemy.isBoss && Math.random() < 0.2) {
+                        if (this.upgradeOn('petrifyStone') && !enemy.dead && !enemy.isBoss && Math.random() < 0.2) {
                             enemy.stoneTimer = 1.5;
                             FX.burst(enemy.centerX(), enemy.centerY(), ['#b9c3d6', '#ffffff'], 6, 70, 0.4);
                         }

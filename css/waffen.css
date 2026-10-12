@@ -1,0 +1,93 @@
+/* ── Seite „Waffen“: ein auswählbares Upgrade pro Runde (zu js/ui-waffen.js) ──
+   Schlicht gehalten, an css/progress.css angelehnt - die Feinarbeit macht Claude. */
+
+#scr-waffen .page-body { display: flex; flex-direction: column; gap: 10px; }
+
+/* ── Reiter über den vier Figuren ── */
+.wf-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.wf-tab {
+    display: flex; align-items: center; gap: 7px;
+    min-height: 42px; padding: 0 14px;
+    border-radius: 999px;
+    font: inherit; color: var(--muted);
+    background: rgba(10, 4, 26, 0.5);
+    border: 1px solid var(--line);
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+}
+.wf-tab i { font-size: 20px; font-style: normal; line-height: 1; }
+.wf-tab b { font-size: 13px; font-weight: 900; letter-spacing: 0.02em; }
+.wf-tab s { text-decoration: none; font-size: 12px; opacity: 0.6; }
+.wf-tab:active { transform: translateY(2px); }
+.wf-tab.on {
+    color: #3a1d00;
+    background: linear-gradient(180deg, #ffe14d, #ffb01f);
+    border-color: var(--gold);
+    box-shadow: 0 3px 0 #c96a00, 0 0 18px rgba(255, 210, 63, 0.4);
+}
+
+/* ── Zeile: was gilt in der nächsten Runde ── */
+.wf-now {
+    margin: 0; padding: 9px 14px;
+    border-radius: 16px;
+    font-size: 14px; font-weight: 800; color: var(--muted);
+    background: rgba(10, 4, 26, 0.5);
+    border: 1px solid var(--line);
+}
+.wf-now b { color: #ffe38a; }
+
+/* ── Karten ── */
+.wf-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(clamp(190px, 30vw, 250px), 1fr)); gap: 12px; padding: 2px 2px 6px; }
+.wf-card {
+    display: flex; align-items: flex-start; gap: 10px;
+    width: 100%; padding: 11px 12px;
+    border-radius: 18px;
+    font: inherit; color: inherit; text-align: left;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    box-shadow: 0 5px 0 rgba(0, 0, 0, 0.3);
+}
+button.wf-card.free { cursor: pointer; transition: transform 0.08s; }
+button.wf-card.free:active { transform: scale(0.97); }
+.wf-ico { font-size: 30px; line-height: 1; filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.45)); }
+.wf-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.wf-body b { font-size: 15px; font-weight: 900; line-height: 1.15; }
+.wf-body p { margin: 0; font-size: 12px; font-weight: 700; color: var(--muted); line-height: 1.3; }
+.wf-bald {
+    margin-left: 6px; padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 10px; font-weight: 900; font-style: normal; color: #ffe38a;
+    background: rgba(255, 210, 63, 0.16);
+    border: 1px solid rgba(255, 210, 63, 0.4);
+}
+
+/* ── Zustand auf der Karte ── */
+.wf-state {
+    align-self: flex-start; margin-top: 2px;
+    padding: 4px 9px; border-radius: 999px;
+    font-size: 11px; font-weight: 900;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--line);
+}
+.wf-state.ok {
+    color: #3a1d00;
+    background: linear-gradient(180deg, #ffe14d, #ffb01f);
+    border-color: var(--gold);
+}
+.wf-state.lock { color: #b9a9e6; }
+
+/* Ausgewählte Karte deutlich herausgehoben, gesperrte zurückgenommen */
+.wf-card.sel {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 2px rgba(255, 210, 63, 0.5), 0 0 22px rgba(255, 210, 63, 0.45), 0 5px 0 rgba(0, 0, 0, 0.3);
+}
+.wf-card.locked { opacity: 0.6; }
+
+.wf-empty {
+    margin: 4px 0; padding: 14px 16px;
+    border-radius: 18px;
+    font-size: 14px; font-weight: 800; color: var(--muted);
+    background: rgba(10, 4, 26, 0.4);
+    border: 1px dashed var(--line);
+}
+.wf-note { margin: 0 2px 10px; font-size: 11px; font-weight: 700; color: var(--muted); line-height: 1.35; }
