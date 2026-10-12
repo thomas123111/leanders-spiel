@@ -4,12 +4,14 @@
 // Antippen auf der Waffen-Seite wählt an, nochmaliges Antippen wählt ab. In einer laufenden Runde
 // lässt sich nichts mehr ändern - js/main.js legt die Auswahl beim Weltstart für die Runde fest.
 // Spätere Aufträge hängen hier einfach weitere Einträge an und fragen in js/main.js Game.upgradeOn(id) ab.
+// Jedes noch fehlende Extra kann man außerdem im Shop für Juwelen kaufen (Wunsch von Leander, 12.10.2026) -
+// Preise, Kauf und Freiheitsprüfung stehen weiter unten in dieser Datei, die Shop-Seite in js/ui.js zeigt sie nur.
 
 const UPGRADE_HEROES = [
-    { id: 'mark', name: 'Mark', emoji: '🧢' },
-    { id: 'juri', name: 'Juri', emoji: '🔨' },
-    { id: 'croc', name: 'Schattenkrokodil', emoji: '🐊' },
-    { id: 'panda', name: 'Panda', emoji: '🐼' },
+    { id: 'mark', name: 'Mark', emoji: '🧢', farbe: '#ffd23f' },
+    { id: 'juri', name: 'Juri', emoji: '🔨', farbe: '#ff9f2e' },
+    { id: 'croc', name: 'Schattenkrokodil', emoji: '🐊', farbe: '#4fd46a' },
+    { id: 'panda', name: 'Panda', emoji: '🐼', farbe: '#8ab4ff' },
 ];
 
 // figur: 'mark' | 'juri' | 'croc' | 'panda'
@@ -85,13 +87,37 @@ const UPGRADES = [
 const UPGRADE_BY_ID = {};
 for (const u of UPGRADES) UPGRADE_BY_ID[u.id] = u;
 
+// ── Kaufen im Shop ──
+// Preis in Juwelen je Figur (Wunsch von Leander, 12.10.2026): Mark 850, Juri 500, Schattenkrokodil 450,
+// Panda 350. Hier und sonst nirgends ändern - die Shop-Seite holt sich den Preis über upgradePrice().
+// Ein gekauftes Extra bekommt einen eigenen Merker (Game.boughtUpgrades, im Spielstand) und gilt danach
+// auf der Seite „Waffen" als frei. Die Belohnungen aus den Welten bleiben davon unberührt.
+const UPGRADE_PRICES = { mark: 850, juri: 500, croc: 450, panda: 350 };
+
+// Juwelenpreis eines Eintrags (0 bei einem Eintrag, den diese Liste nicht kennt)
+function upgradePrice(u) {
+    return (u && UPGRADE_PRICES[u.figur]) || 0;
+}
+
+// In einer laufenden Runde kauft man nichts (dieselbe Grenze wie beim Auswählen auf der Waffen-Seite).
+function upgradePurchaseBlocked(g) {
+    return !!g && (g.roundUpgradeSet || g.state === 'PLAYING');
+}
+
+// Die Einträge, die man noch nicht hat und im Shop kaufen kann (Reihenfolge der Liste).
+function upgradesToBuy(g) {
+    return UPGRADES.filter(u => !upgradeIsFree(u.id, g));
+}
+
 // Kennt diese Liste den Eintrag? (gebraucht, wenn ein alter Spielstand ein Upgrade wiederbringt)
 function upgradeKnown(id) { return !!UPGRADE_BY_ID[id]; }
 
-// Frei im Sinn der Waffen-Seite: Eintrag bekannt, und die Bedingung ist erfüllt
+// Frei im Sinn der Waffen-Seite: Eintrag bekannt, und die Bedingung ist erfüllt -
+// erfüllt heißt: über die Welt erreicht ODER im Shop für Juwelen gekauft.
 function upgradeIsFree(id, g) {
     const u = UPGRADE_BY_ID[id];
     if (!u || !g) return false;
+    if (g.hasBoughtUpgrade && g.hasBoughtUpgrade(id)) return true;
     try { return !!u.istFrei(g); } catch (e) { return false; }
 }
 
@@ -100,6 +126,22 @@ Object.assign(Game, {
     activeUpgrade: null,     // dauerhaft ausgewähltes Extra (im Spielstand)
     roundUpgrade: null,      // beim Weltstart festgelegtes Extra, in der Runde unveränderlich
     roundUpgradeSet: false,  // true, solange eine Runde läuft (auch wenn kein Extra gewählt wurde)
+    boughtUpgrades: {},      // im Shop für Juwelen gekaufte Extras (Id -> true, im Spielstand)
+
+    // Wird das Extra über den Kauf-Merker gehalten?
+    hasBoughtUpgrade(id) { return !!id && !!this.boughtUpgrades[id]; },
+
+    // Im Shop für Juwelen kaufen: Preis nach Figur, Geld nur bei wirklich fehlenden Extras.
+    // Liefert true, wenn das Extra danach frei ist. In einer laufenden Runde geht nichts.
+    buyUpgrade(id) {
+        const u = UPGRADE_BY_ID[id];
+        const price = upgradePrice(u);
+        if (!u || !price || upgradePurchaseBlocked(this) || upgradeIsFree(id, this)) return false;
+        if (!this._spendJewels(price)) return false;
+        this.boughtUpgrades[id] = true;
+        this.save();
+        return true;
+    },
 
     // Das Extra, das gerade zählt (in der Runde das festgelegte) - oder null.
     // Die Freiheitsprüfung sitzt hier mit drin: ein aus einem alten oder veränderten Spielstand

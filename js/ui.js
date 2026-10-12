@@ -18,10 +18,12 @@ const STAR_RARITIES = [
     { name: 'Legendär', c: '#ffd23f', hi: '#fff6c2', lo: '#b87400', emoji: '🟡' },
     { name: 'Ultralegendär', c: '#ff7af5', hi: '#ffffff', lo: '#5a2ad0', emoji: '🌈', rainbow: true },
 ];
-// Chance, beim Antippen eine Seltenheit aufzusteigen (je aktueller Stufe); 5 Versuche pro Stern.
-// Ergibt am Ende: Selten 8 %, Superselten 36 %, Episch 38 %, Mythisch 15 %, Legendär 2 %, Ultralegendär 0,1 %.
+// Chance, beim Antippen eine Seltenheit aufzusteigen (je aktueller Stufe); sechs Versuche pro Stern –
+// einer pro Seltenheit (Wunsch von Leander, 12.10.2026; Chancen je Stufe bleiben wie sie waren).
+// Ergibt am Ende: Selten 4,7 %, Superselten 28,4 %, Episch 39,7 %, Mythisch 21,8 %, Legendär 4,9 %,
+// Ultralegendär 0,42 % (etwa 1 von 240 Sternen).
 const STAR_UPGRADE_CHANCES = [0.4, 0.3, 0.25, 0.2, 0.15];
-const STAR_TRIES = 5;
+const STAR_TRIES = 6;
 // Figuren im Karussell der Startseite (Wunsch von Leander: wischen → nächste Figur und ihr Text).
 // Die Reihenfolge ist die im Kreis; gezeichnet werden sie in main.js (_drawTitleScene).
 const TITLE_CHARS = [
@@ -246,6 +248,9 @@ const UI = {
     },
 
     // ── Shop ──
+    // Eine einzige Reihe Karten, mit dem Finger nach links und rechts gewischt (Wunsch von Leander,
+    // 12.10.2026) - Vorbild ist die waagerechte Weltenauswahl (.world-strip). Die Seite scrollt nicht mehr
+    // nach unten; zu hohe Karten Inhalte laufen innen. css: .cards.hstrip in css/game.css.
     renderShop() {
         const el = this.screens.shop;
         const g = Game;
@@ -264,6 +269,30 @@ const UI = {
                     ${owned ? '<span class="owned">✓ hast du schon</span>' : ''}
                     ${owned && !free ? '' : `<button class="btn small ${free ? 'green' : ''}" data-act="buystar" data-tier="${t.id}" ${can ? '' : 'disabled'}>${label}</button>`}
                 </div></div>`;
+        }
+        // Upgrades, die noch fehlen: eine Karte je Eintrag, der Preis in Juwelen richtet sich nach der Figur
+        // (UPGRADE_PRICES in js/upgrades.js). Gekauft = eigener Merker, danach auf der Seite „Waffen“ wählbar.
+        const hero = f => UPGRADE_HEROES.find(h => h.id === f) || { name: '', farbe: '#7b4dff' };
+        const lockedRound = upgradePurchaseBlocked(g);
+        let upCards = '';
+        for (const u of upgradesToBuy(g)) {
+            const price = upgradePrice(u);
+            const can = !lockedRound && (g.jewels | 0) >= price;
+            const hint = lockedRound ? 'Erst die Runde beenden'
+                : (can ? 'danach im Menü „Waffen“ wählbar' : `noch 💎 ${price - (g.jewels | 0)} zu wenig`);
+            const h = hero(u.figur);
+            upCards += `<div class="card" style="--a:${h.farbe}">
+                <div class="head"><span class="ico">${u.emoji}</span><div><h3>${u.name}</h3><p>${h.name}</p></div></div>
+                <p>${u.text}</p><p class="where">Sonst: ${u.where}</p>
+                <div class="foot">
+                    <button class="btn small blue" data-act="buyupgrade" data-id="${u.id}" ${can ? '' : 'disabled'}>💎 ${price}</button>
+                    <span class="up-hint">${hint}</span>
+                </div></div>`;
+        }
+        if (!upCards) {
+            upCards = `<div class="card" style="--a:#3ddc97">
+                <div class="head"><span class="ico">🎖️</span><div><h3>Upgrades</h3>
+                <p>Alle Extras sind schon frei - im Menü „Waffen“ suchst du jedes Runde das Extra aus.</p></div></div></div>`;
         }
         // Gleicher Kurs in beide Richtungen (1 💎 = 10 🪙) – vorher ließen sich unendlich Münzen erzeugen.
         const exchange = [
@@ -286,7 +315,7 @@ const UI = {
                 <h2>Shop</h2>
                 ${this._chips()}
             </div>
-            <div class="page-body"><div class="cards">
+            <div class="page-body hstrip-body"><div class="cards hstrip">
                 <div class="card" style="--a:#3ddc97">
                     <div class="head"><span class="ico">🎁</span><div><h3>Tagesbelohnung</h3>
                     <p>${dailyDone ? 'Heute schon geholt. Morgen gibt es die nächste!' : 'Einmal am Tag gratis: Münzen, Upgrade oder ein Böser Stern!'}</p></div></div>
@@ -308,6 +337,8 @@ const UI = {
                         `<button class="btn small" data-act="crown" ${g.coins >= 500 ? '' : 'disabled'}>🪙 500</button>`}</div>
                 </div>
                 ${this._extHtml('shopCards')}
+                <div class="section-title">Upgrades</div>
+                ${upCards}
                 <div class="section-title">Sternen-Markt</div>
                 ${starCards}
                 <div class="section-title">Wechselstube</div>
@@ -315,6 +346,20 @@ const UI = {
             </div></div>`;
         this.show('shop');
         this._exchange = exchange;
+        this._shopStrip(el.querySelector('.cards'));
+    },
+
+    // Waagerechte Shop-Reihe: beim Neuzeichnen (nach jedem Kauf) bleibt die Stelle stehen, an der man
+    // stand, und auf dem Computer dreht das Mausrad die Reihe seitwärts.
+    _shopStrip(strip) {
+        if (!strip) return;
+        strip.scrollLeft = this._shopScroll || 0;
+        strip.addEventListener('scroll', () => { this._shopScroll = strip.scrollLeft; }, { passive: true });
+        strip.addEventListener('wheel', e => {
+            if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+            e.preventDefault();
+            strip.scrollLeft += e.deltaY;
+        }, { passive: false });
     },
 
     // ── Böse Sterne: ganzer Bildschirm und kein einziger Knopf (Wunsch von Leander) ──
@@ -952,6 +997,22 @@ const UI = {
                 }
                 this.renderShop();
                 break;
+            case 'buyupgrade': {
+                // Extra für Juwelen kaufen (Preis nach Figur, Regeln in js/upgrades.js)
+                const id = btn.dataset.id;
+                const u = UPGRADE_BY_ID[id] || {};
+                if (g.buyUpgrade(id)) {
+                    Sound.powerUp();
+                    g.vibrate(60);
+                    this.flashMessage(u.emoji + ' ' + u.name + ' freigeschaltet!');
+                } else if (upgradePurchaseBlocked(g)) {
+                    this.flashMessage('In einer laufenden Runde kauft man nichts');
+                } else {
+                    this.flashMessage('Nicht genug Juwelen – du brauchst 💎 ' + upgradePrice(u));
+                }
+                this.renderShop();
+                break;
+            }
             case 'exchange': {
                 const [a, from, b, to] = this._exchange[+btn.dataset.i];
                 const ok = from === 'J' ? g._spendJewels(a) : g._spendCoins(a);

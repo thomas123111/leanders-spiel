@@ -99,7 +99,7 @@ const Game = {
     boseStarUses: 0,
     shopRandomStarActive: false,
     shopRandomStarTier: 0,
-    shopRandomStarAttempts: 5, // STAR_TRIES (ui.js)
+    shopRandomStarAttempts: 6, // STAR_TRIES (ui.js)
     shopRandomStarFinished: false,
     shopRandomStarRevealReady: false,
     worldRewardClaims: {},
@@ -415,6 +415,7 @@ const Game = {
                 shadowCloud: this.unlockedShadowCloud,
                 iceHammer: this.unlockedIceHammer,
                 upgrade: this.activeUpgrade,
+                boughtUps: this.boughtUpgrades,
                 star: this.shopRandomStarActive ? {
                     tier: this.shopRandomStarTier, tries: this.shopRandomStarAttempts, done: this.shopRandomStarFinished,
                     earned: !!this.shopRandomStarWithStar,
@@ -468,9 +469,18 @@ const Game = {
                 this.unlockedIceHammer = !!data.iceHammer;
                 // Ausgewähltes Extra (Knopf „Waffen“): unbekannte Einträge fallen weg
                 this.activeUpgrade = upgradeKnown(data.upgrade) ? data.upgrade : null;
+                // Im Shop gekaufte Extras: ebenfalls nur Einträge, die die Liste heute kennt
+                this.boughtUpgrades = {};
+                if (data.boughtUps && typeof data.boughtUps === 'object') {
+                    for (const k in data.boughtUps) {
+                        if (data.boughtUps[k] && upgradeKnown(k)) this.boughtUpgrades[k] = true;
+                    }
+                }
                 if (data.star && typeof data.star === 'object') {
                     this.shopRandomStarActive = true;
                     this.shopRandomStarTier = clamp(data.star.tier | 0, 0, STAR_RARITIES.length - 1);
+                    // Seit 12.10.2026 gibt es sechs Versuche: ein alter Spielstand mit fünf übrigen läuft
+                    // mit genau diesen fünf weiter (nach oben auf STAR_TRIES begrenzt).
                     this.shopRandomStarAttempts = clamp(data.star.tries | 0, 0, STAR_TRIES);
                     this.shopRandomStarFinished = !!data.star.done;
                     this.shopRandomStarRevealReady = !!data.star.done;

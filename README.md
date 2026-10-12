@@ -22,6 +22,20 @@ In der Pause und in den Einstellungen: Schwierigkeit (Normal, Schwer, Extrem; gi
 Zielhilfe, Geräusche, Musik und Vibration. Einen Auto-Angriff gibt es nicht mehr: Mark greift nur an, wenn man
 selbst tippt, zieht oder klickt. Die Werte der Schwierigkeiten stehen in `DIFFICULTY` oben in `js/main.js`.
 
+## Menüs
+
+- **Shop:** Die Karten stehen in **einer Reihe** und werden mit dem Finger nach links und rechts gewischt
+  (am Computer dreht auch das Mausrad die Reihe) – nach unten scrollt der Shop nicht. Darin: Tagesbelohnung,
+  Böse Sterne, Goldene Krone, Glücksboxen, **Upgrades**, Sternen-Markt und Wechselstube.
+- **Upgrades kaufen:** Im Abschnitt „Upgrades“ steht eine Karte für jedes Extra, das noch fehlt. Bezahlt wird in
+  Juwelen nach Figur – Mark 850, Juri 500, Schattenkrokodil 450, Panda 350 (`UPGRADE_PRICES` in `js/upgrades.js`).
+  Gekaufte Extras bekommen einen eigenen Merker im Spielstand (`boughtUps`) und sind danach im Menü „Waffen“
+  wählbar. Reicht das Geld nicht, ist der Knopf grau und die Karte sagt, wie viele Juwelen noch fehlen.
+  In einer laufenden Runde kauft und ändert man nichts.
+- **Böse Sterne:** sechs Versuche – einer pro Seltenheit – und sechs Fragezeichen-Kreise. Die Chancen je Stufe
+  bleiben 40/30/25/20/15 %, darum ist Ultralegendär etwa jeder 240. Stern. Alte Spielstände mit fünf übrigen
+  Versuchen laden mit genau diesen fünf weiter.
+
 ## Technik
 
 Reines HTML5-Canvas mit klassischen Script-Dateien, kein Build-Schritt. Alle Grafiken und Töne
@@ -41,7 +55,7 @@ werden im Browser erzeugt (keine Bild- oder Tondateien).
 | `js/peacock.js` … `js/snowman.js` (6 Dateien) | Welt 45–50 (Pfauen, Clowns, Pandas, Einhörner, Vampire, Schneemänner und ihre Bosse) – noch Platzhalter aus dem Gerüst |
 | `js/progress.js`, `js/ui-box.js`, `js/ui-end.js`, `js/ui-progress.js` | Powerpunkte, Quests, Power-Pfad, Tagesleiste, Glücksboxen, Endseite |
 | `js/player.js`, `js/weapons.js`, `js/loot.js` | Mark, Waffen (Baseball-Werfer: Laserkugel, Knallball, Eisball), Truhen, Schlüssel, Münzen |
-| `js/upgrades.js`, `js/ui-waffen.js`, `css/waffen.css` | auswählbare Upgrades: die Liste, die Auswahl für eine Runde und die Seite „Waffen“ |
+| `js/upgrades.js`, `js/ui-waffen.js`, `css/waffen.css` | auswählbare Upgrades: die Liste, die Auswahl für eine Runde, der Kauf im Shop (Preise je Figur in `UPGRADE_PRICES`) und die Seite „Waffen“ |
 | `js/hud.js`, `js/ui.js`, `css/game.css` | Anzeige im Spiel und Menüs |
 | `js/sound.js`, `js/music.js` | Geräusche und Musik (Web Audio) |
 | `sw.js`, `manifest.webmanifest` | App-Installation und Offline-Betrieb |

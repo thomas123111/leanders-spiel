@@ -54,6 +54,7 @@ const UIWaffen = {
         const el = UI.screens.waffen;
         if (!el) return;
         const hero = UPGRADE_HEROES.find(h => h.id === this.tab) || UPGRADE_HEROES[0];
+        const preise = UPGRADE_HEROES.map(h => `${h.name} ${UPGRADE_PRICES[h.id]}`).join(', ');
         const list = UPGRADES.filter(u => u.figur === hero.id);
         const cards = list.length
             ? `<div class="wf-cards">${list.map(u => this._card(u)).join('')}</div>`
@@ -73,7 +74,9 @@ const UIWaffen = {
                 ${cards}
                 <p class="wf-note">Grundausstattung ist immer an: Marks Schläger und Baseball-Werfer, das Auto,
                     Juris Hammer, das Spucken des Krokodils und die Power-Stufen.
-                    In einer laufenden Runde kannst du hier nichts mehr ändern.</p>
+                    In einer laufenden Runde kannst du hier nichts mehr ändern.
+                    Noch gesperrte Extras gibt es auch im Shop – dort kaufst du sie für Juwelen
+                    (${preise}).</p>
             </div>`;
         UI.show('waffen');
     },
