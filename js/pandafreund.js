@@ -1,7 +1,8 @@
 // ── Der kleine Panda: Marks vierter Freund (Belohnung für Welt 47) ──
 // Eigener Freund nach dem Vorbild von Juri und Schatten-Krokodil (js/entities.js): er rollt mit Mark
 // mit, schießt aus seinem Bambusrohr Pflanzen auf Gegner und die vergiften sie über ein paar Sekunden.
-// Er kann betäubt, vergiftet, eingeschlafen und k.o. werden, verschwindet aber nie.
+// Er kann betäubt, vergiftet, eingeschlafen und k.o. werden; nach dem k.o. steht er wieder auf.
+// Bei null Leben verschwindet er für den Rest der Welt – genau wie Juri und das Schatten-Krokodil.
 // Angemeldet wird er in js/main.js (startWorld), im Karussell (js/ui.js) und als Power-Figur (js/progress.js).
 
 // Wirkung der Bambus-Pflanzen – Gift über Zeit, wie Marks Gift-Würfe (BaseballLauncher in js/weapons.js)
