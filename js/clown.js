@@ -2,7 +2,8 @@
 // Clowns mit ROTEN Haaren – der mit dem Schlüssel hat LILA Haare, damit Kinder ihn sofort sehen.
 //   Sie werfen von mittlem Abstand rote Bälle: beim Zielpunkt am Boden auf, dort steht von Anfang an
 //   ein markierter Wirkkreis. Der Ball explodiert beim Treffer auf Mark oder einem Freund, beim Aufprall
-//   an einer Wand und von selbst am Ende seiner Flugweite. Explosion: Schaden im Kreis + kurz Gift.
+//   an einer Wand und von selbst am Ende seiner Flugweite. Explosion: Schaden im Kreis, kein Gift
+//   (Korrektur aus Claudes Abnahme: Gift war nicht bestellt).
 // Boss: RIESENCLAWN auf einem Einrad – Endgegner von Welt 46, bleibt im Boss-Raum (große Manege),
 //   140 LP, zwei Phasen.
 //   Phase 1: fährt Einrad, wirft einzelne Bälle und Fächer aus drei Bällen (Strahlen sagen den Fächer an),
@@ -148,7 +149,8 @@ const ClownArt = {
     },
 
     // Flächenschaden: trifft Mark und die Freunde innerhalb von R, jeder höchstens einmal (hit-Liste).
-    areaHit(x, y, R, amount, force, hit, poison) {
+    // Nur Schaden – kein Gift (Korrektur aus Claudes Abnahme).
+    areaHit(x, y, R, amount, force, hit) {
         const player = typeof Game !== 'undefined' ? Game.player : null;
         for (const t of this.targets(player)) {
             if (hit && hit.indexOf(t.ref) >= 0) continue;
@@ -161,10 +163,8 @@ const ClownArt = {
             }
             if (t.isPlayer) {
                 this.hurt(t.ref, amount, Math.atan2(t.y - y, t.x - x), force);
-                if (poison && typeof t.ref.poison === 'function') t.ref.poison(poison);
             } else {
                 this.hitCompanion(t.ref, amount);
-                if (poison && typeof t.ref.poison === 'function') t.ref.poison(poison);
             }
         }
     },
@@ -399,7 +399,7 @@ const ClownArt = {
 // Rote Kugel des Clowns: fliegt bis zu ihrer Flugweite und explodiert dort – oder früher an einer Wand
 // oder auf Mark/einem Freund. Die Engine meldet einen Geschoßtreffer nur als `dead` und fragt das
 // Geschoß nie weiter ab, also prüft der Ball seine Ziele selbst. Die Detonation zeigt den deutlich
-// markierten Wirkkreis und trifft alle im Kreis (Gift zieht kurz nach).
+// markierten Wirkkreis und trifft alle im Kreis – ohne Gift (Korrektur aus Claudes Abnahme).
 class ClownBall extends Projectile {
     constructor(x, y, angle, speed, range, dest, dmg, R, size, owner) {
         super(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 1, 'enemy', 120);
@@ -416,7 +416,7 @@ class ClownBall extends Projectile {
         this.stunTime = 0.4;          // kurze Rollerei bei einem Direkttreffer – die Wucht steckt in der Detonation
         this.lifetime = range / speed + 0.45;
         this.boom = false;
-        this.poison = 0;              // keine grüne Verlangsamung der Engine – Gift kommt erst aus der Detonation
+        this.poison = 0;              // keine grüne Verlangsamung der Engine – die Bälle haben gar kein Gift
     }
 
     update(dt, world) {
@@ -449,7 +449,7 @@ class ClownBall extends Projectile {
         ClownArt.burst(x, y, [ClownCfg.ball, ClownCfg.dotA, '#ffffff'], 16, 210, 0.5, { kind: 'spark' });
         ClownArt.burst(x, y, [ClownCfg.ball, ClownCfg.dotB, ClownCfg.suit], 8, 120, 0.6, { kind: 'star', gravity: 120 });
         ClownArt.burst(x, y, 'rgba(255,220,180,0.8)', 5, 70, 0.5, { kind: 'smoke', size: 5 });
-        ClownArt.areaHit(x, y, R, dmg, 200, hit, 2);
+        ClownArt.areaHit(x, y, R, dmg, 200, hit);
     }
 
     draw(ctx, camera) {

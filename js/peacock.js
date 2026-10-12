@@ -2,16 +2,17 @@
 // Pfauen mit blauem Gefieder, Krone (Scheitelfedern) auf dem Kopf und langer Schleppe hinter sich her.
 //   Der Pfau mit dem Schlüssel ist türkis, alle anderen sind blau.
 //   Von weitem schießt er Federn auf Mark und seine Freunde, aus der Nähe kratzt er mit den scharfen
-//   Krallen – ein Kratzer vergiftet (player.poison, bei Juri und dem Krokodil deren poison()).
+//   Krallen – ein Kratzer macht normalen Schaden, kein Gift (Korrektur aus Claudes Abnahme: Gift war
+//   nicht bestellt).
 // Boss: RIESENPAU – schlägt sein Rad auf. Aus den Augenflecken im Rad schießen Laserstrahlen:
 //   erst leuchten die Augen auf und dünne Warnlinien zeigen die Richtung, dann wandert eine Welle
 //   kurzer Strahlen über das Rad (Phase 2: zweimal, erst hin, erst zurück). Abgrenzung zum
 //   Riesenadler (Welt 41): bei ihm kommt Federhagel aus dem Maul, hier kommen die Strahlen aus
 //   vielen Augen im aufgeschlagenen Rad.
 //   Weitere Angriffe: Federschuss (Fächer auf Mark plus eine Feder auf einen Freund), Drehangriff
-//   mit Rad – der Wirbel aus Federn macht Benommenheit im Kreis und schläfert kurz ein
-//   (player.sleep, bei den Freunden deren sleep()), und der Sturzflug auf Mark oder einen Freund
-//   mit Zielkreis vorher; die Landung kratzt und vergiftet.
+//   mit Rad – der Wirbel aus Federn macht Benommenheit im Kreis, aber schläfert nicht mehr ein
+//   (Korrektur aus Claudes Abnahme), und der Sturzflug auf Mark oder einen Freund
+//   mit Zielkreis vorher; die Landung kratzt mit normalem Schaden und ohne Gift.
 //   Phase 2 (halbe Lebenskraft): schneller, mehr Federn, zwei Strahlenwellen – und nach großen
 //   Angriffen wird er schwindelig (Sterne um den Kopf, kurz wehrlos, wie der Riesen-Gorilla).
 //   Lebenspunkte 140, Schaden 2 – im Rahmen von Welt 43 und 44.
@@ -133,8 +134,8 @@ const PeacockArt = {
     },
 
     // Flächenschaden: trifft Mark und die Freunde innerhalb von R, jeder höchstens einmal (hit-Liste).
-    // status = { poison: Sekunden, sleep: Sekunden } – der Zustand kommt zusätzlich zum Schaden.
-    areaHit(x, y, R, amount, force, hit, status) {
+    // Nur Schaden – kein Gift und kein Schlaf (Korrektur aus Claudes Abnahme).
+    areaHit(x, y, R, amount, force, hit) {
         const player = typeof Game !== 'undefined' ? Game.player : null;
         for (const t of this.targets(player)) {
             if (hit && hit.indexOf(t.ref) >= 0) continue;
@@ -143,18 +144,8 @@ const PeacockArt = {
             if (hit) hit.push(t.ref);
             if (t.isPlayer) {
                 this.hurt(t.ref, amount, Math.atan2(t.y - y, t.x - x), force);
-                if (status && status.poison) t.ref.poison(status.poison);
-                if (status && status.sleep) t.ref.sleep(status.sleep);
             } else {
                 this.hitCompanion(t.ref, amount);
-                if (status && status.poison && typeof t.ref.poison === 'function') t.ref.poison(status.poison);
-                if (status && status.sleep && typeof t.ref.sleep === 'function') t.ref.sleep(status.sleep);
-            }
-            if (status && status.poison) {
-                this.burst(t.x, t.y - 12, ['#7dff5a', '#9dff72', '#c8ffb0'], 6, 70, 0.55, { kind: 'bubble' });
-            }
-            if (status && status.sleep) {
-                this.burst(t.x, t.y - 14, [PeacockCfg.star, '#ffffff'], 6, 60, 0.6, { kind: 'star' });
             }
         }
     },
@@ -488,7 +479,7 @@ class PeacockFeather extends Projectile {
 // ══════════════════════════════════════════
 
 // Blauer Pfau mit Krone und langer Schleppe (Schlüsselträger türkis). Hält 70–190 Einheiten Abstand,
-//   schießt dann Federn auf Mark oder einen Freund; aus der Nähe kratzt er mit den Krallen (Gift).
+//   schießt dann Federn auf Mark oder einen Freund; aus der Nähe kratzt er mit den Krallen (Schaden ohne Gift).
 class Peacock extends Enemy {
     constructor(x, y) {
         super(x, y, 30, 34);
@@ -644,7 +635,7 @@ class Peacock extends Enemy {
         return { x: this.centerX() + this.face * 12, y: this.centerY() - 12 };
     }
 
-    // ── b) Kratzen aus der Nähe: Schaden und Gift ──
+    // ── b) Kratzen aus der Nähe: Schaden ohne Gift ──
     _startScratch(player) {
         const mx = this.centerX(), my = this.centerY();
         let best = null;
@@ -661,7 +652,7 @@ class Peacock extends Enemy {
     // Der Kratzer landet genau dort, wo der rote Zielkreis war.
     _scratchHit() {
         const a = this.aim || { x: this.centerX() + this.face * 22, y: this.centerY() + 4 };
-        PeacockArt.areaHit(a.x, a.y, 26, this.damage + 1, 180, this.hitList, { poison: this.teal ? 3.4 : 2.6 });
+        PeacockArt.areaHit(a.x, a.y, 26, this.damage + 1, 180, this.hitList);
         PeacockArt.shake(2.4, 0.1);
         PeacockArt.burst(a.x, a.y, [PeacockCfg.claw, '#ffffff', PeacockCfg.legs], 8, 150, 0.32, { kind: 'spark' });
         PeacockArt.ring(a.x, a.y, PeacockCfg.legs, 26, 0.2, 3);
@@ -803,7 +794,6 @@ class Riesenpfau extends Enemy {
         this.fanA = 0;
         this.fanFriend = null;
         this.fanLock = false;
-        this.spinSlept = false;
         this.spinTick = 0;
         this.bigHits = 0;             // große Angriffe seit dem Phasenwechsel
         this.angry = 0;               // 0..1 Glühen in Phase 2
@@ -1047,9 +1037,8 @@ class Riesenpfau extends Enemy {
         PeacockArt.shake(3, 0.16);
     }
 
-    // ── c) Drehangriff: das Rad wirbelt, im Kreis Schaden; der Federtaumel schläfert ein ──
+    // ── c) Drehangriff: das Rad wirbelt, im Kreis Schaden – ohne Schlaf ──
     _startSpin(player) {
-        this.spinSlept = false;
         this.spinTick = 0;
         this.spinAngle = this.wheelA;
         this.hitList = [];
@@ -1075,10 +1064,7 @@ class Riesenpfau extends Enemy {
             this.spinTick = 0.38;
             const h = this._hub();
             const R = this._spinRadius();
-            const status = { sleep: this.spinSlept ? 0 : 1.3 };
-            const before = this.hitList.length;
-            PeacockArt.areaHit(h.x, h.y, R, 1, 150, this.hitList, status);
-            if (!this.spinSlept && this.hitList.length > before) this.spinSlept = true;
+            PeacockArt.areaHit(h.x, h.y, R, 1, 150, this.hitList);
             PeacockArt.ring(h.x, h.y, PeacockCfg.train, R, 0.26, 3);
         }
         if (this.stateT <= 0) {
@@ -1140,13 +1126,13 @@ class Riesenpfau extends Enemy {
         }
     }
 
-    // Landung: Kratzer-Schaden im Kreis und Gift für Mark, Juri und das Krokodil.
+    // Landung: Kratzer-Schaden im Kreis für Mark, Juri und das Krokodil – ohne Gift.
     _diveHit() {
         const x = this.centerX(), y = this.y + this.h - 10;
         const p2 = this.phase === 2;
         const R = p2 ? 54 : 46;
         this.hitList = [];
-        PeacockArt.areaHit(x, y, R, 2, 240, this.hitList, { poison: p2 ? 3.6 : 3 });
+        PeacockArt.areaHit(x, y, R, 2, 240, this.hitList);
         PeacockArt.shake(10, 0.4);
         PeacockArt.ring(x, y + 4, '#ffe6b8', R + 26, 0.4, 6);
         PeacockArt.burst(x, y, [PeacockCfg.claw, '#e8d8b0', '#ffffff'], 16, 190, 0.5, { kind: 'spark' });

@@ -1589,9 +1589,3 @@ class Riesenvampir extends BossGiantVampire {
     }
 }
 
-// Der Boss dieser Welt heisst Riesenvampir (Bauplan W49). Die Weltkarte in js/main.js – und die ist für
-// diese Aufgabe nicht zu ändern – erzeugt für Welt 49 die Klasse BossGiantVampire, und die Weltprüfung
-// (tools/smoke-welt.mjs) schreibt den Klassennamen in ihre Zeile. Damit der Boss überall so heisst, wie
-// er aussieht, zeigt sein Klassenname auf den echten Namen; die Klasse selbst bleibt beim Namen, den
-// main.js aufruft. Die Galerie kann beide Namen unverändert auflösen.
-Object.defineProperty(BossGiantVampire, 'name', { value: 'Riesenvampir', configurable: true });
