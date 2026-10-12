@@ -51,6 +51,7 @@ const Music = {
         bunny: 'happy', devil: 'witch', alien: 'chip', spider: 'spooky', toad: 'zombie', dwarf: 'happy',
         treemonster: 'chill', golem: 'forge', pumpkin: 'howl', crab: 'happy', eagle: 'heaven', fox: 'epic', porcupine: 'chill',
         gorilla: 'epic',
+        peacock: 'happy', clown: 'chip', panda: 'chill', unicorn: 'dream', vampire: 'howl', snowman: 'dream',
     },
 
     _ensure() {

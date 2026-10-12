@@ -2574,6 +2574,8 @@ class Juri {
         // Anzeige: Blickrichtung, Laufen, Feuerkreis-Aufblitzen
         this.faceX = 1; this.moving = false; this.walkT = 0;
         this.fireFlash = 0; this.stuckTimer = 0;
+        this.poisonTimer = 0; this.poisonTick = 0;   // > 0: vergiftet (zieht Leben ab, kein Tempo-Abzug)
+        this.sleepTimer = 0; this.sleepGuard = 0;    // > 0: eingeschlafen, danach Schonzeit gegen neues sleep
         this.seed = Math.random() * 10;
         this.stunTimer = 0;   // > 0: betäubt (z. B. vom Hammer des Riesen-Zombies)
         this.koTimer = 0;     // > 0: k.o. am Boden (Drachenstrahl), steht danach mit halben LP auf
@@ -2595,6 +2597,21 @@ class Juri {
     stun(seconds) {
         if (this.koTimer > 0) return;
         this.stunTimer = Math.max(this.stunTimer, seconds);
+    }
+
+    // Vergiften: zieht nach und nach Leben ab, ohne ihn k.o. zu machen (mindestens 1 LP bleibt)
+    poison(seconds) {
+        if (this.dead || this.koTimer > 0) return false;
+        this.poisonTimer = Math.max(this.poisonTimer, seconds);
+        return true;
+    }
+
+    // Einschlafen: steht wie benommen still, haut nicht – und fällt dabei ausdrücklich nicht k.o.
+    // Danach Schonzeit, in der kein neues sleep wirkt.
+    sleep(seconds) {
+        if (this.dead || this.koTimer > 0 || this.sleepGuard > 0) return false;
+        this.sleepTimer = Math.max(this.sleepTimer, seconds);
+        return true;
     }
 
     // K.o. statt verschwinden (Drachenstrahl, der ihn besiegen würde): liegt am Boden, kann nicht
@@ -2664,6 +2681,64 @@ class Juri {
             ctx.stroke();
         }
         ctx.globalAlpha = prev;
+    }
+
+    // ── Zustände Gift und Schlaf (für alle Begleiter gleich) ──
+
+    // Schonzeit nach dem Aufwachen: so lange wirkt kein neues sleep.
+    static get SLEEP_GUARD() { return 1.5; }
+
+    // Gift: zieht nach und nach Leben ab (ein Viertel Herz alle halben Sekunde) – macht die Freunde aber
+    // nicht k.o., mindestens 1 Lebenspunkt bleibt immer übrig. Wie bei Mark mit einer hundertstel Sekunde
+    // Toleranz, damit der letzte Tropfen nicht an den Rundungsfehlern der Bildzeiten hängt.
+    static poisonUpdate(c, dt) {
+        if (!(c.poisonTimer > 0)) return;
+        c.poisonTimer -= dt;
+        c.poisonTick += dt;
+        while (c.poisonTick >= 0.49) {
+            c.poisonTick = Math.max(0, c.poisonTick - 0.5);
+            Juri.poisonHit(c);
+        }
+        if (c.poisonTimer > 0) return;
+        c.poisonTimer = 0;
+        c.poisonTick = 0;
+    }
+
+    // Ein Gift-Tropfen für einen Begleiter: ein Viertel Herz, nie unter 1 Lebenspunkt
+    static poisonHit(c) {
+        c.hp = Math.max(1, c.hp - 1);
+        if (typeof FX !== 'undefined') FX.burst(c.centerX(), c.centerY(), ['#7dff5a', '#9dff72', '#c8ffb0'], 4, 40, 0.5, { kind: 'bubble' });
+    }
+
+    // Schlaf abzählen; true = schläft noch (der Aufrufer lässt die Figur dann stillstehen).
+    // Beim Aufwachen beginnt die Schonzeit, in der kein neues sleep wirkt.
+    static sleepUpdate(c, dt) {
+        if (c.sleepGuard > 0) c.sleepGuard = Math.max(0, c.sleepGuard - dt);
+        if (!(c.sleepTimer > 0)) return false;
+        c.sleepTimer -= dt;
+        if (c.sleepTimer <= 0) {
+            c.sleepTimer = 0;
+            c.sleepGuard = Juri.SLEEP_GUARD;
+        }
+        return true;
+    }
+
+    // Gift-Anzeige über einer Figur: grünes Leuchten und ein Gift-Tropfen. Nur Darstellung.
+    static poisonMark(ctx, cx, cy, t) {
+        Art.glow(ctx, cx, cy, 13, '#6bff5a', 0.32 + 0.12 * Math.sin(t * 6));
+        const y = cy + Math.sin(t * 3.2) * 1.2;
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(cx, y - 4.6);
+        ctx.quadraticCurveTo(cx + 3.5, y - 0.4, cx, y + 2.8);
+        ctx.quadraticCurveTo(cx - 3.5, y - 0.4, cx, y - 4.6);
+        ctx.closePath();
+        ctx.fillStyle = '#7dff5a';
+        ctx.fill();
+        ctx.strokeStyle = '#1f7a2a';
+        ctx.lineWidth = 1.1;
+        ctx.stroke();
+        ctx.restore();
     }
 
     // Freie Sicht zwischen zwei Punkten (keine Wand dazwischen)?
@@ -2772,8 +2847,10 @@ class Juri {
         }
         // K.o.: liegt am Boden (nicht treffbar), haut nicht, springt nicht zu Mark
         if (Juri.koUpdate(this, dt)) return;
-        // Betäubt: steht still, haut nicht, springt nicht zu Mark
-        if (this.stunTimer > 0) {
+        Juri.poisonUpdate(this, dt);
+        const asleep = Juri.sleepUpdate(this, dt);
+        // Betäubt oder eingeschlafen: steht still, haut nicht, springt nicht zu Mark
+        if (this.stunTimer > 0 || asleep) {
             this.stunTimer -= dt;
             this.moving = false;
             this.stuckTimer = 0;
@@ -2895,13 +2972,14 @@ class Juri {
         const ko = this.koTimer > 0;
         const stunned = !ko && this.stunTimer > 0;
         const dizzy = stunned || (ko && this.koTimer > this.koDur - 2.5);
-        if (ko || stunned) {
+        const sleeping = !ko && !stunned && this.sleepTimer > 0;
+        if (ko || stunned || sleeping) {
             ctx.save();
             if (ko) {
                 Juri.koPose(ctx, this, cx, cy + 8, f);
             } else {
                 ctx.translate(cx, cy + 12);
-                ctx.rotate(Math.sin(t * 5 + this.seed) * 0.09);
+                ctx.rotate(Math.sin(t * (sleeping ? 1.6 : 5) + this.seed) * (sleeping ? 0.06 : 0.09));
                 ctx.translate(-cx, -(cy + 12));
             }
         }
@@ -2986,12 +3064,12 @@ class Juri {
         if (dizzy) {
             Juri.spiralEye(ctx, hx + f * 1.5 - 2.9, hy - 1.1, 2.1, t * 7);
             Juri.spiralEye(ctx, hx + f * 1.5 + 2.9, hy - 1.1, 2.1, -t * 7);
-        } else if (ko) {
+        } else if (ko || sleeping) {
             Art.eyes(ctx, hx + f * 1.5, hy - 1.1, 2.1, { gap: 2.9, open: 0.05, blink: false });
         } else {
             Art.eyes(ctx, hx + f * 1.5, hy - 1.1, 2.1, { gap: 2.9, look: { x: lx, y: ly }, seed: this.seed });
         }
-        Art.mouth(ctx, hx + f * 1.7, hy + 4.3, 4.8, stunned || ko ? 'o' : (sw >= 0 ? 'open' : 'grin'));
+        Art.mouth(ctx, hx + f * 1.7, hy + 4.3, 4.8, stunned || ko || sleeping ? 'o' : (sw >= 0 ? 'open' : 'grin'));
         Art.body(ctx, hx + f * 3.4, hy + 1.7, 2.5, 2.3, '#ff2d3f', { glossy: true, lineWidth: 1.1, outline: '#7a0a1a' });
         if (!hammerBack) this._drawHammer(ctx, handX, handY, ha, charged, sw);
         // vordere Hand hält den Hammer
@@ -3009,7 +3087,11 @@ class Juri {
         } else if (stunned) {
             ctx.restore();
             Juri.dizzyStars(ctx, cx, pos.y - 6, 10, this.seed);
+        } else if (sleeping) {
+            ctx.restore();
+            Juri.zzz(ctx, cx + f * 5, pos.y - 8, this.seed);
         }
+        if (this.poisonTimer > 0) Juri.poisonMark(ctx, cx + f * 9, pos.y - 12, t);
         Juri.hpBar(ctx, cx, pos.y - 13, this.hp, this.maxHp);
     }
 
@@ -3076,6 +3158,8 @@ class ShadowCrocodile {
         // Anzeige: Blickrichtung, Laufen, Maul nach dem Spucken
         this.faceX = 1; this.moving = false; this.walkT = 0;
         this.mouthTimer = 0; this.stuckTimer = 0;
+        this.poisonTimer = 0; this.poisonTick = 0;   // > 0: vergiftet (zieht Leben ab, kein Tempo-Abzug)
+        this.sleepTimer = 0; this.sleepGuard = 0;    // > 0: eingeschlafen, danach Schonzeit gegen neues sleep
         this.seed = Math.random() * 10;
         this.stunTimer = 0;   // > 0: betäubt (z. B. vom Hammer des Riesen-Zombies)
         this.koTimer = 0;     // > 0: k.o. am Boden (Drachenstrahl), steht danach mit halben LP auf
@@ -3099,6 +3183,21 @@ class ShadowCrocodile {
         this.stunTimer = Math.max(this.stunTimer, seconds);
     }
 
+    // Vergiften: zieht nach und nach Leben ab, ohne das Krokodil k.o. zu machen (mindestens 1 LP bleibt)
+    poison(seconds) {
+        if (this.dead || this.koTimer > 0) return false;
+        this.poisonTimer = Math.max(this.poisonTimer, seconds);
+        return true;
+    }
+
+    // Einschlafen: steht wie benommen still, spuckt nicht – und fällt dabei ausdrücklich nicht k.o.
+    // Danach Schonzeit, in der kein neues sleep wirkt.
+    sleep(seconds) {
+        if (this.dead || this.koTimer > 0 || this.sleepGuard > 0) return false;
+        this.sleepTimer = Math.max(this.sleepTimer, seconds);
+        return true;
+    }
+
     // K.o. statt verschwinden (Drachenstrahl): liegt am Boden, steht nach `seconds` mit halben LP auf.
     knockOut(seconds) { Juri.knockOutCompanion(this, seconds); }
 
@@ -3109,8 +3208,10 @@ class ShadowCrocodile {
         if (this.mouthTimer > 0) this.mouthTimer -= dt;
         // K.o.: liegt am Boden (nicht treffbar), spuckt nicht, springt nicht zu Mark
         if (Juri.koUpdate(this, dt)) return;
-        // Betäubt: steht still, spuckt nicht, springt nicht zu Mark
-        if (this.stunTimer > 0) {
+        Juri.poisonUpdate(this, dt);
+        const asleep = Juri.sleepUpdate(this, dt);
+        // Betäubt oder eingeschlafen: steht still, spuckt nicht, springt nicht zu Mark
+        if (this.stunTimer > 0 || asleep) {
             this.stunTimer -= dt;
             this.moving = false;
             this.stuckTimer = 0;
@@ -3196,13 +3297,14 @@ class ShadowCrocodile {
         const ko = this.koTimer > 0;
         const stunned = !ko && this.stunTimer > 0;
         const dizzy = stunned || (ko && this.koTimer > this.koDur - 2.5);
-        if (ko || stunned) {
+        const sleeping = !ko && !stunned && this.sleepTimer > 0;
+        if (ko || stunned || sleeping) {
             ctx.save();
             if (ko) {
                 Juri.koPose(ctx, this, cx, cy + 9, f);
             } else {
                 ctx.translate(cx, cy + 13);
-                ctx.rotate(Math.sin(t * 5 + this.seed) * 0.08);
+                ctx.rotate(Math.sin(t * (sleeping ? 1.6 : 5) + this.seed) * (sleeping ? 0.06 : 0.08));
                 ctx.translate(-cx, -(cy + 13));
             }
         }
@@ -3347,7 +3449,7 @@ class ShadowCrocodile {
         if (dizzy) {
             Juri.spiralEye(ctx, e0, ey - 0.2, 2.1, t * 7);
             Juri.spiralEye(ctx, e1, ey - 0.2, 2.1, -t * 7);
-        } else if (ko) {
+        } else if (ko || sleeping) {
             Art.eye(ctx, e0, ey - 0.2, 2.1, look, { open: 0.05, lid: INK });
             Art.eye(ctx, e1, ey - 0.2, 2.1, look, { open: 0.05, lid: INK });
         } else {
@@ -3361,7 +3463,11 @@ class ShadowCrocodile {
         } else if (stunned) {
             ctx.restore();
             Juri.dizzyStars(ctx, cx, pos.y - 7, 10, this.seed);
+        } else if (sleeping) {
+            ctx.restore();
+            Juri.zzz(ctx, cx + f * 6, pos.y - 9, this.seed);
         }
+        if (this.poisonTimer > 0) Juri.poisonMark(ctx, cx + f * 10, pos.y - 13, t);
         Juri.hpBar(ctx, cx, pos.y - 14, this.hp, this.maxHp);
     }
 }

@@ -208,5 +208,140 @@ for (const n of worlds) {
     console.log(`${ok ? 'OK  ' : 'FEHLER'} Welt ${n}: ${r.fehler ? 'bei „' + r.schritt + '“: ' + r.fehler
         : `Gegner ${r.gegner} (${r.arten}), Boss ${r.boss} ${r.bossHp} LP, im Raum ${r.imRaum}, Geschosse max ${r.geschosseMax}, Ende ${r.ende}, Zustände ${r.zustaende}`}`);
 }
+// ── Zustände Gift und Schlaf: eigene Probe in Welt 45 (Mark, Juri und das Schattenkrokodil) ──
+// Gift zieht ein halbes Herz pro Sekunde ab, macht nicht langsamer und endet von selbst.
+// Schlaf hält fest (kein Laufen, kein Angriff), danach 1,5 s Schonzeit. Die Freunde fallen nicht k.o.
+gameErrors.length = 0;
+const z = vm.runInContext(`(function () {
+    const r = { fehl: null, schritt: 'start' };
+    // Ein Bild vorspulen: Mark und die Freunde bleiben unverwundbar, Sprungfelder werfen ihn nicht.
+    // Jedes vierte Bild wird gezeichnet, damit die neuen Anzeigen (Gift-Tropfen, Zzz) mitprüfen.
+    const bild = n => { for (let i = 0; i < n; i++) {
+        Game.player.iFrames = 1e9; Game.player.jumpPadCooldown = 1e9;
+        for (const c of Game.companions) c.iFrames = 1e9;
+        Game.debugStep(1, 1000 / 60, i % 4 === 0);
+    } };
+    const durch = sek => bild(Math.round(sek * 60));
+    const inp = Input.update;
+    try {
+        Game.startWorld(45);
+        Game.player.iFrames = 1e9;
+        bild(4);
+        const p = Game.player;
+        Input.update = () => {};   // Eingabe eingefroren: nichts läuft und nichts greift an
+
+        // ── Gift bei Mark ──
+        r.schritt = 'gift';
+        // Schutz wie bei stun: Krone und Auto lassen Gift und Schlaf gar nicht erst wirken
+        p.autoActive = false; p.dodging = false;
+        p.crownShieldTimer = 5;
+        r.kroneSchuetzt = p.poison(3) === false && p.sleep(1) === false;
+        p.crownShieldTimer = 0; p.autoActive = true;
+        r.autoSchuetzt = p.poison(3) === false && p.sleep(1) === false;
+        p.autoActive = false;
+        p.hp = p.maxHp; p.poisonTimer = 0; p.poisonTick = 0; p.sleepTimer = 0; p.sleepGuard = 0;
+        r.giftSetzt = p.poison(3) === true;
+        const lp0 = p.hp;
+        durch(1.05); r.lpNach1s = lp0 - p.hp;
+        durch(2); r.lpNach3s = lp0 - p.hp;
+        r.giftWeg = p.poisonTimer <= 0 && p.poisonTick === 0;
+        r.nichtLangsamer = p.slowTimer <= 0 && p.speed === p.baseSpeed;
+        p.poison(2); const t1 = p.poisonTimer;
+        p.poison(0.5); r.nurVerlaengert = p.poisonTimer === t1;
+        r.totDurchGift = p.dead;
+
+        // ── Belohnungs-Merker: jede im Lauf durchgespielte neue Welt muss ihren Merker gesetzt haben ──
+        r.schritt = 'merker';
+        const feld = {
+            45: 'unlockedLaserBalls', 46: 'unlockedBoomBall', 47: 'unlockedPandaFriend',
+            48: 'unlockedIceBall', 49: 'unlockedShadowCloud', 50: 'unlockedIceHammer',
+        };
+        // Der Lauf setzt das freigeschaltete Maximum vorab hoch, deshalb kommt die Weltenliste von außen here.
+        const gespielt = [45, 46, 47, 48, 49, 50].filter(w => (${JSON.stringify(worlds)}).includes(w));
+        r.merker = gespielt.map(w => feld[w] + '=' + Game[feld[w]]).join(' ');
+        r.merkerOk = gespielt.every(w => Game[feld[w]] === true);
+
+        // Laufrichtung suchen, in der Mark frei läuft (sonst misst die Prüfung eine Wand)
+        const freieRichtung = () => {
+            for (const d of [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }]) {
+                Input.update = () => { Input.direction = d; };
+                const ax = p.x, ay = p.y;
+                durch(0.35);
+                if (Math.hypot(p.x - ax, p.y - ay) > 10) return d;
+            }
+            return null;
+        };
+        r.schritt = 'schlaf';
+        p.poisonTimer = 0; p.poisonTick = 0; p.sleepTimer = 0; p.sleepGuard = 0;
+        const frei = freieRichtung();
+        r.laeuftWach = !!frei;
+        Input.update = () => { Input.direction = frei || { x: 1, y: 0 }; };
+        p.sleepTimer = 0; p.sleepGuard = 0;
+        r.schlafWirkte = p.sleep(1) === true;
+        const sx = p.x, sy = p.y;
+        durch(0.8);
+        r.schlaeftNoch = p.sleepTimer > 0;
+        r.haeltFest = Math.hypot(p.x - sx, p.y - sy) < 1;
+        durch(0.4);
+        r.aufgewacht = p.sleepTimer <= 0 && p.sleepGuard > 0;
+        r.schonzeitWirkt = p.sleep(1) === false && p.sleepTimer <= 0;
+        durch(1);
+        r.schonzeitNoch = p.sleep(1) === false;
+        durch(0.5);
+        r.nachSchonzeit = p.sleep(1) === true && p.sleepTimer > 0;
+        // wach läuft er wieder: von der jetzigen Position muss mindestens eine Richtung frei sein
+        p.sleepTimer = 0; p.sleepGuard = 0;
+        r.laeuftWieder = !!freieRichtung();
+
+        // ── Juri und das Schattenkrokodil ──
+        r.schritt = 'freunde';
+        const j = Game.companions.find(c => c instanceof Juri);
+        const k = Game.companions.find(c => c instanceof ShadowCrocodile);
+        r.freundeDa = !!j && !!k;
+        if (!r.freundeDa) throw new Error('Juri oder Schattenkrokodil nicht dabei');
+        for (const c of [j, k]) {
+            c.hp = c.maxHp; c.poisonTimer = 0; c.poisonTick = 0; c.sleepTimer = 0; c.sleepGuard = 0;
+        }
+        j.poison(6); k.poison(6);
+        durch(3.05);
+        r.freundeLP = (j.maxHp - j.hp) + '/' + (k.maxHp - k.hp);
+        j.hp = 2; j.poison(3); k.hp = 2; k.poison(3);
+        durch(3.05);
+        r.keinKo = !j.dead && !k.dead && j.hp >= 1 && k.hp >= 1;
+        r.giftWegFreunde = j.poisonTimer <= 0 && k.poisonTimer <= 0;
+        for (const c of [j, k]) { c.sleepTimer = 0; c.sleepGuard = 0; }
+        r.schlafFreunde = j.sleep(2) === true && k.sleep(2) === true;
+        const jp = [j.x, j.y], kp = [k.x, k.y];
+        durch(1);
+        r.freundeRuhen = Math.hypot(j.x - jp[0], j.y - jp[1]) < 1 && Math.hypot(k.x - kp[0], k.y - kp[1]) < 1
+            && !j.dead && !k.dead;
+        durch(1.4);
+        r.freundeAuf = j.sleepTimer <= 0 && j.sleepGuard > 0 && k.sleepTimer <= 0 && !j.dead && !k.dead;
+        r.freundeSchonzeit = j.sleep(1) === false && k.sleep(1) === false;
+        r.schritt = 'fertig';
+    } catch (e) {
+        r.fehl = e.message + ' | ' + String(e.stack || '').split('\\n').slice(1, 3).join(' ').trim();
+    }
+    Input.update = inp;
+    return r;
+})()`, ctx);
+if (gameErrors.length) z.fehl = z.fehl || ('abgefangene Spielfehler: ' + [...new Set(gameErrors)].slice(0, 3).join(' || '));
+if (z.fehl) {
+    console.log(`FEHLER Zustände: bei „${z.schritt}“: ${z.fehl}`);
+    failed++;
+} else {
+    const gut = z.merkerOk && z.kroneSchuetzt && z.autoSchuetzt && z.giftSetzt && z.lpNach1s === 2 && z.lpNach3s === 6 && z.giftWeg && z.nichtLangsamer
+        && z.nurVerlaengert && z.schlafWirkte && z.schlaeftNoch && z.haeltFest && z.aufgewacht
+        && z.schonzeitWirkt && z.schonzeitNoch && z.nachSchonzeit && z.laeuftWach && z.laeuftWieder
+        && z.freundeDa && z.freundeLP === '6/6' && z.keinKo && z.giftWegFreunde && z.schlafFreunde
+        && z.freundeRuhen && z.freundeAuf && z.freundeSchonzeit;
+    if (!gut) failed++;
+    console.log(`${gut ? 'OK  ' : 'FEHLER'} Zustände: Merker ${z.merker}; Schutz durch Krone ${z.kroneSchuetzt} und Auto ${z.autoSchuetzt}; `
+        + `Gift ${z.lpNach1s} LP in gut 1 s und ${z.lpNach3s} LP in gut 3 s, danach weg ${z.giftWeg}, `
+        + `nicht langsamer ${z.nichtLangsamer}, nur verlängern ${z.nurVerlaengert}; `
+        + `Schlaf hält fest ${z.haeltFest}, Schonzeit ${z.schonzeitWirkt}/${z.schonzeitNoch}, danach wieder ${z.nachSchonzeit}, `
+        + `wach läuft er ${z.laeuftWieder}; Freunde Gift ${z.freundeLP} LP ohne K.o. ${z.keinKo}, `
+        + `Schlaf ohne K.o. ${z.freundeRuhen}/${z.freundeAuf}, Schonzeit ${z.freundeSchonzeit}`);
+}
 console.log(failed ? `${failed} von ${worlds.length} Welten mit Fehlern` : `Alle ${worlds.length} Welten in Ordnung`);
 process.exitCode = failed ? 1 : 0;

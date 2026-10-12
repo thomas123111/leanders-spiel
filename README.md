@@ -1,8 +1,8 @@
 # Mark und die geklauten Erfindungen
 
 Ein Action-Abenteuer für den Handy-Browser: Mark, Baseballspieler und Geisterjäger, holt sich in
-44 Welten seine geklauten Erfindungen zurück. Jede Welt hat einen Schlüssel-Träger und einen Boss.
-Die Welten 22 bis 44 hat sich Leander ausgedacht, von der „Zombie Academy“ bis zum „Dschungelfelsen“.
+50 Welten seine geklauten Erfindungen zurück. Jede Welt hat einen Schlüssel-Träger und einen Boss.
+Die Welten 22 bis 50 hat sich Leander ausgedacht, von der „Zombie Academy“ bis zum „Schneemann-Tal“.
 
 **Spielen:** https://thomas123111.github.io/leanders-spiel/
 Auf dem Handy quer halten. Über „Zum Startbildschirm hinzufügen“ wird es eine App (Vollbild, offline).
@@ -37,6 +37,8 @@ werden im Browser erzeugt (keine Bild- oder Tondateien).
 | `js/zombie.js`, `js/butterfly.js`, `js/dragon.js` | Welt 22 (Zombies, Riesen-Zombie), Welt 23 (Schmetterlinge, Drei-Kopf-Schmetterling), Welt 24 (Drachenkinder, Drachenvater) |
 | `js/werewolf.js`, `js/angel.js`, `js/mummy.js`, `js/firepig.js`, `js/thunder.js`, `js/witch.js` | Welt 25–30 (Werwölfe, böse Engel, Mumien, Feuerschweine, Blitzbälle, Hexenkinder und ihre Bosse) |
 | `js/bunny.js` … `js/fox.js` (12 Dateien) | Welt 31–42 (Hasen, Teufel, Aliens, Spinnen, Frösche, Zwerge, Baummonster, Feuergolems, Kürbiskinder, Krebse, Adler, Fuchssoldaten) |
+| `js/porcupine.js`, `js/gorilla.js` | Welt 43–44 (Stachelschwein, Gorilla und ihre Bosse) |
+| `js/peacock.js` … `js/snowman.js` (6 Dateien) | Welt 45–50 (Pfauen, Clowns, Pandas, Einhörner, Vampire, Schneemänner und ihre Bosse) – noch Platzhalter aus dem Gerüst |
 | `js/progress.js`, `js/ui-box.js`, `js/ui-end.js`, `js/ui-progress.js` | Powerpunkte, Quests, Power-Pfad, Tagesleiste, Glücksboxen, Endseite |
 | `js/player.js`, `js/weapons.js`, `js/loot.js` | Mark, Waffen, Truhen, Schlüssel, Münzen |
 | `js/hud.js`, `js/ui.js`, `css/game.css` | Anzeige im Spiel und Menüs |
@@ -54,6 +56,9 @@ Dann http://127.0.0.1:8123/ öffnen.
 
 - `tools/galerie.html` zeigt alle Figuren in Ruhe, getroffen, mit wenig Leben und sterbend.
 - `node tools/smoke-welt.mjs 31 32` spielt Welten ohne Browser durch (Gegner, Boss, Phase 2, Sieg) und meldet jeden Fehler.
+  Ohne Zahlen prüft er alle 50 Welten, die Belohnungs-Merker der Welten 45–50 und danach die Zustände Gift und
+  Schlaf (Gift zieht ein halbes Herz pro Sekunde ab und endet von selbst, Schlaf hält fest und lässt danach
+  1,5 s Schonzeit, die Freunde fallen im Schlaf nicht k.o., Krone und Auto schützen vor beidem).
 - `node tools/pruefe-karten.mjs 100` prüft alle Karten (Start vorhanden, Boss-Tür erreichbar, nichts abgeschnitten).
 - In der Browser-Konsole: `Game.startWorld(5)`, `Game.debugStep(600)` (10 s vorspulen).
 - Alle Welten automatisch durchspielen: `eval(await (await fetch('tools/test-welten.js')).text()); await testeWelten([1, 22, 23])`.

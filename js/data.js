@@ -47,6 +47,12 @@ const WORLDS = [
     { name: 'Fuchsfestung', theme: 'fox', accent: '#ff8c32', emoji: '🦊', boss: 'Riesenfuchs' },
     { name: 'Stachelwald', theme: 'porcupine', accent: '#c8a06a', emoji: '🦔', boss: 'Riesen-Stachelschwein' },
     { name: 'Dschungelfelsen', theme: 'gorilla', accent: '#5fd44a', emoji: '🦍', boss: 'Riesen-Gorilla' },
+    { name: 'Pfauen-Insel', theme: 'peacock', accent: '#2fc0d8', emoji: '🦚', boss: 'Riesenpfau' },
+    { name: 'Clownzirkus', theme: 'clown', accent: '#ff5a6e', emoji: '🤡', boss: 'Riesenclown' },
+    { name: 'Bambuswald', theme: 'panda', accent: '#8fdc5a', emoji: '🐼', boss: 'Großer Panda' },
+    { name: 'Regenbogental', theme: 'unicorn', accent: '#c9a8ff', emoji: '🦄', boss: 'Rieseneinhorn' },
+    { name: 'Vampirschloss', theme: 'vampire', accent: '#b0324f', emoji: '🧛', boss: 'Riesenvampir' },
+    { name: 'Schneemann-Tal', theme: 'snowman', accent: '#bfe4ff', emoji: '⛄', boss: 'Riesenschneemann' },
 ];
 
 const LAST_WORLD = WORLDS.length - 1;

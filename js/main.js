@@ -14,7 +14,8 @@ const LEVELS = [TUTORIAL_LEVEL, WORLD1_LEVEL, WORLD2_LEVEL, WORLD3_LEVEL, WORLD4
     WORLD25_LEVEL, WORLD26_LEVEL, WORLD27_LEVEL, WORLD28_LEVEL, WORLD29_LEVEL, WORLD30_LEVEL,
     WORLD31_LEVEL, WORLD32_LEVEL, WORLD33_LEVEL, WORLD34_LEVEL, WORLD35_LEVEL, WORLD36_LEVEL,
     WORLD37_LEVEL, WORLD38_LEVEL, WORLD39_LEVEL, WORLD40_LEVEL, WORLD41_LEVEL, WORLD42_LEVEL,
-    WORLD43_LEVEL, WORLD44_LEVEL];
+    WORLD43_LEVEL, WORLD44_LEVEL,
+    WORLD45_LEVEL, WORLD46_LEVEL, WORLD47_LEVEL, WORLD48_LEVEL, WORLD49_LEVEL, WORLD50_LEVEL];
 
 // Stärkere Bosse in allen Welten (Wunsch von Leander).
 // BOSS_TOUGHNESS: Bosse nehmen nur 1/1,5 des Schadens, halten also 1,5-mal so viel aus. Absichtlich nicht
@@ -78,6 +79,13 @@ const Game = {
     unlockedBoneBat: false,
     unlockedSnakeCompanion: false,
     unlockedPetrifyStone: false,
+    // Belohnungen aus Welt 45–50: nur der Merker, die Wirkung kommt mit den spaeteren Auftraegen
+    unlockedLaserBalls: false,
+    unlockedBoomBall: false,
+    unlockedPandaFriend: false,
+    unlockedIceBall: false,
+    unlockedShadowCloud: false,
+    unlockedIceHammer: false,
     maxWorldUnlocked: 1,
     trainingCompleted: false,
     coins: 0,
@@ -395,6 +403,12 @@ const Game = {
                 bone: this.unlockedBoneBat,
                 snake: this.unlockedSnakeCompanion,
                 petrify: this.unlockedPetrifyStone,
+                laser: this.unlockedLaserBalls,
+                boom: this.unlockedBoomBall,
+                pandaFriend: this.unlockedPandaFriend,
+                iceBall: this.unlockedIceBall,
+                shadowCloud: this.unlockedShadowCloud,
+                iceHammer: this.unlockedIceHammer,
                 star: this.shopRandomStarActive ? {
                     tier: this.shopRandomStarTier, tries: this.shopRandomStarAttempts, done: this.shopRandomStarFinished,
                     earned: !!this.shopRandomStarWithStar,
@@ -439,6 +453,13 @@ const Game = {
                 this.unlockedBoneBat = !!data.bone;
                 this.unlockedSnakeCompanion = !!data.snake;
                 this.unlockedPetrifyStone = !!data.petrify;
+                // Alte Spielstaende kennen die sechs neuen Merker nicht: dann bleiben sie einfach aus
+                this.unlockedLaserBalls = !!data.laser;
+                this.unlockedBoomBall = !!data.boom;
+                this.unlockedPandaFriend = !!data.pandaFriend;
+                this.unlockedIceBall = !!data.iceBall;
+                this.unlockedShadowCloud = !!data.shadowCloud;
+                this.unlockedIceHammer = !!data.iceHammer;
                 if (data.star && typeof data.star === 'object') {
                     this.shopRandomStarActive = true;
                     this.shopRandomStarTier = clamp(data.star.tier | 0, 0, STAR_RARITIES.length - 1);
@@ -511,6 +532,13 @@ const Game = {
             42: { label: '500 JUWELEN', coins: 0, jewels: 500 },
             43: { label: '500 JUWELEN', coins: 0, jewels: 500 },
             44: { label: '10000 MUENZEN', coins: 10000, jewels: 0 },
+            // Welt 45–50: neue Fähigkeiten als Belohnung (Merker wirkt ein spaeterer Auftrag)
+            45: { label: 'BASEBALL-LASERKUGELN', coins: 0, jewels: 0, item: 'unlockedLaserBalls' },
+            46: { label: 'KNALLBALL', coins: 0, jewels: 0, item: 'unlockedBoomBall' },
+            47: { label: 'PANDA-FREUND', coins: 0, jewels: 0, item: 'unlockedPandaFriend' },
+            48: { label: 'EISBALL', coins: 0, jewels: 0, item: 'unlockedIceBall' },
+            49: { label: 'SCHATTENWOLKE', coins: 0, jewels: 0, item: 'unlockedShadowCloud' },
+            50: { label: 'EISHAMMER', coins: 0, jewels: 0, item: 'unlockedIceHammer' },
         };
     },
 
@@ -997,6 +1025,13 @@ const Game = {
             case 42: add(FoxSoldier, 20); keyCarrier(FoxSoldier); chests(10); break;
             case 43: add(Porcupine, 20); keyCarrier(Porcupine); chests(10); break;
             case 44: add(Gorilla, 20); keyCarrier(Gorilla); chests(10); break;
+            // Welt 45–50: Ideen von Leander (12.10.2026), Figuren noch Platzhalter
+            case 45: add(Peacock, 20); keyCarrier(Peacock); chests(10); break;
+            case 46: add(Clown, 21); keyCarrier(Clown); chests(10); break;
+            case 47: add(BambooPanda, 19); keyCarrier(BambooPanda); chests(10); break;
+            case 48: add(Unicorn, 20); keyCarrier(Unicorn); chests(10); break;
+            case 49: add(Vampire, 20); keyCarrier(Vampire); chests(10); break;
+            case 50: add(Snowman, 22); keyCarrier(Snowman); chests(11); break;
         }
         this._applyDifficulty(worldNum, diff);
     },
@@ -1037,6 +1072,8 @@ const Game = {
             31: BossGiantBunny, 32: BossFourArmDevil, 33: BossAlienShip, 34: BossGiantSpider, 35: BossTripleToad,
             36: BossGiantDwarf, 37: BossGiantTree, 38: BossFireGolem, 39: BossPumpkinFather, 40: BossGiantCrab,
             41: BossGiantEagle, 42: BossGiantFox, 43: BossGiantPorcupine, 44: BossGiantGorilla,
+            45: BossGiantPeacock, 46: BossGiantClown, 47: BossGiantPanda, 48: BossGiantUnicorn,
+            49: BossGiantVampire, 50: BossGiantSnowman,
         };
         // Welt 11/12 bekommen eigene Boss-Varianten (Pixel-Roboter, Sternen-Ritter), falls vorhanden
         if (typeof BossPixelRobot !== 'undefined') bosses[11] = BossPixelRobot;
@@ -1077,6 +1114,13 @@ const Game = {
             13: ['unlockedBoneBat', 'Knochen-Upgrade! 🦴'],
             14: ['unlockedSnakeCompanion', 'Schlangen-Freund! 🐍'],
             15: ['unlockedPetrifyStone', 'Stein-Gift! 🪨'],
+            // Welt 45–50: Merker und Text, die Wirkung baut ein spaeterer Auftrag
+            45: ['unlockedLaserBalls', 'Baseball-Laserkugeln! ⚾'],
+            46: ['unlockedBoomBall', 'Knallball! 💥'],
+            47: ['unlockedPandaFriend', 'Panda-Freund! 🐼'],
+            48: ['unlockedIceBall', 'Eisball! ❄️'],
+            49: ['unlockedShadowCloud', 'Schattenwolke! 🌑'],
+            50: ['unlockedIceHammer', 'Eishammer! 🔨'],
         };
         const u = unlocks[this.currentWorld];
         this.lastUnlockText = '';

@@ -54,6 +54,13 @@ class Player {
         this.slowFactor = 1;
         // Betäubung (z. B. Pfotenschlag des Riesen-Werwolfs): > 0 = Mark kann nicht laufen, angreifen, ausweichen
         this.stunTimer = 0;
+        // Gift: > 0 = vergiftet, zieht nach und nach Leben ab (kein Tempo-Abzug). `poisonTick` zählet die Schadenser.
+        this.poisonTimer = 0;
+        this.poisonTick = 0;
+        // Schlaf: > 0 = eingeschlafen (wie Betäubung). `sleepGuard` = Schonzeit, in der kein neues Schlaf wirkt.
+        this.sleepTimer = 0;
+        this.sleepGuard = 0;
+        this.sleepGuardTime = 1.5;
 
         // Jump pads
         this.jumpPadStandTimer = 0;
@@ -179,6 +186,50 @@ class Player {
         return true;
     }
 
+    // Vergiften: Mark laeuft weiter, verliert aber nach und nach Leben (etwa ein halbes Herz pro Sekunde).
+    // Erneutes Gift macht nicht schneller, es haengt nur laenger nach. Schutz wie bei `stun`.
+    poison(seconds) {
+        if (this.dead || this.dodging || this.autoActive || this.crownShieldTimer > 0) return false;
+        this.poisonTimer = Math.max(this.poisonTimer, seconds);
+        return true;
+    }
+
+    // Einschlafen: wie `stun` (kein Laufen, kein Angriff), danach 1,5 s Schonzeit, in der kein neues
+    // sleep wirkt. Erneuter Schlaf vor dem Aufwachen verlaengert nur. Schutz wie bei `stun`.
+    sleep(seconds) {
+        if (this.dead || this.dodging || this.autoActive || this.crownShieldTimer > 0) return false;
+        if (this.sleepGuard > 0) return false;
+        this.sleepTimer = Math.max(this.sleepTimer, seconds);
+        return true;
+    }
+
+    // Gift-Schaden abzählen: 1 von 20 Lebenspunkten alle halben Sekunde = ein halbes Herz pro Sekunde.
+    // Die halbe Sekunde wird mit einer hundertstel Sekunde Toleranz gezählt, sonst hängt der letzte
+    // Tropfen eines drei Sekunden langen Gifts an den Rundungsfehlern der Bildzeiten.
+    _poisonTick(dt) {
+        this.poisonTimer -= dt;
+        this.poisonTick += dt;
+        while (!this.dead && this.poisonTick >= 0.49) {
+            this.poisonTick = Math.max(0, this.poisonTick - 0.5);
+            this._poisonHit();
+        }
+        if (this.poisonTimer > 0) return;
+        this.poisonTimer = 0;
+        this.poisonTick = 0;
+    }
+
+    // Ein einzelner Gift-Tropfen: ein Viertel Herz. Darf töten – ohne den Kurz-Schutz aus `takeDamage`,
+    // sonst verpuffte der letzte Tropfen mitten in der Unverwundbarkeit.
+    _poisonHit() {
+        this.hp -= 1;
+        if (typeof FX !== 'undefined') FX.burst(this.x + this.w / 2, this.y, ['#7dff5a', '#9dff72', '#c8ffb0'], 4, 40, 0.5, { kind: 'bubble' });
+        if (typeof Progress !== 'undefined') Progress.onHurt();
+        if (this.hp > 0) return;
+        this.hp = 0;
+        this.dead = true;
+        this.deathTimer = 1.5;
+    }
+
     switchWeapon() {
         if (this.rangedWeapon) {
             this.activeWeapon = this.activeWeapon === this.meleeWeapon
@@ -194,6 +245,18 @@ class Player {
 
         // Crown shield countdown
         if (this.crownShieldTimer > 0) this.crownShieldTimer -= dt;
+
+        // Gift zieht auch im Schlaf und trotz Unverwundbarkeit Leben ab (es wirkt ja langsam)
+        if (this.poisonTimer > 0) this._poisonTick(dt);
+        // Schonzeit nach dem Aufwachen ablaufen lassen
+        if (this.sleepGuard > 0) this.sleepGuard = Math.max(0, this.sleepGuard - dt);
+        if (this.sleepTimer > 0) {
+            this.sleepTimer -= dt;
+            if (this.sleepTimer <= 0) {
+                this.sleepTimer = 0;
+                this.sleepGuard = this.sleepGuardTime;
+            }
+        }
 
         // Slow countdown
         if (this.slowTimer > 0) {
@@ -245,8 +308,8 @@ class Player {
         // Dodge cooldown
         if (this.dodgeCooldown > 0) this.dodgeCooldown -= dt;
 
-        // Betäubt: steht still, kein Angriff, kein Ausweichen
-        if (this.stunTimer > 0 && !this.dodging) {
+        // Betäubt oder eingeschlafen: steht still, kein Angriff, kein Ausweichen
+        if ((this.stunTimer > 0 || this.sleepTimer > 0) && !this.dodging) {
             this.stunTimer -= dt;
             if (Input.consumeDodge) Input.consumeDodge();
             this.activeWeapon.update(dt);
@@ -373,6 +436,29 @@ class Player {
         if (this.stunTimer > 0 && typeof Juri !== 'undefined' && Juri.dizzyStars) {
             Juri.dizzyStars(ctx, cx, cy - 20, 10, 1.7);
         }
+        if (this.poisonTimer > 0) this._drawPoison(ctx, cx, cy, t);
+        if (this.sleepTimer > 0 && typeof Juri !== 'undefined' && Juri.zzz) {
+            Juri.zzz(ctx, cx + 6, cy - 22, 3.4);
+        }
+    }
+
+    // Gift-Anzeige: grünes Leuchten am Körper und ein Gift-Tropfen über dem Kopf. Nur Darstellung.
+    _drawPoison(ctx, cx, cy, t) {
+        Art.glow(ctx, cx, cy, 22, '#6bff5a', 0.3 + 0.12 * Math.sin(t * 6));
+        const y = cy - 34 + Math.sin(t * 3.2) * 1.4;
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(cx, y - 7.5);
+        ctx.quadraticCurveTo(cx + 5.6, y - 0.6, cx, y + 4.4);
+        ctx.quadraticCurveTo(cx - 5.6, y - 0.6, cx, y - 7.5);
+        ctx.closePath();
+        ctx.fillStyle = '#7dff5a';
+        ctx.fill();
+        ctx.strokeStyle = '#1f7a2a';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+        Art.shine(ctx, cx - 1.6, y + 0.6, 1.5, 2, -0.4, 0.7);
+        ctx.restore();
     }
 
     // Haltung für dieses Bild (reine Anzeigewerte; das Objekt wird wiederverwendet).

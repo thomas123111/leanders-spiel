@@ -651,6 +651,70 @@ const WORLD_THEMES = {
         flowers: ['#ffffff', '#ffe14a', '#ff9ad0'], win: 'crate', glow: '#ffe8a8',
         arena: '#5fd44a', arenaStyle: 'plateau',
     },
+    // Welt 45–50 (Gerüst aus vorhandenen Stilen, die Feinarbeit an der Optik macht Claude)
+    // Welt 45: Schlossgarten auf einer Insel – heller Kies, Rasen, Blumenbeete, türkisblaues Wasser rundherum.
+    // Der Boss-Raum soll ein runder Marmorplatz werden (arena + arenaStyle folgen mit der Optik).
+    peacock: {
+        void: '#0d4f74', vignette: 0.22, shade: '#1c5a2e', fs: 'flag', stone: 24, floor: ['#d3e2c4', '#cadbb9'],
+        ws: 'foliage', wall: '#3f9a5a', wallF: '#1f6b3a', accent: '#2fc0d8', tints: ['#eaf3d8', '#d9e9cd', '#cfe4ea', '#dcecc8'],
+        deep: 0.42, deepCol: '#1778ac', arena: '#eef6ff',
+        bush: ['#1b7a3a', '#3fae52', '#8fdc7a'], bx: 'flowers', bxc: ['#ff7a9a', '#ffd23f', '#8fd6ff'],
+        water: 'water', wc: ['#1a9ac0', '#3ec8e0', '#dcfbff'], lily: true, bone: '#f6f0dc', pad: '#2fc0d8',
+        deco: [['flower', 4], ['daisy', 2], ['tuft', 2], ['pebble', 1.2], ['clover', 1.5], ['mushroom', 0.3]], rate: 0.36,
+        flowers: ['#ffffff', '#9ad8ff', '#ff9ad0', '#ffe14a'], win: 'gothic', glow: '#c2f2ff',
+    },
+    // Welt 46: innen im rot-weiß gestreiften Zelt – heller Sägespäne-Boden, Tribünen als Wände, runde Manege
+    clown: {
+        void: '#3a0a14', vignette: 0.24, shade: '#2a0a10', fs: 'sand', floor: ['#f0e0c2', '#e8d5b2'],
+        ws: 'stands', wall: '#e8465a', wallF: '#a81f32', accent: '#ff5a6e', tints: ['#fff0f0', '#ffe0e6', '#f6f6f6', '#ffdcc8'],
+        deep: 0.32, deepCol: '#6a1424', arena: '#ffd6d6', stripes: 2,
+        bush: ['#c8483a', '#e8684a', '#ffd23f'], bx: 'flowers', bxc: ['#ffd23f', '#7fe0ff', '#ffffff'],
+        water: 'water', wc: ['#2a86c8', '#4cb2ec', '#dcf6ff'], bone: '#fff6e8', pad: '#ffd23f',
+        deco: [['ball', 1.2], ['cone', 1], ['sparkle', 1.5], ['pebble', 1], ['crack', 0.6]], rate: 0.3,
+        win: 'tv', glow: '#ffd6d6',
+    },
+    // Welt 47: heller Bambushain mit Seerosenteichen – Bambus als Wände, Farne und Blattwerk am Boden
+    // (Boss-Raum: runder Holzplatz, folgt mit der Optik)
+    panda: {
+        void: '#0e2a18', vignette: 0.24, shade: '#123a1e', fs: 'grass', floor: ['#84c861', '#7dbf5a'],
+        ws: 'bamboo', wall: '#5fb84a', wallF: '#2e7a34', accent: '#8fdc5a', deepCol: '#1a5a2a', deep: 0.32,
+        bush: ['#2a7a3e', '#46a553', '#9be06a'], bx: 'flowers', bxc: ['#ffffff', '#ffd23f', '#ff9ad0'],
+        water: 'water', wc: ['#1a86a8', '#3ec4dc', '#d8fff4'], lily: true, bone: '#f6f0dc', pad: '#ff9a3c',
+        deco: [['fern', 3], ['tuft', 3], ['leaf', 2.5], ['clover', 1.5], ['pebble', 1]], rate: 0.34,
+        flowers: ['#ffffff', '#ffe14a', '#ff9ad0'], win: 'stonelantern', glow: '#e8ffd0',
+    },
+    // Welt 48: sonnige Blumenwiese mit Glitzerbächen und Pastellblüten – runde Wiese mit Teich als Boss-Raum
+    unicorn: {
+        void: '#2a2450', vignette: 0.2, shade: '#1c4a30', fs: 'grass', stripes: 0, floor: ['#78c86a', '#71c063'],
+        blossoms: ['#ffffff', '#ffb3e0', '#c9a8ff', '#9ad8ff'],
+        ws: 'blooms', wall: '#4fae5a', wallF: '#2f7a41', accent: '#c9a8ff', arena: '#c9a8ff', arenaStyle: 'meadow',
+        deepCol: '#2a4a58', deep: 0.38, petals: ['#ff8ad8', '#c9a8ff', '#8ad8ff', '#ffe066', '#ffffff'],
+        bush: ['#2a7a3e', '#43a553', '#8fdc6a'], bx: 'flowers', bxc: ['#c9a8ff', '#ffe14a', '#ffffff', '#8ad8ff'],
+        water: 'water', wc: ['#2a9ad8', '#5cd0f0', '#e6fbff'], lily: true, bone: '#fff6e8', pad: '#ff6fb5',
+        deco: [['flower', 5], ['daisy', 2], ['tuft', 3], ['clover', 2], ['sparkle', 1.2], ['butterfly', 0.5], ['ladybug', 0.3]], rate: 0.38,
+        flowers: ['#ffffff', '#ffe14a', '#ff9ad0', '#c9a8ff', '#8ad8ff'], sk: 'bloom', win: 'rainbow', glow: '#fff0c8',
+    },
+    // Welt 49: Schloss innen bei Nacht – heller Steinboden, rote Läufer, Kerzenleuchter (Ballsaal als Boss-Raum)
+    vampire: {
+        void: '#0c0616', vignette: 0.44, shade: '#140a1e', fs: 'flag', stone: 24, seams: true, floor: ['#c9c2d8', '#c0b9d0'],
+        ws: 'bricks', wall: '#6a4a7a', wallF: '#331e42', accent: '#b0324f', tints: ['#e6dff0', '#d8cfe4', '#f0e8f6', '#cdc2da'],
+        deep: 0.5, deepCol: '#1a0a20', arena: '#8a1e38',
+        bush: ['#4a1024', '#7a1a34', '#b0324f'], bx: 'flowers', bxc: ['#b0324f', '#ffd0dc'],
+        water: 'potion', wc: ['#5a1030', '#a02a52', '#ffc0d4'], cobweb: true, bone: '#f2ecf8', pad: '#b0324f',
+        deco: [['candle', 1.4], ['crack', 1.5], ['chain', 0.8], ['rune', 0.6], ['pebble', 1]], rate: 0.26,
+        win: 'gothic', glow: '#ffd6a0', dark: 0.4, darkCol: '#0a0414',
+    },
+    // Welt 50: verschneites Tal mit Tannen – Wege aus bläulich-grauem festem Schnee, damit weiße Schneemänner
+    // zu sehen sind; der zugefrorene See liegt als Wasserflächen in der Karte (Boss-Raum: der See)
+    snowman: {
+        void: '#16283e', vignette: 0.3, shade: '#22374f', fs: 'snow', floor: ['#8fa2bc', '#889ab4'],
+        ws: 'ice', wall: '#cfe6f6', wallF: '#6f97bd', accent: '#bfe4ff', arena: '#a8dcef',
+        deep: 0.4, deepCol: '#3f6a94', floes: true,
+        bush: ['#20402f', '#2f6a44', '#e8f6ff'], bx: 'snow',
+        water: 'water', wc: ['#2a6aa8', '#4f92cc', '#dceeff'], bone: '#eef6ff', pad: '#7fb6e8',
+        deco: [['sparkle', 3], ['icecrack', 2], ['snowmound', 2], ['frost', 1], ['cone', 1.2], ['pebble', 0.8]], rate: 0.3,
+        win: 'crystal', glow: '#dff2ff',
+    },
 };
 
 // Welt 24: Die drei Elemente des Drachenvaters (und Gold dazwischen) liegen als Zonen über der Karte:
@@ -6234,3 +6298,11 @@ const WORLD41_LEVEL = createLateLevel(64, 56, 20, 4141, 3, 3, 4, 3);
 const WORLD42_LEVEL = createLateLevel(64, 56, 20, 4242, 4, 3, 4, 2);
 const WORLD43_LEVEL = createLateLevel(64, 56, 20, 4343, 3, 6, 3, 2);
 const WORLD44_LEVEL = createLateLevel(64, 56, 20, 4444, 4, 7, 3, 2);
+// Welten 45–50 (Gerüst): Karten wie bei 31–44. Viel Wasser in 45 (Insel) und 47/48 (Teiche, Bäche),
+// Welt 50 ist die letzte Welt – ihre Belohnung und ihr Sieg beenden das Spiel.
+const WORLD45_LEVEL = createLateLevel(64, 56, 20, 4545, 7, 4, 3, 2);
+const WORLD46_LEVEL = createLateLevel(64, 56, 21, 4646, 3, 6, 4, 2);
+const WORLD47_LEVEL = createLateLevel(66, 58, 21, 4747, 6, 5, 3, 2);
+const WORLD48_LEVEL = createLateLevel(66, 58, 22, 4848, 5, 6, 3, 2);
+const WORLD49_LEVEL = createLateLevel(68, 58, 22, 4949, 3, 4, 5, 2);
+const WORLD50_LEVEL = createLateLevel(68, 60, 23, 5050, 6, 4, 5, 2);
