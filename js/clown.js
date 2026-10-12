@@ -133,6 +133,20 @@ const ClownArt = {
         return best;
     },
 
+    // Steht zwischen (x, y) und (tx, ty) eine Wand? Dann wirkt eine Wirkung dort nicht hindurch.
+    wallBetween(x, y, tx, ty) {
+        const world = typeof Game !== 'undefined' ? Game.world : null;
+        if (!world || typeof world.isWall !== 'function') return false;
+        const d = Math.hypot(tx - x, ty - y);
+        if (!Number.isFinite(d) || d < 6) return false;
+        const steps = Math.min(14, Math.max(2, Math.ceil(d / 12)));
+        for (let i = 1; i < steps; i++) {
+            const f = i / steps;
+            if (world.isWall(x + (tx - x) * f, y + (ty - y) * f)) return true;
+        }
+        return false;
+    },
+
     // Flächenschaden: trifft Mark und die Freunde innerhalb von R, jeder höchstens einmal (hit-Liste).
     areaHit(x, y, R, amount, force, hit, poison) {
         const player = typeof Game !== 'undefined' ? Game.player : null;
@@ -140,6 +154,7 @@ const ClownArt = {
             if (hit && hit.indexOf(t.ref) >= 0) continue;
             if (t.ref.dead || t.ref.koTimer > 0) continue;
             if (Math.hypot(t.x - x, t.y - y) > R + Math.max(t.w, t.h) / 2) continue;
+            if (this.wallBetween(x, y, t.x, t.y)) continue;
             if (hit) {
                 hit.push(t.ref);
                 if (hit.length > 16) hit.splice(0, hit.length - 16);
@@ -393,11 +408,11 @@ class ClownBall extends Projectile {
         this.range = range;
         this.dest = dest;
         this.blastDmg = dmg;
-        this.blastR = R;
+        this.R = R;
         this.ownerRef = owner;
         this.spin = Math.random() * TAU;
         this.hitsCompanions = true;   // die Engine lässt ihn auch Juri und das Krokodil treffen
-        this.stunTime = 0;
+        this.stunTime = 0.4;          // kurze Rollerei bei einem Direkttreffer – die Wucht steckt in der Detonation
         this.lifetime = range / speed + 0.45;
         this.boom = false;
         this.poison = 0;              // keine grüne Verlangsamung der Engine – Gift kommt erst aus der Detonation
@@ -406,18 +421,22 @@ class ClownBall extends Projectile {
     update(dt, world) {
         if (this.dead) { this._boom(); return; }
         this.travel += Math.hypot(this.vx, this.vy) * dt;
+        // Eigene Zielpruefung: die Engine setzt nur `dead` und fragt das Geschoess nie weiter ab.
+        // Ohne diesen Weg bliebe ein Direkttreffer ein kleiner Nadelstich ohne die angesagte Explosion.
+        const player = typeof Game !== 'undefined' ? Game.player : null;
+        for (const t of ClownArt.targets(player)) {
+            if (Math.hypot(this.x - t.x, this.y - t.y) < this.size + Math.max(t.w, t.h) / 2) { this._boom(); return; }
+        }
         super.update(dt, world);
         if (this.dead || this.travel >= this.range) this._boom();
     }
-
-    takeDamage() { this._boom(); }    // Engine-Meldung: Ball hat Mark oder einen Freund getroffen
 
     _boom() {
         if (this.boom) return;
         this.boom = true;
         this.dead = true;
         const hit = this.ownerRef && Array.isArray(this.ownerRef.landHit) ? this.ownerRef.landHit : [];
-        ClownBall.explode(this.x, this.y, this.blastR, this.blastDmg, this.size, hit);
+        ClownBall.explode(this.x, this.y, this.R, this.blastDmg, this.size, hit);
     }
 
     // Detonation: Wirkkreis, Schein, Funken – und Schaden für Mark und alle Freunde im Kreis.
@@ -479,7 +498,6 @@ class Clown extends Enemy {
         this.step = 0;
         this.moving = false;
         this.purple = false;              // lila Haare (Schlüsselträger)
-        this.throwAt = null;              // {x, y} Wurfrichtungspunkt
         this.throwAngle = 0;
         this.landHit = [];
         this._keyInit = false;
@@ -527,7 +545,6 @@ class Clown extends Enemy {
             case 'throw':
                 if (this.stateT <= 0) {
                     this.cool = this.purple ? randRange(1.5, 2.1) : randRange(2, 2.8);
-                    this.throwAt = null;
                     this._set('walk', 0);
                 }
                 break;
@@ -587,7 +604,9 @@ class Clown extends Enemy {
     // Ansagen am Boden: Landekreis des laufenden Wurfs + Kreise aller fliegenden Bälle
     drawUnder(ctx, camera) {
         if (this.dead) return;
-        ClownArt.landingZones(ctx, camera);
+        if (typeof Game === 'undefined' || !Game.enemies || Game.enemies.find(e => e instanceof Clown && !e.dead) === this) {
+            ClownArt.landingZones(ctx, camera);      // einmal pro Frame genuegt – sonst mehrfach ueberzeichnet
+        }
         if (this.state === 'windup') {
             const a = this.throwAngle;
             const mx = this.centerX(), my = this.centerY() - 6;
@@ -916,10 +935,12 @@ class BossGiantClown extends Enemy {
         ClownArt.burst(p.x, p.y, [ClownCfg.ball, ClownCfg.dotA, '#ffffff'], 18, 210, 0.55, { kind: 'spark' });
         ClownArt.burst(p.x, p.y, 'rgba(240,224,194,0.9)', 9, 95, 0.6, { kind: 'smoke', size: 6 });
         ClownArt.burst(p.x, p.y - 24, [ClownCfg.dotB, ClownCfg.suit, ClownCfg.hair], 9, 130, 0.6, { kind: 'star', gravity: 140 });
+        this.slamAim = null;               // die Ansage ist verbraucht – kein Ring ohne folgenden Schlag
         const player = typeof Game !== 'undefined' ? Game.player : null;
         for (const t of ClownArt.targets(player)) {
             if (t.ref.dead || t.ref.koTimer > 0) continue;
             if (Math.hypot(t.x - p.x, t.y - p.y) > R + Math.max(t.w, t.h) / 2) continue;
+            if (ClownArt.wallBetween(p.x, p.y, t.x, t.y)) continue;
             const a = Math.atan2(t.y - p.y, t.x - p.x);
             const angle = Number.isFinite(a) ? a : 0;
             if (t.isPlayer) {
@@ -956,14 +977,15 @@ class BossGiantClown extends Enemy {
         ClownArt.landingZones(ctx, camera);
         if (st === 'throwWind') {
             const mx = this.centerX(), my = this.centerY() - 12;
-            const q = camera.worldToScreen(mx + Math.cos(this.throwAngle) * 225, my + Math.sin(this.throwAngle) * 225);
+            const q = camera.worldToScreen(mx + Math.cos(this.throwAngle) * 250, my + Math.sin(this.throwAngle) * 250);
             Art.ring(ctx, q.x, q.y, 38, 'rgba(255,59,59,0.8)', 2.4, 0.4 + 0.3 * this._k());
             return;
         }
         if (st === 'fanWind') {
             const mx = this.centerX(), my = this.centerY() - 12;
             const n = this.phase === 2 ? 5 : 3;
-            LateWorldArt.rays(ctx, mx, my, n, this.fanAngle - ((n - 1) / 2) * 0.3, 24, 205, this._k(), ClownCfg.warn);
+            const q = camera.worldToScreen(mx, my);
+            LateWorldArt.rays(ctx, q.x, q.y, n, this.fanAngle - ((n - 1) / 2) * 0.3, 24, 205, this._k(), ClownCfg.warn);
             return;
         }
         if (st === 'chargeWind' && this.chargeAim) {
@@ -1080,10 +1102,8 @@ class BossGiantClown extends Enemy {
             ClownArt.unicycle(ctx, 'full', 15, -this.spin * this.face, { lw: 0.8 });
         }
         if (weapon && !dead) {
-            ctx.save();
-            ctx.scale(this.face, 1);
-            ClownArt.unicycleWeapon(ctx, weapon.x, weapon.y, Math.PI - weapon.ang, 15, weapon.glow, 0.8);
-            ctx.restore();
+            // sitzt bereits im gespiegelten Koerperfeld: Hand und Waffe teilen sich dieselben Figur-Maße
+            ClownArt.unicycleWeapon(ctx, weapon.x, weapon.y, weapon.ang, 15, weapon.glow, 0.8);
         }
         ctx.restore();
         if (dizzy && !dead) LateWorldArt.dizzy(ctx, 1.5 * S * this.face, (hip - 30) * S, 24, 4.6);
