@@ -621,12 +621,14 @@ class Unicorn extends Enemy {
     _fire(projectiles) {
         const list = projectiles || (typeof Game !== 'undefined' ? Game.projectiles : null);
         if (!list) return;
-        if (UnicornArt.dustCount(list, this) >= 4 || UnicornArt.totalShots(list) >= DUST_CAP48) return;
+        if (UnicornArt.totalShots(list) >= DUST_CAP48) return;
         const mx = this.centerX(), my = this.centerY() - 8;
         const a = this.aim ? Math.atan2(this.aim.y - my, this.aim.x - mx) : Math.atan2(this.look.y, this.look.x || 1);
         // Schlüsselträger: drei Wolken im kleinen Fächer, sonst eine gezielte
         const n = this.gray ? 3 : 1;
         for (let i = 0; i < n; i++) {
+            if (UnicornArt.dustCount(list, this) >= 4) break;     // pro Einhorn bleiben es höchstens vier
+            if (UnicornArt.totalShots(list) >= DUST_CAP48) break;
             const aa = a + (i - (n - 1) / 2) * 0.19;
             const d = new RainbowDust(mx + Math.cos(aa) * 14, my + Math.sin(aa) * 14, aa, this.gray ? 152 : 165, false, this);
             list.push(d);
@@ -728,7 +730,6 @@ class BossGiantUnicorn extends Enemy {
         this.bigHits = 0;                   // große Angriffe seit dem Phasenwechsel (Schwindel)
         this.dust = [];                     // eigene Wolken (Obergrenze)
         this.angry = 0;                     // 0..1 Glühen in Phase 2
-        this.lullHit = false;
     }
 
     static room(world) { return UnicornArt.room(world); }
@@ -737,13 +738,14 @@ class BossGiantUnicorn extends Enemy {
         this.state = state;
         this.stateT = dur;
         this.stateDur = dur;
+        if (state !== 'walk') this.moving = false;      // solange der Boss angreift, stehen die Beine still
     }
 
     _k() { return this.stateDur > 0 ? clamp(1 - this.stateT / this.stateDur, 0, 1) : 1; }
 
     update(dt, world, player, enemies, projectiles) {
         this.baseUpdate(dt, world);
-        if (this.dead) return;
+        if (this.dead) { this.dust.length = 0; return; }    // tote Bosse bleiben in der Liste – Wolken-Referenzen loslassen
         this.dust = this.dust.filter(d => !d.dead);
         this.angry += ((this.phase === 2 ? 1 : 0) - this.angry) * Math.min(1, dt * 3);
         const mx = this.centerX(), my = this.centerY();
@@ -843,7 +845,6 @@ class BossGiantUnicorn extends Enemy {
             this._set('stormWind', this.phase === 2 ? 0.56 : 0.74);
         } else if (what === 'lull') {
             this.lullR = this.phase === 2 ? 132 : 112;
-            this.lullHit = false;
             this._set('lullWind', this.phase === 2 ? 1.25 : 1.5);
         } else this.cool = this.phase === 2 ? 0.5 : 0.9;   // bewusste Verschnaufpause
     }
@@ -892,7 +893,6 @@ class BossGiantUnicorn extends Enemy {
         UnicornArt.ring(mx, my, '#ffffff', this.lullR * 0.6, 0.4, 4);
         UnicornArt.burst(mx, my - 40, [U48.note, U48.maneB, '#ffffff'], 20, 150, 0.8, { kind: 'star' });
         UnicornArt.shake(4.5, 0.3);
-        this.lullHit = true;
     }
 
     // Nach großen Angriffen: Verschnaufpause – und in Phase 2 wird das Rieseneinhorn schwindelig.
