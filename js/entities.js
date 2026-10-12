@@ -3541,6 +3541,13 @@ class ShadowCrocodile {
 // ── Schattenwolke (Belohnung des Schattenkrokodils, Welt 49) ──
 // ══════════════════════════════════════════
 
+// Prueft, ob ein Ziel der echte Mark ist - auch dann, wenn es das verkleidete Ersatzziel einer
+// Schattenwolke ist (Welt 49). Ohne laufendes Spiel immer false.
+function istMarkZiel(z) {
+    const echt = typeof Game !== 'undefined' ? Game.player : null;
+    return !!echt && (z === echt || !!(z && z.decoyOf === echt));
+}
+
 // Eine dunkle Wolke, die das Krokodil alle 12 Sekunden um Mark legt (etwa 4 Sekunden).
 // Solange Mark in der Wolke steht, bekommen die Gegner in der Gegner-Schleife (js/main.js)
 // dieses Ersatzziel statt Mark: Sie zielen nicht auf ihn und laufen ihm nicht nach.
@@ -3817,9 +3824,7 @@ class BossMushroomGiant extends Enemy {
     static hurt(player, amount, angle, force) {
         // `decoyOf`: das Ersatzziel der Schattenwolke ist verkleidet - der Schaden gehört trotzdem
         // zum echten Mark und soll die übliche Rückmeldung haben (Welt 49).
-        const istMark = player === (typeof Game !== 'undefined' ? Game.player : null)
-            || (player && player.decoyOf) === (typeof Game !== 'undefined' ? Game.player : null);
-        if (typeof Game !== 'undefined' && istMark && Game._hurtPlayer) Game._hurtPlayer(amount, angle, force);
+        if (typeof Game !== 'undefined' && istMarkZiel(player) && Game._hurtPlayer) Game._hurtPlayer(amount, angle, force);
         else player.takeDamage(amount, angle, force);
     }
 
@@ -5694,7 +5699,8 @@ class BossFirePhoenix extends Enemy {
 const Kit915 = {
     // Schaden an Mark über die Engine (Wackeln, Ton, roter Rand); ohne Engine direkt.
     hurt(player, amount, angle, force) {
-        if (typeof Game !== 'undefined' && Game.player === player && typeof Game._hurtPlayer === 'function') {
+        // `istMarkZiel`: auch das Ersatzziel der Schattenwolke bekommt die uebliche Rueckmeldung
+        if (typeof Game !== 'undefined' && istMarkZiel(player) && typeof Game._hurtPlayer === 'function') {
             Game._hurtPlayer(amount, angle, force);
         } else if (player && player.takeDamage) {
             player.takeDamage(amount, angle, force);
