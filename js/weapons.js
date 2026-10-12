@@ -215,7 +215,8 @@ class BaseballLauncher {
         if (this.shadowCaster) p.shadowCaster = true;
         if (this.gamerPistol) p.gamerPistol = true;
         if (this.laserBalls) { p.laser = true; p.pierce = LASER_PIERCE; }
-        if (this.boomBall) p.boom = true;
+        // Der Knallball böllert nicht an Wänden ab, sondern knallt beim ersten Anschlag
+        if (this.boomBall) { p.boom = true; p.bouncesLeft = 0; }
         if (this.iceBall) p.freeze = ICE_BALL_SECONDS;
         return p;
     }
@@ -425,6 +426,9 @@ class Projectile {
                     Game.projectiles.push(p);
                 }
             }
+            // Der Zerleger-Ball selbst ist damit verbraucht: seinen Knall-Zünder tragen die drei
+            // Splitter weiter. Sonst würde der Knallball schon in Wurfhandhöhe platzen (Welt 46).
+            this.boom = false;
             this.dead = true;
             return;
         }

@@ -1475,8 +1475,10 @@ const Game = {
         // Geschosse
         for (const proj of this.projectiles) {
             proj.update(dt, this.world);
-            // Knallball (Welt 46): explodiert auch, wenn er an eine Wand läuft oder abläuft
-            if (proj.boom && proj.dead) this._boomSplash(proj, null);
+            // Knallball (Welt 46): explodiert auch, wenn er an eine Wand läuft oder abläuft.
+            // Nur Marks eigener Ball - die Bomben-Früchte des Riesenbaums (Welt 37) heissen auch `boom`
+            // und liegen in derselben Liste, gehören aber dem Boss und knallen nicht für Mark.
+            if (proj.owner === 'player' && proj.boom && proj.dead) this._boomSplash(proj, null);
             if (proj.dead) continue;
             if (proj.owner === 'player') {
                 for (const enemy of this.enemies) {

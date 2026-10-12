@@ -3577,6 +3577,11 @@ class ShadowCloud {
                 get(t, k) {
                     if (k === 'x') return cloud.x - t.w / 2;
                     if (k === 'y') return cloud.y - t.h / 2;
+                    // Wer sich das Ersatzziel merkt (der Adler tut das) muss es nach dem Ende der
+                    // Wolke fallen lassen: ab dann meldet es `dead`, und der Gegner wählt neu.
+                    if (k === 'dead') return cloud.timer <= 0 || Reflect.get(t, k);
+                    // damit Identitäts-Prüfungen wie `Game.player === ziel` das Ersatzziel durchsehen
+                    if (k === 'decoyOf') return t;
                     return Reflect.get(t, k);
                 },
                 set(t, k, v) { return Reflect.set(t, k, v); },
@@ -3810,7 +3815,11 @@ class BossMushroomGiant extends Enemy {
 
     // Schaden an Mark mit Rückmeldung (Wackeln, Ton, roter Rand); außerhalb des Spiels direkt.
     static hurt(player, amount, angle, force) {
-        if (typeof Game !== 'undefined' && Game.player === player && Game._hurtPlayer) Game._hurtPlayer(amount, angle, force);
+        // `decoyOf`: das Ersatzziel der Schattenwolke ist verkleidet - der Schaden gehört trotzdem
+        // zum echten Mark und soll die übliche Rückmeldung haben (Welt 49).
+        const istMark = player === (typeof Game !== 'undefined' ? Game.player : null)
+            || (player && player.decoyOf) === (typeof Game !== 'undefined' ? Game.player : null);
+        if (typeof Game !== 'undefined' && istMark && Game._hurtPlayer) Game._hurtPlayer(amount, angle, force);
         else player.takeDamage(amount, angle, force);
     }
 
