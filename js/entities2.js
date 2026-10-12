@@ -1949,7 +1949,8 @@ const LateWorldArt = {
 
     // Schaden am Spieler mit der üblichen Rückmeldung (Wackeln, Ton, roter Rand).
     hurt(player, amount, angle, force) {
-        // `decoyOf`: auch das Ersatzziel der Schattenwolke bekommt die übliche Rückmeldung (Welt 49)
+        // `istMarkZiel`: auch das verkleidete Ersatzziel der Schattenwolke (Welt 49) bekommt die
+        // übliche Rückmeldung; der Helfer steht in entities.js.
         if (typeof Game !== 'undefined' && istMarkZiel(player) && typeof Game._hurtPlayer === 'function') {
             Game._hurtPlayer(amount, angle, force);
         } else if (player && player.takeDamage) {

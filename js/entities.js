@@ -3822,8 +3822,8 @@ class BossMushroomGiant extends Enemy {
 
     // Schaden an Mark mit Rückmeldung (Wackeln, Ton, roter Rand); außerhalb des Spiels direkt.
     static hurt(player, amount, angle, force) {
-        // `decoyOf`: das Ersatzziel der Schattenwolke ist verkleidet - der Schaden gehört trotzdem
-        // zum echten Mark und soll die übliche Rückmeldung haben (Welt 49).
+        // `istMarkZiel`: das Ersatzziel der Schattenwolke ist verkleidet (`decoyOf`) - der Schaden
+        // gehört trotzdem zum echten Mark und soll die übliche Rückmeldung haben (Welt 49).
         if (typeof Game !== 'undefined' && istMarkZiel(player) && Game._hurtPlayer) Game._hurtPlayer(amount, angle, force);
         else player.takeDamage(amount, angle, force);
     }
