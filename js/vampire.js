@@ -147,8 +147,50 @@ const VampArt = {
         }
     },
 
+    // Freie Sichtlinie zwischen zwei Punkten (keine Mauer dazwischen), Stichproben alle 14 Einheiten.
+    clearLine(world, ax, ay, bx, by) {
+        if (!world || !world.isWall) return true;
+        const n = Math.ceil(Math.hypot(bx - ax, by - ay) / 14);
+        for (let i = 1; i < n; i++) {
+            if (world.isWall(ax + ((bx - ax) * i) / n, ay + ((by - ay) * i) / n)) return false;
+        }
+        return true;
+    },
+
+    // Vorwarnung für einen Fächer aus Geschossen: n Strahlen genau in den Flugrichtungen,
+    // nicht (wie LateWorldArt.rays) gleichmäßig über den ganzen Kreis verteilt.
+    fanWarn(ctx, x, y, n, a0, spread, r0, r1, k, color) {
+        if (n <= 0) return;
+        const prev = ctx.globalAlpha;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = color;
+        const winkel = [];
+        for (let i = 0; i < n; i++) winkel.push(a0 + (n === 1 ? 0 : -spread / 2 + (spread * i) / (n - 1)));
+        ctx.beginPath();
+        for (const a of winkel) {
+            ctx.moveTo(x + Math.cos(a) * r0, y + Math.sin(a) * r0);
+            ctx.lineTo(x + Math.cos(a) * r1, y + Math.sin(a) * r1);
+        }
+        ctx.globalAlpha = prev * 0.2;
+        ctx.lineWidth = 7;
+        ctx.stroke();
+        const r2 = r0 + (r1 - r0) * clamp(k, 0, 1);
+        ctx.beginPath();
+        for (const a of winkel) {
+            ctx.moveTo(x + Math.cos(a) * r0, y + Math.sin(a) * r0);
+            ctx.lineTo(x + Math.cos(a) * r2, y + Math.sin(a) * r2);
+        }
+        ctx.globalAlpha = prev * (0.55 + 0.3 * Math.sin(Art.time * 16));
+        ctx.lineWidth = 3.2;
+        ctx.stroke();
+        ctx.globalAlpha = prev;
+    },
+
     // Einschlafen lassen: Mark und die Freunde in R für `seconds` Sekunden. Trifft jeder höchstens
     // einmal; die Schonzeit aus sleep (sleepGuard) wirkt von selbst, ein zweiter Biss kurz danach geht ins Leere.
+    // `hit` ist die Liste der in DIESEM Angriff schon erfassten Ziele – für einen Angriff, der zugleich
+    // verletzt und einschlafen lässt, gehören zwei getrennte Listen hinein (sonst überspringt das
+    // Einschlafen-Lassen genau die, die der Schaden gerade erwischt hat).
     sleepArea(x, y, R, seconds, hit) {
         const player = typeof Game !== 'undefined' ? Game.player : null;
         let gewirkt = false;
@@ -688,7 +730,14 @@ class Vampire extends Enemy {
             this.step += dt * 5.6;
         } else this.step += dt * 1.5;
         if (this.cool > 0) return;
-        if (dist < 72) { this._startBite(player); return; }
+        if (dist < 72) {
+            // Der Biss trifft nur, was er sieht – liegt eine Mauer dazwischen, weicht er zurück und schießt.
+            if (VampArt.clearLine(world, this.centerX(), this.centerY(), player.x + player.w / 2, player.y + player.h / 2)) {
+                this._startBite(player);
+                return;
+            }
+            this.cool = 0.45;
+        }
         if (dist < 215) {
             const t = VampArt.nearest(player, this.centerX(), this.centerY(), 240);
             if (t) {
@@ -711,10 +760,12 @@ class Vampire extends Enemy {
     }
 
     // Der Biss landet genau da, wo der rote Kreis war – der Kreis ist der Trefferbereich.
+    // Er verletzt UND lässt einschlafen: zwei getrennte Trefferlisten, damit das Einschlafen-Lassen
+    // nicht genau die überspringt, die gerade der Schaden erwischt hat.
     _biteHit() {
         const a = this.aim || { x: this.centerX() + this.face * 26, y: this.centerY() };
         VampArt.areaHit(a.x, a.y, 26, 1, 150, this.biteHit);
-        VampArt.sleepArea(a.x, a.y, 26, VampCfg.sleep, this.biteHit);
+        VampArt.sleepArea(a.x, a.y, 26, VampCfg.sleep, null);
         VampArt.shake(2.2, 0.1);
         VampArt.burst(a.x, a.y, [VampCfg.lining, '#ffffff'], 8, 130, 0.34, { kind: 'spark' });
         VampArt.ring(a.x, a.y, VampCfg.lining, 26, 0.22, 3);
@@ -852,6 +903,8 @@ class BossGiantVampire extends Enemy {
         this.from = null;
         this.hitOnce = [];
         this.bigHits = 0;
+        this.doubleClaw = false;             // zweiter Kratzer in Phase 2 – wird im Angriffswähler gesetzt
+        this.doubleSleep = false;            // zweiter Schlaf-Kreis in Phase 2 – ebenso
         this.tpAlpha = 1;                  // 1 = sichtbar, 0 = in der Rauchwolke
         this.rage = 0;
         this.swarm = 0;                    // 0..1 Fledermausschwarm während der Verwandlung
@@ -993,6 +1046,14 @@ class BossGiantVampire extends Enemy {
                 }
                 break;
             case 'dive': this._dive(dt); break;
+            case 'dizzy':
+                // Nach dem Schwindel erst mal durchatmen – sonst steht sofort der nächste Windup an.
+                this.moving = false;
+                if (this.stateT <= 0) {
+                    this.cool = this._p2() ? 0.6 : 0.95;
+                    this._set('hover', this.cool + 0.3);
+                }
+                break;
             case 'hover':
                 this.moving = false;
                 if (this.stateT <= 0) this._set('arc', 0.9);
@@ -1028,6 +1089,10 @@ class BossGiantVampire extends Enemy {
         const cyc = this._p2() ? BossGiantVampire.BAT2 : BossGiantVampire.BAT1;
         let what = cyc[this.seq % cyc.length];
         this.seq++;
+        // In Gestalt 2 kommt der Kratzer doppelt – einmal, nicht für immer: entschieden wird das hier,
+        // wo der Angriff ausgesucht und die Zahl hochgezählt wird. Der Wiederholungsangriff selbst
+        // (case 'claw') setzt das Merkerfeld auf false zurück und _startClaw ändert es nicht mehr.
+        this.doubleClaw = this._p2() && this.seq % 2 === 0;
         if (what === 'claw' && dist > 128) what = 'dive';
         if (what === 'dive' && dist < 70) what = 'claw';
         if (what === 'claw') this._startClaw(player);
@@ -1041,7 +1106,6 @@ class BossGiantVampire extends Enemy {
         if (!t) { this.cool = 0.6; return; }
         this.aim = { x: t.t.x, y: t.t.y };
         this.clawR = this._p2() ? 62 : 54;
-        this.doubleClaw = this._p2() && this.seq % 2 === 0;
         if (Math.abs(this.aim.x - this.centerX()) > 6) this.face = this.aim.x > this.centerX() ? 1 : -1;
         this.hitOnce = [];
         this._set('clawWind', this._p2() ? 0.44 : 0.58);
@@ -1196,6 +1260,10 @@ class BossGiantVampire extends Enemy {
         const cyc = this._p2() ? BossGiantVampire.VAMPIR2 : BossGiantVampire.VAMPIR1;
         let what = cyc[this.seq % cyc.length];
         this.seq++;
+        // In Gestalt 2 folgt auf das Einschlafen-Lassen ein zweiter Kreis – genau einer. Entschieden
+        // wird hier (der Zähler ist gerade hochgezählt), case 'sleepCast' nimmt den Merker und
+        // _startSleep ändert ihn nicht mehr; sonst bliebe die Kette endlos.
+        this.doubleSleep = this._p2() && this.seq % 2 === 0;
         if (what === 'claw' && dist > 96) what = 'blood';
         if (what === 'blood') this._startBlood(player);
         else if (what === 'sleep') this._startSleep(world, player);
@@ -1210,6 +1278,7 @@ class BossGiantVampire extends Enemy {
         if (!t) { this.cool = 0.6; return; }
         this.aim = { x: t.t.x, y: t.t.y };
         this.bloodN = this._p2() ? 9 : 6;
+        this.bloodSpread = this._p2() ? 0.71 : 0.62;   // Öffnung des Fächers – die Ansage zeigt genau hin
         if (Math.abs(this.aim.x - this.centerX()) > 6) this.face = this.aim.x > this.centerX() ? 1 : -1;
         this._set('bloodWind', this._p2() ? 0.52 : 0.68);
     }
@@ -1219,7 +1288,7 @@ class BossGiantVampire extends Enemy {
         const mx = this.centerX(), my = this.centerY() - 6;
         const a0 = this.aim ? Math.atan2(this.aim.y - my, this.aim.x - mx) : Math.atan2(this.look.y, this.look.x || 1);
         const n = this.bloodN || 6;
-        const spread = (n === 1 ? 0 : 0.62) * (this._p2() ? 1.15 : 1);
+        const spread = n === 1 ? 0 : (this.bloodSpread || 0.62);
         for (let i = 0; i < n; i++) {
             const a = a0 + (n === 1 ? 0 : -spread / 2 + (spread * i) / (n - 1));
             const p = LateWorldArt.shoot(mx + Math.cos(a) * 22, my + Math.sin(a) * 22, a, this._p2() ? 178 : 158, 110, VampArt.shotBlood);
@@ -1237,7 +1306,6 @@ class BossGiantVampire extends Enemy {
         if (!t) { this.cool = 0.6; return; }
         this.sleepAim = { x: t.t.x, y: t.t.y };
         this.sleepR = this._p2() ? 62 : 54;
-        this.doubleSleep = this._p2() && this.seq % 2 === 0;
         this.hitOnce = [];
         this._set('sleepWind', this._p2() ? 0.8 : 1);
     }
@@ -1324,7 +1392,7 @@ class BossGiantVampire extends Enemy {
         }
         if (st === 'diveWind' && this.aim) {
             const p = camera.worldToScreen(this.aim.x, this.aim.y);
-            LateWorldArt.warn(ctx, p.x, p.y, this.diveR || 58, this._k(), st === 'dive' ? '#ff3d5a' : VampCfg.warn);
+            LateWorldArt.warn(ctx, p.x, p.y, this.diveR || 58, this._k(), VampCfg.warn);
             LateWorldArt.rays(ctx, p.x, p.y, 8, this.seed, (this.diveR || 58) * 0.55, (this.diveR || 58) * (0.8 + 0.4 * this._k()), this._k(), '#ffb03a');
             const s = camera.worldToScreen(mx, my);
             Art.ring(ctx, s.x, s.y, 22 + this._k() * 16, '#ffffff', 2.4, 0.35);
@@ -1333,7 +1401,8 @@ class BossGiantVampire extends Enemy {
         if (st === 'bloodWind' && this.aim) {
             const p = camera.worldToScreen(mx, my);
             const a0 = Math.atan2(this.aim.y - my, this.aim.x - mx);
-            LateWorldArt.rays(ctx, p.x, p.y, this.bloodN || 6, a0 - 0.31, 24, 92, this._k(), VampCfg.warn);
+            // Ansage nur in die echten Flugrichtungen des Fächers (kein voller Kreis)
+            VampArt.fanWarn(ctx, p.x, p.y, this.bloodN || 6, a0, this.bloodSpread || 0.62, 24, 92, this._k(), VampCfg.warn);
             return;
         }
         if (st === 'sleepWind' && this.sleepAim) {
