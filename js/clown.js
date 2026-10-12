@@ -397,8 +397,9 @@ const ClownArt = {
 // ══════════════════════════════════════════
 
 // Rote Kugel des Clowns: fliegt bis zu ihrer Flugweite und explodiert dort – oder früher an einer Wand
-// oder auf Mark/einem Freund (die Engine meldet Treffer über takeDamage). Die Detonation zeigt einen
-// deutlich markierten Wirkkreis und trifft alle im Kreis (Gift zieht kurz nach).
+// oder auf Mark/einem Freund. Die Engine meldet einen Geschoßtreffer nur als `dead` und fragt das
+// Geschoß nie weiter ab, also prüft der Ball seine Ziele selbst. Die Detonation zeigt den deutlich
+// markierten Wirkkreis und trifft alle im Kreis (Gift zieht kurz nach).
 class ClownBall extends Projectile {
     constructor(x, y, angle, speed, range, dest, dmg, R, size, owner) {
         super(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 1, 'enemy', 120);
@@ -421,14 +422,15 @@ class ClownBall extends Projectile {
     update(dt, world) {
         if (this.dead) { this._boom(); return; }
         this.travel += Math.hypot(this.vx, this.vy) * dt;
-        // Eigene Zielpruefung: die Engine setzt nur `dead` und fragt das Geschoess nie weiter ab.
-        // Ohne diesen Weg bliebe ein Direkttreffer ein kleiner Nadelstich ohne die angesagte Explosion.
+        super.update(dt, world);
+        if (this.dead || this.travel >= this.range) { this._boom(); return; }
+        // Eigene Zielpruefung ACHTER der Bewegung (dasselbe Feld wie die Engine in main.js:1478):
+        // die Engine setzt bei einem Treffer nur `dead` und fragt das Geschoess nie weiter ab – ohne
+        // diesen Weg bliebe ein Direkttreffer ein kleiner Nadelstich ohne die angesagte Explosion.
         const player = typeof Game !== 'undefined' ? Game.player : null;
         for (const t of ClownArt.targets(player)) {
-            if (Math.hypot(this.x - t.x, this.y - t.y) < this.size + Math.max(t.w, t.h) / 2) { this._boom(); return; }
+            if (Math.hypot(this.x - t.x, this.y - t.y) < this.radius + Math.max(t.w, t.h) / 2) { this._boom(); return; }
         }
-        super.update(dt, world);
-        if (this.dead || this.travel >= this.range) this._boom();
     }
 
     _boom() {
