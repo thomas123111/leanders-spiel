@@ -101,9 +101,12 @@ Object.assign(Game, {
     roundUpgrade: null,      // beim Weltstart festgelegtes Extra, in der Runde unveränderlich
     roundUpgradeSet: false,  // true, solange eine Runde läuft (auch wenn kein Extra gewählt wurde)
 
-    // Das Extra, das gerade zählt (in der Runde das festgelegte) - oder null
+    // Das Extra, das gerade zählt (in der Runde das festgelegte) - oder null.
+    // Die Freiheitsprüfung sitzt hier mit drin: ein aus einem alten oder veränderten Spielstand
+    // gekipptes Extra wird weder angezeigt noch wirkt es.
     selectedUpgrade() {
-        return UPGRADE_BY_ID[this.roundUpgradeSet ? this.roundUpgrade : this.activeUpgrade] || null;
+        const id = this.roundUpgradeSet ? this.roundUpgrade : this.activeUpgrade;
+        return upgradeIsFree(id, this) ? UPGRADE_BY_ID[id] : null;
     },
 
     // Fragt die Wirkungstellen in js/main.js ab: gilt das Extra mit dieser Id gerade?
