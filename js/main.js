@@ -828,6 +828,9 @@ const Game = {
         // Pause und andere Menüs können es in der Runde nicht mehr ändern.
         this.lockRoundUpgrade();
 
+        // Die Runden-Haken (js/upgrades.js) beginnen leer; das gewählte Upgrade füllt sie in seinem apply().
+        this.setupRoundHooks();
+
         // Begleiter: Juri ist die Belohnung aus Welt 6 (ab Welt 7 dabei), das Krokodil die aus Welt 7 (ab Welt 8).
         // Dabei sein ist Grundausstattung - ihre Extras wirken nur, wenn genau sie gewählt wurden.
         if (worldNum >= 7) {
@@ -895,6 +898,20 @@ const Game = {
         if (this.upgradeOn('crown')) {
             this.player.hasCrown = true;
             this.player.startCrownShield();
+        }
+        // Das Upgrade-Gerüst (js/upgrades.js): hat das gewählte Upgrade eine eigene apply-Funktion
+        // (aus seiner Datei js/upgrades-mark|juri|croc|panda.js), wirkt sie genau einmal pro Runde.
+        // c nennt die Figuren - Begleiter nur, wenn sie in dieser Welt dabei sind.
+        const _selected = this.selectedUpgrade();
+        if (_selected && typeof _selected.apply === 'function' && !_selected._appliedRound) {
+            _selected._appliedRound = true;
+            const c = {
+                game: this, welt: this.world, player: this.player,
+                juri: this.companions.find(cf => cf instanceof Juri) || null,
+                croc: this.companions.find(cf => cf instanceof ShadowCrocodile) || null,
+                panda: (typeof PandaBuddy !== 'undefined' && this.companions.find(cf => cf instanceof PandaBuddy)) || null,
+            };
+            try { _selected.apply(c); } catch (err) { /* ein kaputtes Upgrade hält den Weltstart nicht an */ }
         }
         if (worldNum === 0) {
             this.player.hasAuto = false;
@@ -1379,11 +1396,32 @@ const Game = {
         this.world.update(dt);
         this._updateAssist();
         this.player.update(dt, this.world);
+        // onUpdate-Haken (Upgrade-Gerüst, js/upgrades.js): je ein Takt für Mark und die Runde
+        if (typeof dispatchHooks === 'function') {
+            if (this.player.hooks) dispatchHooks(this.player, 'onUpdate', [dt]);
+            if (this.roundHooks) dispatchHooks(null, 'onUpdate', [dt]);
+        }
         if (this.player.autoActive) this._crashWalls();
-        if (this.player.dodging && !this._wasDodging) FX.burst(this.player.x + this.player.w / 2, this.player.y + this.player.h - 2, 'rgba(230,240,255,0.9)', 6, 60, 0.4, { kind: 'smoke', size: 4 });
+        if (this.player.dodging && !this._wasDodging) {
+            FX.burst(this.player.x + this.player.w / 2, this.player.y + this.player.h - 2, 'rgba(230,240,255,0.9)', 6, 60, 0.4, { kind: 'smoke', size: 4 });
+            // onDodge (Upgrade-Gerüst): genau einmal beim Start des Ausweichens
+            if (typeof dispatchHooks === 'function' && this.player.hooks) dispatchHooks(this.player, 'onDodge', []);
+        }
         this._wasDodging = this.player.dodging;
 
-        for (const c of this.companions) c.update(dt, this.world, this.player, this.enemies);
+        for (const c of this.companions) {
+            c.update(dt, this.world, this.player, this.enemies);
+            // onUpdate-Haken der Begleiter (Juri, Krokodil, Panda - js/upgrades.js)
+            if (typeof dispatchHooks === 'function' && c.hooks) dispatchHooks(c, 'onUpdate', [dt]);
+        }
+        // Zeitweilige Helfer (spawnHelper aus js/upgrades.js): der Zähler läuft pro Bild ab,
+        // ist er durch, verschwindet der Helfer von allein. Echte Begleiter sind ohne Zähler.
+        for (let i = this.companions.length - 1; i >= 0; i--) {
+            const c = this.companions[i];
+            if (c.helperTimer === undefined) continue;
+            c.helperTimer -= dt;
+            if (c.helperTimer <= 0) this.companions.splice(i, 1);
+        }
         for (const prop of this.props) prop.update(dt, this.world, this.player, this.enemies);
 
         // Tod des Spielers (nach dem Bosssieg zählt er nicht mehr)
@@ -1415,7 +1453,14 @@ const Game = {
             if (enemy.stoneTimer > 0) enemy.stoneTimer -= dt;
             if (enemy.freezeTimer > 0) enemy.freezeTimer -= dt;
             if (enemy.freezeCooldown > 0) enemy.freezeCooldown -= dt;
+            // slowEnemy (Helfer aus js/upgrades.js): zeitweise langsam - der Takt wird gedrosselt,
+            // Schutzzeiten (iFrames) laufen weiter in echter Zeit (baseUpdate teilt durch `tempo`).
+            if (enemy.slowTimer > 0) {
+                enemy.slowTimer -= dt;
+                if (enemy.slowTimer <= 0) enemy.slowFactor = 1;
+            }
             const enemyBush = this.world.isBush(enemy.centerX(), enemy.centerY());
+            const tempoScale = (enemy.tempo || 1) * (enemy.slowTimer > 0 ? (enemy.slowFactor || 1) : 1);
             if (frozen || (enemyBush && !playerBush && !enemy.isBoss)) {
                 if (enemy.iFrames > 0) enemy.iFrames -= dt;
                 continue;
@@ -1424,7 +1469,7 @@ const Game = {
             // Bosse aus Welt 5–8 legten ihre Geschosse dort ab, was das Spiel abstürzen ließ.
             // tempo: Bosse BOSS_TEMPO, normale Gegner je nach Schwierigkeit (für sie läuft die Zeit schneller)
             // Steht Mark in einer Schattenwolke, erhält er statt Mark ein Ersatzziel (zielen und folgen).
-            enemy.update(dt * (enemy.tempo || 1), this.world, this._aimTarget(enemy), this.enemies, this.projectiles);
+            enemy.update(dt * tempoScale, this.world, this._aimTarget(enemy), this.enemies, this.projectiles);
 
             // Berührungsschaden
             if (!enemy.dead && enemy.contactDamage && !this.player.dead &&
@@ -1469,6 +1514,10 @@ const Game = {
                 let damage = this.player.activeWeapon.damage;
                 if (this.player.hasPowerUp('attack')) damage += 2;
                 enemy.takeDamage(damage, angle, this.player.activeWeapon.knockback);
+                // onMeleeHit (Upgrade-Gerüst, js/upgrades.js): Upgrades aus js/upgrades-mark.js reagieren
+                if (typeof dispatchHooks === 'function' && this.player.hooks && this.player.hooks.onMeleeHit.length) {
+                    dispatchHooks(this.player, 'onMeleeHit', [enemy, damage]);
+                }
                 this.camera.shake(3, 0.15);
                 Sound.hit();
                 if (enemy.dead) {
@@ -1482,8 +1531,20 @@ const Game = {
         // Fernkampf
         if (this.player.activeWeapon.type === 'ranged' && !this.player.dead && !(this.player.stunTimer > 0) &&
             (Input.attackPressed || Input.attackHeld || this.player.autoAttack)) {
+            // Wurf-Erkennung: was der Werfer in diesem Bild neu in die Geschoss-Liste gelegt hat
+            const before = this.projectiles.length;
             if (this.player.activeWeapon.attack(this.player.facingAngle, this.player, this.projectiles)) {
                 Sound.shoot();
+                // onThrow (Upgrade-Gerüst): jedes geworfene Geschoss, auch die Zerleger-Splitter später
+                if (typeof dispatchHooks === 'function' && this.player.hooks && this.player.hooks.onThrow.length) {
+                    for (let i = before; i < this.projectiles.length; i++) {
+                        const pj = this.projectiles[i];
+                        if (pj && pj.owner === 'player' && !pj._thrownHooked) {
+                            pj._thrownHooked = true;
+                            dispatchHooks(this.player, 'onThrow', [pj]);
+                        }
+                    }
+                }
             }
         }
 
@@ -1506,6 +1567,10 @@ const Game = {
                         if (this.player.hasPowerUp('attack')) damage += 1;
                         enemy.takeDamage(damage, Math.atan2(proj.vy, proj.vx), proj.knockback);
                         Sound.hit();
+                        // onProjectileHit (Upgrade-Gerüst, js/upgrades.js): Upgrades reagieren auf den Treffer
+                        if (typeof dispatchHooks === 'function' && this.player.hooks && this.player.hooks.onProjectileHit.length) {
+                            dispatchHooks(this.player, 'onProjectileHit', [enemy, proj]);
+                        }
                         if (enemy.dead) Sound.enemyDeath();
                         FX.burst(proj.x, proj.y, ['#ffffff', proj.laser ? '#6fd6ff' : (proj.poison ? '#7dff6a' : '#ffd23f')], 4, 90, 0.25, { kind: 'spark' });
                         // Eisball (Welt 48): getroffene Gegner frieren ein (Dauer und Bosse: Enemy.freeze)
@@ -1882,6 +1947,11 @@ const Game = {
     _onEnemyDeathFx(enemy) {
         enemy._deathFxDone = true;
         Progress.onKill(enemy);
+        // Die Tod-Haken des Gerüsts (js/upgrades.js): onKill an Mark, onEnemyKilled an die Runde
+        if (typeof dispatchHooks === 'function') {
+            if (this.player && this.player.hooks) dispatchHooks(this.player, 'onKill', [enemy]);
+            if (this.roundHooks) dispatchHooks(null, 'onEnemyKilled', [enemy]);
+        }
         const cx = enemy.centerX();
         const cy = enemy.centerY();
         const color = enemy.fxColor || '#ffe066';
@@ -2223,6 +2293,11 @@ const Game = {
         // Schattenwolken (Belohnung Welt 49) über den Figuren: Mark bleibt darin nur schemenhaft sichtbar
         for (const c of this.shadowClouds) c.draw(ctx, camera);
         if (this.world.drawOverlay) this.world.drawOverlay(ctx, camera);
+        // onDrawWorld (Upgrade-Gerüst, js/upgrades.js): eigene Welt-Ebene über den Figuren,
+        // unter den Lebensbalken - kamera ist dasselbe Objekt wie bei world.draw
+        if (typeof dispatchHooks === 'function' && this.roundHooks && this.roundHooks.onDrawWorld.length) {
+            dispatchHooks(null, 'onDrawWorld', [ctx, camera]);
+        }
         this._drawEnemyBars(ctx);
         FX.drawFloaters(ctx, camera);
 

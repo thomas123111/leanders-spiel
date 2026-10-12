@@ -2606,12 +2606,16 @@ class Juri {
         this.stunTimer = 0;   // > 0: betäubt (z. B. vom Hammer des Riesen-Zombies)
         this.koTimer = 0;     // > 0: k.o. am Boden (Drachenstrahl), steht danach mit halben LP auf
         this.koDur = 0;
+        // Ereignis-Haken des Upgrade-Gerüsts (js/upgrades.js, Datei js/upgrades-juri.js)
+        setupHooks(this, 'juri');
     }
     centerX() { return this.x + this.w / 2; }
     centerY() { return this.y + this.h / 2; }
 
     takeDamage(amount) {
         if (this.iFrames > 0 || this.dead || this.koTimer > 0) return;
+        // onDamaged (Upgrade-Gerüst): Upgrades dürfen die Menge ändern (die letzte Zahl zählt)
+        if (this.hooks && this.hooks.onDamaged.length) amount = dispatchHooks(this, 'onDamaged', [], amount);
         this.hp -= amount; this.iFrames = 1; this.hitFlash = 0.12;
         if (this.hp <= 0) {
             this.hp = 0; this.dead = true;
@@ -2945,6 +2949,8 @@ class Juri {
         let dmg = this.damage + (this.melonHammers ? 2 : 0);
         // Der Feuerkreis zählt beim Hauptziel mit – sonst verschluckt dessen Unverwundbarkeit den Feuerschaden
         if (fire) dmg += 4;
+        // onHit (Upgrade-Gerüst, js/upgrades-juri.js): Upgrades dürfen den Schaden ändern (die letzte Zahl zählt)
+        if (this.hooks && this.hooks.onHit.length) dmg = dispatchHooks(this, 'onHit', [tg], dmg);
         tg.takeDamage(dmg, ang, this.melonHammers ? 170 : 120);
         // Eishammer (Belohnung Welt 50): der getroffene Gegner friert ein.
         // Wie lange und wie oft bei Bossen entscheidet Enemy.freeze (js/entities.js).
@@ -3184,6 +3190,8 @@ class Juri {
             ctx.fill();
         }
         ctx.restore();
+        // onDraw (Upgrade-Gerüst, js/upgrades-juri.js): eigene Zeichnung über Juri (Bildschirmmaße wie hier)
+        if (this.hooks && this.hooks.onDraw.length) dispatchHooks(this, 'onDraw', [ctx]);
     }
 }
 
@@ -3214,12 +3222,16 @@ class ShadowCrocodile {
         this.stunTimer = 0;   // > 0: betäubt (z. B. vom Hammer des Riesen-Zombies)
         this.koTimer = 0;     // > 0: k.o. am Boden (Drachenstrahl), steht danach mit halben LP auf
         this.koDur = 0;
+        // Ereignis-Haken des Upgrade-Gerüsts (js/upgrades.js, Datei js/upgrades-croc.js)
+        setupHooks(this, 'croc');
     }
     centerX() { return this.x + this.w / 2; }
     centerY() { return this.y + this.h / 2; }
 
     takeDamage(amount) {
         if (this.iFrames > 0 || this.dead || this.koTimer > 0) return;
+        // onDamaged (Upgrade-Gerüst): Upgrades dürfen die Menge ändern (die letzte Zahl zählt)
+        if (this.hooks && this.hooks.onDamaged.length) amount = dispatchHooks(this, 'onDamaged', [], amount);
         this.hp -= amount; this.iFrames = 1; this.hitFlash = 0.12;
         if (this.hp <= 0) {
             this.hp = 0; this.dead = true;
@@ -3320,6 +3332,8 @@ class ShadowCrocodile {
                     p.radius = 4.5;
                 }
                 Game.projectiles.push(p);
+                // onShoot (Upgrade-Gerüst, js/upgrades-croc.js): Upgrades dürfen das Geschoss noch ändern
+                if (this.hooks && this.hooks.onShoot.length) dispatchHooks(this, 'onShoot', [p]);
             }
         }
 
@@ -3534,6 +3548,8 @@ class ShadowCrocodile {
         }
         if (this.poisonTimer > 0) Juri.poisonMark(ctx, cx + f * 10, pos.y - 13, t);
         Juri.hpBar(ctx, cx, pos.y - 14, this.hp, this.maxHp);
+        // onDraw (Upgrade-Gerüst, js/upgrades-croc.js): eigene Zeichnung über dem Krokodil
+        if (this.hooks && this.hooks.onDraw.length) dispatchHooks(this, 'onDraw', [ctx]);
     }
 }
 

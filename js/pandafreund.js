@@ -83,12 +83,16 @@ class PandaBuddy {
         this.stunTimer = 0;   // > 0: betäubt (z. B. vom Hammer des Riesen-Zombies)
         this.koTimer = 0;     // > 0: k.o. am Boden (Drachenstrahl), steht danach mit halben LP auf
         this.koDur = 0;
+        // Ereignis-Haken des Upgrade-Gerüsts (js/upgrades.js, Datei js/upgrades-panda.js)
+        setupHooks(this, 'panda');
     }
     centerX() { return this.x + this.w / 2; }
     centerY() { return this.y + this.h / 2; }
 
     takeDamage(amount) {
         if (this.iFrames > 0 || this.dead || this.koTimer > 0) return;
+        // onDamaged (Upgrade-Gerüst): Upgrades dürfen die Menge ändern (die letzte Zahl zählt)
+        if (this.hooks && this.hooks.onDamaged.length) amount = dispatchHooks(this, 'onDamaged', [], amount);
         this.hp -= amount; this.iFrames = 1; this.hitFlash = 0.12;
         if (this.hp <= 0) {
             this.hp = 0; this.dead = true;
@@ -396,5 +400,7 @@ class PandaBuddy {
         }
         if (this.poisonTimer > 0) Juri.poisonMark(ctx, cx + f * 10, pos.y - 13, t);
         Juri.hpBar(ctx, cx, pos.y - 14, this.hp, this.maxHp);
+        // onDraw (Upgrade-Gerüst, js/upgrades-panda.js): eigene Zeichnung über dem Panda (Bildschirmmaße wie hier)
+        if (this.hooks && this.hooks.onDraw.length) dispatchHooks(this, 'onDraw', [ctx]);
     }
 }

@@ -70,6 +70,10 @@ class Player {
 
         // Death
         this.deathTimer = 0;
+
+        // Ereignis-Haken des Upgrade-Gerüsts (js/upgrades.js): Upgrades aus js/upgrades-mark.js
+        // melden ihre Funktionen hier an, die Engine löst sie aus - der Figuren-Code bleibt unangetastet.
+        setupHooks(this, 'mark');
     }
 
     heal(amount) {
@@ -88,6 +92,11 @@ class Player {
         if (this.iFrames > 0 || this.dodging || this.dead) return;
         if (this.crownShieldTimer > 0) return;
         if (this.autoActive) return;
+        // onDamaged (Upgrade-Gerüst, js/upgrades.js): Upgrades dürfen die Menge ändern
+        // (die letzte zurückgegebene Zahl zählt) - nur wenn der Treffer wirklich ankommt.
+        if (this.hooks && this.hooks.onDamaged.length) {
+            amount = dispatchHooks(this, 'onDamaged', [], amount);
+        }
         this.hp -= amount;
         if (typeof Progress !== 'undefined') Progress.onHurt();
         this.iFrames = this.iFrameDuration;
@@ -447,6 +456,8 @@ class Player {
         if (this.sleepTimer > 0 && typeof Juri !== 'undefined' && Juri.zzz) {
             Juri.zzz(ctx, cx + 6, cy - 22, 3.4);
         }
+        // onDraw (Upgrade-Gerüst): Upgrades malen ihr Eigenes über Mark (Bildschirmmaße wie hier)
+        if (this.hooks && this.hooks.onDraw.length) dispatchHooks(this, 'onDraw', [ctx]);
     }
 
     // Gift-Anzeige: grünes Leuchten am Körper und ein Gift-Tropfen über dem Kopf. Nur Darstellung.

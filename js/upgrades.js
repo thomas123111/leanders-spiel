@@ -181,3 +181,200 @@ Object.assign(Game, {
         this.roundUpgrade = null;
     },
 });
+
+// ══════════════════════════════════════════════════════════════════════════
+// ── Das Upgrade-Gerüst (B0, 13.10.2026) ──
+// Spätere Aufträge tragen ihr Upgrade NUR in ihrer eigenen Datei ein
+// (js/upgrades-mark.js, -juri.js, -croc.js, -panda.js) und fassen keinen
+// Figuren-Code an. Zwei Stücke gehören dazu:
+//  1. registerUpgrade(eintrag)  - hängt einen Eintrag an UPGRADES/UPGRADE_BY_ID an.
+//     Shop, Menü „Waffen" und Spielstand lesen diese Listen und sehen solche
+//     Einträge deshalb automatisch (auch kaufen und auswählen).
+//  2. Die Ereignis-Haken - je Figur ein Objekt `hooks` mit leeren Funktions-
+//     listen und Game.roundHooks für die ganze Runde. Ein Upgrade meldet seine
+//     Funktionen beim Weltstart in `apply(c)` darin an; die Figuren und js/main.js
+//     lösen sie aus. Ein fehlerhaftes Upgrade hält das Spiel nie an: jeder
+//     Aufruf läuft in sicherem Schutz (dispatchHooks).
+// Dazu die gemeinsamen Helfer (Flächenschaden, Wegschubsen, Verlangsamen,
+// zeitweiliger Begleiter), damit jedes Upgrade dasselbe Rad nicht neu erfindet.
+// ══════════════════════════════════════════════════════════════════════════
+
+// Die Haken, die eine Figur beim Weltstart vorfindet (leere Listen).
+// mark darf zusätzlich onMeleeHit, onProjectileHit, onThrow, onDodge und onKill.
+const HOOK_EVENTS = {
+    mark: ['onUpdate', 'onMeleeHit', 'onProjectileHit', 'onThrow', 'onDodge', 'onDamaged', 'onKill', 'onDraw'],
+    juri: ['onUpdate', 'onHit', 'onShoot', 'onDamaged', 'onDraw'],
+    croc: ['onUpdate', 'onHit', 'onShoot', 'onDamaged', 'onDraw'],
+    panda: ['onUpdate', 'onHit', 'onShoot', 'onDamaged', 'onDraw'],
+};
+
+// ── interner Zustand der Haken-Auslösung ──
+const hookRuns = new Set();  // läuft gerade "(figur)|onX" auf? (Schutz gegen endlose Rückruf-Ketten)
+const hookPending = [];      // Haken, die mitten in einer Auslösung erneut gewünscht wurden
+let hookRunDepth = 0;        // Tiefe der äußeren Auslösung
+let hookErrorCount = 0;      // wie oft ein Upgrade-Haken schon daneben ging
+
+// Ein Fehler im Upgrade-Code wird gezählt und nur die ersten paar Male gemeldet,
+// damit ein kaputtes Upgrade die Konsole nicht zumüllt.
+function hookProblem(where, e) {
+    hookErrorCount++;
+    if (typeof console !== 'undefined' && console.error && hookErrorCount <= 5) {
+        console.error('Upgrade-Hak' + (where ? ' ' + where : '') + ':', e && e.message ? e.message : e);
+    }
+}
+
+// Leere Haken-Listen für eine Figur anlegen (von den Figuren in deren Baukasten aufgerufen).
+// Gibt das (bestehende) hooks-Objekt zurück.
+function setupHooks(figure, figur) {
+    if (!figure) return null;
+    if (!figure.hooks || typeof figure.hooks !== 'object') figure.hooks = {};
+    const names = HOOK_EVENTS[figur] || HOOK_EVENTS.panda;
+    for (const name of names) {
+        if (!Array.isArray(figure.hooks[name])) figure.hooks[name] = [];
+    }
+    figure.hooks.figur = figur;
+    return figure.hooks;
+}
+
+// Einen Haken auslösen: alle angemeldeten Funktionen der Figur, jede in sicherem Schutz.
+// figur = das Objekt mit .hooks, oder null für die Runden-Haken (Game.roundHooks).
+// args  = die Argumente des Ereignisses (z. B. [gegner] beim Hammerschlag oder [dt]).
+// value (bei onDamaged/onHit): die aktuelle Menge - sie hängt sich hintenan an die Argumente
+// (onHit bekommt also (gegner, schaden), onDamaged die Menge). Gibt eine Funktion eine Zahl
+// zurück, wirkt die weiter: der letzte Zahlenwert zählt.
+function dispatchHooks(figur, name, args, value) {
+    const hooks = figur ? (figur.hooks && figur.hooks[name]) : (Game.roundHooks && Game.roundHooks[name]);
+    if (!hooks || !hooks.length) return value;
+    const key = (figur ? (figur.hooks.figur || 'objekt') : 'runde') + '|' + name;
+    if (hookRuns.has(key)) {   // Rückruf-Kette: gleich jetzt nicht wieder aufrufen, gleich nachholen
+        if (hookPending.length < 16) hookPending.push({ figur, name, args, value });
+        return value;
+    }
+    hookRuns.add(key);
+    hookRunDepth++;
+    try {
+        for (const fn of hooks.slice()) {
+            try {
+                const out = value === undefined ? fn(...args) : fn(...args, value);
+                if (typeof out === 'number' && Number.isFinite(out)) value = out;
+            } catch (e) {
+                hookProblem((figur ? (figur.constructor && figur.constructor.name) || figur.hooks.figur : 'Runde') + '.' + name, e);
+            }
+        }
+    } finally {
+        hookRuns.delete(key);
+        hookRunDepth--;
+    }
+    if (hookRunDepth === 0 && hookPending.length) {   // die nachgeholten Aufrufe jetzt gefahrlos
+        const later = hookPending.splice(0, hookPending.length);
+        for (const p of later) dispatchHooks(p.figur, p.name, p.args, p.value);
+    }
+    return value;
+}
+
+// Die Runden-Haken beim Weltstart leeren - ein Upgrade hängt sie in seinem apply() wieder voll.
+// Gleichzeitig verjährt die Markierung "apply wurde schon aufgerufen": in jeder neuen Runde
+// darf die apply-Funktion des gewählten Upgrades genau einmal wirken.
+Object.assign(Game, {
+    roundHooks: null,
+    setupRoundHooks() {
+        this.roundHooks = { onUpdate: [], onEnemyKilled: [], onDrawWorld: [] };
+        for (const u of UPGRADES) u._appliedRound = false;
+    },
+});
+
+// ── Anmelden: ein Upgrade aus seiner eigenen Datei ──
+// Eintrag: { id, figur: 'mark'|'juri'|'croc'|'panda', name, text, emoji,
+//            istFrei(g), where, apply(c) }  - apply bekommt c = { game, welt, player, juri, croc, panda }
+// und trägt dort seine Haken ein. istFrei/where fehlen? Dann ist das Extra ab der Anmeldung frei.
+// Doppelte Ids und unbrauchbare Einträge werden abgelehnt (die Konsole sagt warum).
+function registerUpgrade(eintrag) {
+    if (!eintrag || typeof eintrag.id !== 'string' || !eintrag.id) {
+        hookProblem('registerUpgrade (Id fehlt)', new Error('Eintrag ohne id'));
+        return false;
+    }
+    if (Object.prototype.hasOwnProperty.call(UPGRADE_BY_ID, eintrag.id)) {
+        hookProblem('registerUpgrade (doppelte Id)', new Error(eintrag.id));
+        return false;
+    }
+    if (!UPGRADE_HEROES.some(h => h.id === eintrag.figur)) {
+        hookProblem('registerUpgrade (Figur)', new Error(String(eintrag.figur)));
+        return false;
+    }
+    if (typeof eintrag.name !== 'string' || !eintrag.name ||
+        typeof eintrag.text !== 'string' || !eintrag.text) {
+        hookProblem('registerUpgrade (name/text)', new Error(eintrag.id));
+        return false;
+    }
+    const u = Object.assign({ emoji: '✨', where: '', bald: false }, eintrag);
+    if (typeof u.istFrei !== 'function') u.istFrei = () => true;
+    UPGRADES.push(u);
+    UPGRADE_BY_ID[u.id] = u;
+    return true;
+}
+
+// ── Gemeinsame Helfer für Upgrades (dasselbe Rad nicht dreimal erfinden) ──
+
+// Flächenschaden um einen Punkt: jeder Gegner im Radius (außer `except`) nimmt Schaden.
+// Ruft absichtlich KEINE Treffer-Haken auf - sonst würde ein onProjectileHit-Haken,
+// der areaDamage benutzt, sich selbst von neuem auslösen.
+function areaDamage(x, y, radius, damage, except, angle) {
+    if (!Game.enemies) return 0;
+    let hits = 0;
+    const dir = angle !== undefined ? angle : null;
+    for (const e of Game.enemies) {
+        if (!e || e === except || e.dead) continue;
+        if (Math.hypot(e.centerX() - x, e.centerY() - y) <= radius + Math.max(e.w, e.h) / 2) {
+            e.takeDamage(damage, dir !== null ? Math.atan2(e.centerY() - y, e.centerX() - x) : undefined, dir !== null ? 120 : undefined);
+            hits++;
+        }
+    }
+    return hits;
+}
+
+// Gegner wegschubsen: Kurzer Ruck in Richtung `angle` (Radian, weg von der Quelle).
+function knockBack(e, angle, force) {
+    if (!e || e.dead) return false;
+    e.knockbackVx = Math.cos(angle) * (force || 220);
+    e.knockbackVy = Math.sin(angle) * (force || 220);
+    return true;
+}
+
+// Gegner zeitweise verlangsamen: er bewegt und schießt für `seconds` Sekunden
+// im Tempo `factor` (0,5 = halb so schnell). Die Engine zählt in js/main.js ab.
+function slowEnemy(e, seconds, factor) {
+    if (!e || e.dead) return false;
+    e.slowTimer = Math.max(e.slowTimer || 0, seconds || 2);
+    e.slowFactor = Math.min(e.slowFactor !== undefined ? e.slowFactor : 1, factor !== undefined ? factor : 0.6);
+    return true;
+}
+
+// Einen zeitweisen Helfer (Begleiter) für `seconds` Sekunden neben die Figur setzen.
+// `companion` ist ein Objekt mit update(dt, world, player, enemies) und draw(ctx, camera)
+// (gleiche Regel wie Juri und Krokodil); ist es eine Klasse, wird sie mit (x, y) erzeugt.
+// Der Helfer verschwindet von selbst, wenn sein Zähler abgelaufen ist.
+function spawnHelper(companion, x, y, seconds) {
+    if (!Game.companions || !companion) return null;
+    const c = typeof companion === 'function' ? new companion(x, y) : companion;
+    if (!c) return null;
+    c.helperTimer = seconds !== undefined ? seconds : 10;
+    Game.companions.push(c);
+    return c;
+}
+
+// Ein Begleiter schießt (für Juris und Marks Panda-Dateien: Juri spuckt sonst nicht).
+// Das Geschoss ist ein ganz normales Spieler-Geschoss (Projectile aus js/weapons.js);
+// der onShoot-Haken der Figur läuft vorher - Upgrades können es dort noch umhängen.
+// Gibt das Geschoss zurück oder null, wenn kein Spiel läuft.
+function companionShoot(figure, angle, speed, damage) {
+    if (!Game.projectiles || !figure) return null;
+    const p = new Projectile(figure.centerX(), figure.centerY(),
+        Math.cos(angle) * (speed || 250), Math.sin(angle) * (speed || 250),
+        damage || 3, 'player', 80);
+    p.radius = 4;
+    if (figure.hooks && figure.hooks.onShoot && figure.hooks.onShoot.length) {
+        dispatchHooks(figure, 'onShoot', [p]);
+    }
+    Game.projectiles.push(p);
+    return p;
+}
