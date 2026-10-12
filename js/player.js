@@ -95,7 +95,7 @@ class Player {
         // onDamaged (Upgrade-Gerüst, js/upgrades.js): Upgrades dürfen die Menge ändern
         // (die letzte zurückgegebene Zahl zählt) - nur wenn der Treffer wirklich ankommt.
         if (this.hooks && this.hooks.onDamaged.length) {
-            amount = dispatchHooks(this, 'onDamaged', [], amount);
+            amount = Math.max(0, dispatchHooks(this, 'onDamaged', [], amount));
         }
         this.hp -= amount;
         if (typeof Progress !== 'undefined') Progress.onHurt();

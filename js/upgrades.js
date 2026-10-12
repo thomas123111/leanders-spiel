@@ -179,6 +179,7 @@ Object.assign(Game, {
     unlockRoundUpgrade() {
         this.roundUpgradeSet = false;
         this.roundUpgrade = null;
+        this.roundHooks = null;   // die Haken der alten Runde dürfen nicht nachlaufen
     },
 });
 
@@ -212,7 +213,9 @@ const HOOK_EVENTS = {
 const hookRuns = new Set();  // läuft gerade "(figur)|onX" auf? (Schutz gegen endlose Rückruf-Ketten)
 const hookPending = [];      // Haken, die mitten in einer Auslösung erneut gewünscht wurden
 let hookRunDepth = 0;        // Tiefe der äußeren Auslösung
+let hookDraining = false;    // die nachgeholten Haken laufen gerade (ein einziger Stapel, keine Rekursion)
 let hookErrorCount = 0;      // wie oft ein Upgrade-Haken schon daneben ging
+const HOOK_NACHHOL_RUNDEN = 8;   // höchstens so viele Nachhol-Runden, dann ist die Kette kappt
 
 // Ein Fehler im Upgrade-Code wird gezählt und nur die ersten paar Male gemeldet,
 // damit ein kaputtes Upgrade die Konsole nicht zumüllt.
@@ -246,10 +249,12 @@ function dispatchHooks(figur, name, args, value) {
     const hooks = figur ? (figur.hooks && figur.hooks[name]) : (Game.roundHooks && Game.roundHooks[name]);
     if (!hooks || !hooks.length) return value;
     const key = (figur ? (figur.hooks.figur || 'objekt') : 'runde') + '|' + name;
-    if (hookRuns.has(key)) {   // Rückruf-Kette: gleich jetzt nicht wieder aufrufen, gleich nachholen
+    if (hookRuns.has(key)) {   // Rückruf-Kette: nicht wiederholt aufrufen, nach dem outersten Lauf nachholen
         if (hookPending.length < 16) hookPending.push({ figur, name, args, value });
+        else hookProblem('Nachhole-Liste voll', new Error(name));
         return value;
     }
+    const aeussersterLauf = hookRunDepth === 0;
     hookRuns.add(key);
     hookRunDepth++;
     try {
@@ -265,11 +270,35 @@ function dispatchHooks(figur, name, args, value) {
         hookRuns.delete(key);
         hookRunDepth--;
     }
-    if (hookRunDepth === 0 && hookPending.length) {   // die nachgeholten Aufrufe jetzt gefahrlos
-        const later = hookPending.splice(0, hookPending.length);
-        for (const p of later) dispatchHooks(p.figur, p.name, p.args, p.value);
-    }
+    // Nachholen: schleife (kein rekursiver Aufruf), damit eine Kette - etwa ein onShoot-Haken,
+    // der selbst companionShoot benutzt - den Stapel nicht sprengen kann. Die Rückgabewerte
+    // nachgeholter Mengen-Haken wirken nicht mehr (der Schaden ist da schon verrechnet).
+    if (aeussersterLauf && !hookDraining) holHakenNach();
     return value;
+}
+
+// Die während der laufenden Auslösung gewünschten Haken abarbeiten - höchstens
+// HOOK_NACHHOL_RUNDEN Runden, dann ist die Kette kappt und meldet sich.
+function holHakenNach() {
+    if (!hookPending.length) return;
+    hookDraining = true;
+    let runden = 0;
+    try {
+        while (hookPending.length) {
+            if (++runden > HOOK_NACHHOL_RUNDEN) {
+                hookProblem('Kette gekappt', new Error(hookPending.length + ' Hakenwünsche'));
+                hookPending.length = 0;
+                break;
+            }
+            const spaeter = hookPending.splice(0, hookPending.length);
+            for (const p of spaeter) {
+                try { dispatchHooks(p.figur, p.name, p.args, p.value); }
+                catch (e) { hookProblem('Nachholen', e); }
+            }
+        }
+    } finally {
+        hookDraining = false;
+    }
 }
 
 // Die Runden-Haken beim Weltstart leeren - ein Upgrade hängt sie in seinem apply() wieder voll.
@@ -301,6 +330,10 @@ function registerUpgrade(eintrag) {
         hookProblem('registerUpgrade (Figur)', new Error(String(eintrag.figur)));
         return false;
     }
+    if (eintrag.id === '__proto__' || eintrag.id === 'constructor' || eintrag.id === 'prototype') {
+        hookProblem('registerUpgrade (Schlüsselwort)', new Error(eintrag.id));
+        return false;
+    }
     if (typeof eintrag.name !== 'string' || !eintrag.name ||
         typeof eintrag.text !== 'string' || !eintrag.text) {
         hookProblem('registerUpgrade (name/text)', new Error(eintrag.id));
@@ -309,7 +342,9 @@ function registerUpgrade(eintrag) {
     const u = Object.assign({ emoji: '✨', where: '', bald: false }, eintrag);
     if (typeof u.istFrei !== 'function') u.istFrei = () => true;
     UPGRADES.push(u);
-    UPGRADE_BY_ID[u.id] = u;
+    // defineProperty statt bloßer Zuweisung: der Schlüssel bleibt ein eigener Eintrag
+    // (eine blanke Zuweisung von '__proto__' würde sonst den Objektbau selbst überschreiben).
+    Object.defineProperty(UPGRADE_BY_ID, u.id, { value: u, enumerable: true, writable: true, configurable: true });
     return true;
 }
 
@@ -322,7 +357,8 @@ function areaDamage(x, y, radius, damage, except, angle) {
     if (!Game.enemies) return 0;
     let hits = 0;
     const dir = angle !== undefined ? angle : null;
-    for (const e of Game.enemies) {
+    // über eine Kopie: takeDamage kann währenddessen Gegner erzeugen (Nachwuchs, Splitter)
+    for (const e of Game.enemies.slice()) {
         if (!e || e === except || e.dead) continue;
         if (Math.hypot(e.centerX() - x, e.centerY() - y) <= radius + Math.max(e.w, e.h) / 2) {
             e.takeDamage(damage, dir !== null ? Math.atan2(e.centerY() - y, e.centerX() - x) : undefined, dir !== null ? 120 : undefined);

@@ -75,7 +75,9 @@ class Enemy {
 
     baseUpdate(dt, world) {
         // Schutzzeit nach Treffern in echter Zeit, auch wenn der Gegner schneller läuft (tempo, siehe main.js)
-        if (this.iFrames > 0) this.iFrames -= dt / (this.tempo || 1);
+        // _tempoEff ist das Tempo, mit dem js/main.js diesen Gegner gerade laufen lässt
+        // (Grundtempo und slowEnemy zusammen) - die Schutzzeit läuft in echter Zeit weiter.
+        if (this.iFrames > 0) this.iFrames -= dt / (this._tempoEff || this.tempo || 1);
         // Steckt ein Gegner (z. B. nach einem Ansturm) in einer Wand, befreien statt durchschieben
         if (!this.phasesThroughWalls && world && world.collideRect) escapeFromWalls(this, world);
 
@@ -2615,7 +2617,7 @@ class Juri {
     takeDamage(amount) {
         if (this.iFrames > 0 || this.dead || this.koTimer > 0) return;
         // onDamaged (Upgrade-Gerüst): Upgrades dürfen die Menge ändern (die letzte Zahl zählt)
-        if (this.hooks && this.hooks.onDamaged.length) amount = dispatchHooks(this, 'onDamaged', [], amount);
+        if (this.hooks && this.hooks.onDamaged.length) amount = Math.max(0, dispatchHooks(this, 'onDamaged', [], amount));
         this.hp -= amount; this.iFrames = 1; this.hitFlash = 0.12;
         if (this.hp <= 0) {
             this.hp = 0; this.dead = true;
@@ -2950,7 +2952,7 @@ class Juri {
         // Der Feuerkreis zählt beim Hauptziel mit – sonst verschluckt dessen Unverwundbarkeit den Feuerschaden
         if (fire) dmg += 4;
         // onHit (Upgrade-Gerüst, js/upgrades-juri.js): Upgrades dürfen den Schaden ändern (die letzte Zahl zählt)
-        if (this.hooks && this.hooks.onHit.length) dmg = dispatchHooks(this, 'onHit', [tg], dmg);
+        if (this.hooks && this.hooks.onHit.length) dmg = Math.max(0, dispatchHooks(this, 'onHit', [tg], dmg));
         tg.takeDamage(dmg, ang, this.melonHammers ? 170 : 120);
         // Eishammer (Belohnung Welt 50): der getroffene Gegner friert ein.
         // Wie lange und wie oft bei Bossen entscheidet Enemy.freeze (js/entities.js).
@@ -3231,7 +3233,7 @@ class ShadowCrocodile {
     takeDamage(amount) {
         if (this.iFrames > 0 || this.dead || this.koTimer > 0) return;
         // onDamaged (Upgrade-Gerüst): Upgrades dürfen die Menge ändern (die letzte Zahl zählt)
-        if (this.hooks && this.hooks.onDamaged.length) amount = dispatchHooks(this, 'onDamaged', [], amount);
+        if (this.hooks && this.hooks.onDamaged.length) amount = Math.max(0, dispatchHooks(this, 'onDamaged', [], amount));
         this.hp -= amount; this.iFrames = 1; this.hitFlash = 0.12;
         if (this.hp <= 0) {
             this.hp = 0; this.dead = true;
@@ -3331,9 +3333,10 @@ class ShadowCrocodile {
                     p.fruitKind = randInt(0, 2);
                     p.radius = 4.5;
                 }
-                Game.projectiles.push(p);
-                // onShoot (Upgrade-Gerüst, js/upgrades-croc.js): Upgrades dürfen das Geschoss noch ändern
+                // onShoot (Upgrade-Gerüst, js/upgrades-croc.js): Upgrades dürfen das Geschoss
+                // noch ändern, deshalb der Hak vor dem Einreihen (wie bei companionShoot)
                 if (this.hooks && this.hooks.onShoot.length) dispatchHooks(this, 'onShoot', [p]);
+                Game.projectiles.push(p);
             }
         }
 

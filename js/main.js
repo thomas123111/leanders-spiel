@@ -899,20 +899,6 @@ const Game = {
             this.player.hasCrown = true;
             this.player.startCrownShield();
         }
-        // Das Upgrade-Gerüst (js/upgrades.js): hat das gewählte Upgrade eine eigene apply-Funktion
-        // (aus seiner Datei js/upgrades-mark|juri|croc|panda.js), wirkt sie genau einmal pro Runde.
-        // c nennt die Figuren - Begleiter nur, wenn sie in dieser Welt dabei sind.
-        const _selected = this.selectedUpgrade();
-        if (_selected && typeof _selected.apply === 'function' && !_selected._appliedRound) {
-            _selected._appliedRound = true;
-            const c = {
-                game: this, welt: this.world, player: this.player,
-                juri: this.companions.find(cf => cf instanceof Juri) || null,
-                croc: this.companions.find(cf => cf instanceof ShadowCrocodile) || null,
-                panda: (typeof PandaBuddy !== 'undefined' && this.companions.find(cf => cf instanceof PandaBuddy)) || null,
-            };
-            try { _selected.apply(c); } catch (err) { /* ein kaputtes Upgrade hält den Weltstart nicht an */ }
-        }
         if (worldNum === 0) {
             this.player.hasAuto = false;
             this.player.rangedWeapon = null;
@@ -946,6 +932,26 @@ const Game = {
         }
 
         this._spawnWorldContent(worldNum);
+
+        // Das Upgrade-Gerüst (js/upgrades.js): hat das gewählte Upgrade eine eigene apply-Funktion
+        // (aus seiner Datei js/upgrades-mark|juri|croc|panda.js), wirkt sie genau einmal pro Runde -
+        // hier, nachdem Ausrüstung, Power-Stufen und Weltinhalt stehen. c nennt die Figuren;
+        // Begleiter stehen nur drin, wenn sie in dieser Welt dabei sind (sonst null).
+        const auftrag = this.selectedUpgrade();
+        if (auftrag && typeof auftrag.apply === 'function' && !auftrag._appliedRound) {
+            auftrag._appliedRound = true;
+            const c = {
+                game: this, welt: this.world, player: this.player,
+                juri: (typeof Juri !== 'undefined' && this.companions.find(cf => cf instanceof Juri)) || null,
+                croc: (typeof ShadowCrocodile !== 'undefined' && this.companions.find(cf => cf instanceof ShadowCrocodile)) || null,
+                panda: (typeof PandaBuddy !== 'undefined' && this.companions.find(cf => cf instanceof PandaBuddy)) || null,
+            };
+            try { auftrag.apply(c); }
+            catch (err) {
+                // ein kaputtes Upgrade hält den Weltstart nicht an, meldet sich aber in der Konsole
+                if (typeof hookProblem === 'function') hookProblem('apply ' + auftrag.id, err);
+            }
+        }
         HUD.onWorldStart();
         this.setState('PLAYING');
     },
@@ -1469,6 +1475,7 @@ const Game = {
             // Bosse aus Welt 5–8 legten ihre Geschosse dort ab, was das Spiel abstürzen ließ.
             // tempo: Bosse BOSS_TEMPO, normale Gegner je nach Schwierigkeit (für sie läuft die Zeit schneller)
             // Steht Mark in einer Schattenwolke, erhält er statt Mark ein Ersatzziel (zielen und folgen).
+            enemy._tempoEff = tempoScale;
             enemy.update(dt * tempoScale, this.world, this._aimTarget(enemy), this.enemies, this.projectiles);
 
             // Berührungsschaden
@@ -1535,7 +1542,9 @@ const Game = {
             const before = this.projectiles.length;
             if (this.player.activeWeapon.attack(this.player.facingAngle, this.player, this.projectiles)) {
                 Sound.shoot();
-                // onThrow (Upgrade-Gerüst): jedes geworfene Geschoss, auch die Zerleger-Splitter später
+                // onThrow (Upgrade-Gerüst): jedes Geschoss, das der Werfer in diesem Bild
+                // neu in die Liste gelegt hat (die Zerleger-Splitter entstehen später im
+                // Geschoss-Takt und laufen daher nicht noch einmal durch diesen Hak)
                 if (typeof dispatchHooks === 'function' && this.player.hooks && this.player.hooks.onThrow.length) {
                     for (let i = before; i < this.projectiles.length; i++) {
                         const pj = this.projectiles[i];

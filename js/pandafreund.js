@@ -92,7 +92,7 @@ class PandaBuddy {
     takeDamage(amount) {
         if (this.iFrames > 0 || this.dead || this.koTimer > 0) return;
         // onDamaged (Upgrade-Gerüst): Upgrades dürfen die Menge ändern (die letzte Zahl zählt)
-        if (this.hooks && this.hooks.onDamaged.length) amount = dispatchHooks(this, 'onDamaged', [], amount);
+        if (this.hooks && this.hooks.onDamaged.length) amount = Math.max(0, dispatchHooks(this, 'onDamaged', [], amount));
         this.hp -= amount; this.iFrames = 1; this.hitFlash = 0.12;
         if (this.hp <= 0) {
             this.hp = 0; this.dead = true;
