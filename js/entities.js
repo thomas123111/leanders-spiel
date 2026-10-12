@@ -2851,7 +2851,7 @@ class Juri {
         const asleep = Juri.sleepUpdate(this, dt);
         // Betäubt oder eingeschlafen: steht still, haut nicht, springt nicht zu Mark
         if (this.stunTimer > 0 || asleep) {
-            this.stunTimer -= dt;
+            if (this.stunTimer > 0) this.stunTimer -= dt;
             this.moving = false;
             this.stuckTimer = 0;
             this.target = null;
@@ -3212,7 +3212,7 @@ class ShadowCrocodile {
         const asleep = Juri.sleepUpdate(this, dt);
         // Betäubt oder eingeschlafen: steht still, spuckt nicht, springt nicht zu Mark
         if (this.stunTimer > 0 || asleep) {
-            this.stunTimer -= dt;
+            if (this.stunTimer > 0) this.stunTimer -= dt;
             this.moving = false;
             this.stuckTimer = 0;
             this.target = null;

@@ -208,6 +208,12 @@ class Player {
     // Tropfen eines drei Sekunden langen Gifts an den Rundungsfehlern der Bildzeiten.
     _poisonTick(dt) {
         this.poisonTimer -= dt;
+        // Auto und Goldene Krone halten den Schaden auf: die Tropfen verpuffen, das Gift brennt in der
+        // Zeit harmlos aus. Zugefügt wird von beiden sowieso nichts (siehe `poison`).
+        if (this.autoActive || this.crownShieldTimer > 0) {
+            if (this.poisonTimer <= 0) { this.poisonTimer = 0; this.poisonTick = 0; }
+            return;
+        }
         this.poisonTick += dt;
         while (!this.dead && this.poisonTick >= 0.49) {
             this.poisonTick = Math.max(0, this.poisonTick - 0.5);
@@ -246,7 +252,8 @@ class Player {
         // Crown shield countdown
         if (this.crownShieldTimer > 0) this.crownShieldTimer -= dt;
 
-        // Gift zieht auch im Schlaf und trotz Unverwundbarkeit Leben ab (es wirkt ja langsam)
+        // Gift zieht auch im Schlaf Leben ab (es wirkt ja langsam); Auto und Goldene Krone halten den
+        // Schaden auf, sonst stirbt Mark im Auto-Modus, obwohl der unverwundbar machen soll.
         if (this.poisonTimer > 0) this._poisonTick(dt);
         // Schonzeit nach dem Aufwachen ablaufen lassen
         if (this.sleepGuard > 0) this.sleepGuard = Math.max(0, this.sleepGuard - dt);
@@ -310,7 +317,7 @@ class Player {
 
         // Betäubt oder eingeschlafen: steht still, kein Angriff, kein Ausweichen
         if ((this.stunTimer > 0 || this.sleepTimer > 0) && !this.dodging) {
-            this.stunTimer -= dt;
+            if (this.stunTimer > 0) this.stunTimer -= dt;
             if (Input.consumeDodge) Input.consumeDodge();
             this.activeWeapon.update(dt);
             return;
