@@ -661,7 +661,8 @@ const WORLD_THEMES = {
         bush: ['#1b7a3a', '#3fae52', '#8fdc7a'], bx: 'flowers', bxc: ['#ff7a9a', '#ffd23f', '#8fd6ff'],
         water: 'water', wc: ['#1a9ac0', '#3ec8e0', '#dcfbff'], lily: true, bone: '#f6f0dc', pad: '#2fc0d8',
         deco: [['flower', 4], ['daisy', 2], ['tuft', 2], ['pebble', 1.2], ['clover', 1.5], ['mushroom', 0.3]], rate: 0.36,
-        flowers: ['#ffffff', '#9ad8ff', '#ff9ad0', '#ffe14a'], win: 'gothic', glow: '#c2f2ff',
+        flowers: ['#ffffff', '#9ad8ff', '#ff9ad0', '#ffe14a'], petals: ['#ff8ad8', '#8ad8ff', '#ffe066', '#ffffff', '#2fc0d8'],
+        sk: 'bloom', win: 'gothic', glow: '#c2f2ff',
     },
     // Welt 46: innen im rot-weiß gestreiften Zelt – heller Sägespäne-Boden, Tribünen als Wände, runde Manege
     clown: {
@@ -671,7 +672,7 @@ const WORLD_THEMES = {
         bush: ['#c8483a', '#e8684a', '#ffd23f'], bx: 'flowers', bxc: ['#ffd23f', '#7fe0ff', '#ffffff'],
         water: 'water', wc: ['#2a86c8', '#4cb2ec', '#dcf6ff'], bone: '#fff6e8', pad: '#ffd23f',
         deco: [['ball', 1.2], ['cone', 1], ['sparkle', 1.5], ['pebble', 1], ['crack', 0.6]], rate: 0.3,
-        win: 'tv', glow: '#ffd6d6',
+        sk: 'balls', win: 'tv', glow: '#ffd6d6',
     },
     // Welt 47: heller Bambushain mit Seerosenteichen – Bambus als Wände, Farne und Blattwerk am Boden
     // (Boss-Raum: runder Holzplatz, folgt mit der Optik)
@@ -681,7 +682,7 @@ const WORLD_THEMES = {
         bush: ['#2a7a3e', '#46a553', '#9be06a'], bx: 'flowers', bxc: ['#ffffff', '#ffd23f', '#ff9ad0'],
         water: 'water', wc: ['#1a86a8', '#3ec4dc', '#d8fff4'], lily: true, bone: '#f6f0dc', pad: '#ff9a3c',
         deco: [['fern', 3], ['tuft', 3], ['leaf', 2.5], ['clover', 1.5], ['pebble', 1]], rate: 0.34,
-        flowers: ['#ffffff', '#ffe14a', '#ff9ad0'], win: 'stonelantern', glow: '#e8ffd0',
+        flowers: ['#ffffff', '#ffe14a', '#ff9ad0'], sk: 'lantern', win: 'stonelantern', glow: '#e8ffd0',
     },
     // Welt 48: sonnige Blumenwiese mit Glitzerbächen und Pastellblüten – runde Wiese mit Teich als Boss-Raum
     unicorn: {
@@ -713,7 +714,7 @@ const WORLD_THEMES = {
         bush: ['#20402f', '#2f6a44', '#e8f6ff'], bx: 'snow',
         water: 'water', wc: ['#2a6aa8', '#4f92cc', '#dceeff'], bone: '#eef6ff', pad: '#7fb6e8',
         deco: [['sparkle', 3], ['icecrack', 2], ['snowmound', 2], ['frost', 1], ['cone', 1.2], ['pebble', 0.8]], rate: 0.3,
-        win: 'crystal', glow: '#dff2ff',
+        sk: 'snowballs', win: 'crystal', glow: '#dff2ff',
     },
 };
 
@@ -3536,6 +3537,9 @@ const WorldPaint = {
         if (P.sk === 'desk') { this._schoolDesk(w, c, P, x, y, seed); return; }
         if (P.sk === 'bloom') { this._flowerBed(w, c, P, x, y, seed); return; }
         if (P.sk === 'nest') { this._eggNest(c, P, x * TILE_SIZE + 16, y * TILE_SIZE + 17, wRng(Math.floor(wHash(x, y, seed + 431) * 4294967295)), 1); return; }
+        if (P.sk === 'balls') { this._circusBalls(c, P, x, y, seed); return; }
+        if (P.sk === 'lantern') { this._stoneLantern(c, P, x, y, seed); return; }
+        if (P.sk === 'snowballs') { this._snowballPile(c, P, x, y, seed); return; }
         const T = TILE_SIZE, px = x * T, py = y * T;
         const r = wHash(x, y, seed + 401);
         c.fillStyle = wcA(P.shade, 0.3);
@@ -3554,6 +3558,83 @@ const WorldPaint = {
             return;
         }
         this._skullShape(c, px + 16, py + 15, 7, P.bone, (r - 0.5) * 0.5);
+    },
+
+    // Deko-Kacheln statt Schädel für fröhliche Welten (Claude, 13.10.2026): Clownzirkus, Bambuswald, Schneemann-Tal
+    _decoShadow(c, P, px, py, rx) {
+        c.fillStyle = wcA(P.shade, 0.3);
+        c.beginPath();
+        c.ellipse(px + 16, py + 26, rx, 3.5, 0, 0, W_TAU);
+        c.fill();
+    },
+
+    _ballShape(c, cx, cy, r, col, band, rot) {
+        c.fillStyle = wcDark(col, 0.45);
+        c.beginPath(); c.arc(cx, cy, r + 1.1, 0, W_TAU); c.fill();
+        c.fillStyle = col;
+        c.beginPath(); c.arc(cx, cy, r, 0, W_TAU); c.fill();
+        if (band) {
+            c.save();
+            c.beginPath(); c.arc(cx, cy, r, 0, W_TAU); c.clip();
+            c.translate(cx, cy); c.rotate(rot || 0);
+            c.fillStyle = band;
+            c.fillRect(-r, -r * 0.28, r * 2, r * 0.56);
+            c.restore();
+        }
+        c.fillStyle = wcDark(col, 0.25);
+        c.beginPath(); c.arc(cx + r * 0.25, cy + r * 0.3, r * 0.72, 0.1, Math.PI * 0.95); c.lineTo(cx, cy); c.fill();
+        c.fillStyle = 'rgba(255,255,255,0.6)';
+        c.beginPath(); c.ellipse(cx - r * 0.38, cy - r * 0.42, r * 0.28, r * 0.17, -0.5, 0, W_TAU); c.fill();
+    },
+
+    // Clownzirkus: zwei, drei bunte Zirkusbälle mit Streifen
+    _circusBalls(c, P, x, y, seed) {
+        const T = TILE_SIZE, px = x * T, py = y * T;
+        const r = wHash(x, y, seed + 471);
+        const cols = [['#ff4d5e', '#ffffff'], ['#3d8cff', '#ffd23f'], ['#ffd23f', '#ff4d5e'], ['#5fd06a', '#ffffff']];
+        const a = cols[Math.floor(r * 4) % 4], b = cols[(Math.floor(r * 4) + 1) % 4], d = cols[(Math.floor(r * 4) + 2) % 4];
+        this._decoShadow(c, P, px, py, 12);
+        this._ballShape(c, px + 10, py + 20, 6.5, a[0], a[1], 0.4);
+        this._ballShape(c, px + 22, py + 21, 5.5, b[0], b[1], -0.6);
+        if (r > 0.35) this._ballShape(c, px + 16, py + 12, 6, d[0], d[1], 0.1);
+    },
+
+    // Bambuswald: Steinlaterne mit warmem Licht
+    _stoneLantern(c, P, x, y, seed) {
+        const T = TILE_SIZE, px = x * T, py = y * T, cx = px + 16;
+        const stone = '#b8b4a6', dk = wcDark(stone, 0.45), lt = wcLight(stone, 0.25);
+        this._decoShadow(c, P, px, py, 10);
+        const block = (bx, by, bw, bh, col) => {
+            c.fillStyle = dk; c.beginPath(); wRound(c, bx - 1, by - 1, bw + 2, bh + 2, 2); c.fill();
+            c.fillStyle = col; c.beginPath(); wRound(c, bx, by, bw, bh, 1.5); c.fill();
+        };
+        block(cx - 7, py + 24, 14, 4, stone);            // Fuß
+        block(cx - 2.5, py + 16, 5, 8, stone);            // Säule
+        block(cx - 6, py + 13, 12, 3, stone);             // Teller
+        block(cx - 5, py + 7, 10, 6, stone);              // Lichtkammer
+        c.fillStyle = '#ffd56b';
+        c.fillRect(cx - 3, py + 8.5, 6, 3);               // warmes Licht
+        c.fillStyle = 'rgba(255,214,120,0.25)';
+        c.beginPath(); c.arc(cx, py + 10, 9, 0, W_TAU); c.fill();
+        c.fillStyle = dk;                                  // Dach
+        c.beginPath(); c.moveTo(cx - 10, py + 7.5); c.lineTo(cx, py + 1); c.lineTo(cx + 10, py + 7.5); c.closePath(); c.fill();
+        c.fillStyle = lt;
+        c.beginPath(); c.moveTo(cx - 8, py + 6.6); c.lineTo(cx, py + 2.4); c.lineTo(cx + 8, py + 6.6); c.closePath(); c.fill();
+    },
+
+    // Schneemann-Tal: kleiner Schneeballhaufen, manchmal mit Karotte
+    _snowballPile(c, P, x, y, seed) {
+        const T = TILE_SIZE, px = x * T, py = y * T;
+        const r = wHash(x, y, seed + 481);
+        const snow = '#f4faff';
+        this._decoShadow(c, P, px, py, 12);
+        this._ballShape(c, px + 10, py + 21, 5.5, snow, null, 0);
+        this._ballShape(c, px + 21, py + 21, 5.5, snow, null, 0);
+        this._ballShape(c, px + 15.5, py + 13, 5.5, snow, null, 0);
+        if (r > 0.5) {
+            c.fillStyle = '#ff8a2a';
+            c.beginPath(); c.moveTo(px + 22, py + 9); c.lineTo(px + 29, py + 7); c.lineTo(px + 22, py + 11.5); c.closePath(); c.fill();
+        }
     },
 
     // Zombie Academy: Schulbank mit Stuhl (in Reihen immer), einzeln auch Bücherstapel oder Schulranzen
