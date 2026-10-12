@@ -4,7 +4,7 @@
 //   Juri und das Schattenkrokodil. 0,55 s vorher leuchtet eine rote Bahn in Wurfrichtung am Boden, und der
 //   Schneeball fliegt genau diese Bahn entlang (Ansage = Treffer). Von nah holt er mit dem Astarm aus
 //   (roter Kreis) und fegt ihn zu Boden. Der Schlüsselträger hat GRAUEN Schnee (Wunsch von Leander), hält
-//   mehr aus und wirft drei Schneebälle kurz hintereinander – die Bahn bleibt so lange stehen.
+//   mehr aus und wirft drei Schneebälle kurz hintereinander – alle drei folgen genau der angesagten Bahn.
 // Boss: RIESENSCHNEEMANN – Endgegner von Welt 50, bleibt im Boss-Raum (der zugefrorene See), 140 LP,
 //   zwei Phasen.
 //   Fächer: eine breite Salve Schneebälle, angekündigt mit roten Strahlen in jede Wurfrichtung.
@@ -12,8 +12,9 @@
 //   Schneesturm: weiße Schleier über dem Bildschirm (Mark und Gegner bleiben erkennbar) und Wind, der Mark
 //     zur Seite schiebt. Die Richtung steht vorher fest – lange Bahnen am Boden zeigen sie an, ebenso lange
 //     wirft der Riese einzelne große Schneebälle auf markierte Stellen.
-//   Phase 2 (halbe LP): schneller, mehr Schneebälle, längerer Sturm. Mit wenig Leben wird er nach jedem
-//     großen Angriff schwindelig (kreisende Sterne, kurz wehrlos) – Marks Zeit zum Zurückhauen.
+//   Phase 2 (halbe LP): schneller, mehr Schneebälle, längerer Sturm. Nach jedem zweiten großen Angriff
+//     wird er schwindelig (kreisende Sterne, kurz wehrlos), bei wenig Leben 2,2 s lang – Marks Zeit zum
+//     Zurückhauen.
 //   Leander will genau diese Wirkungen: KEINE Gift- oder Schlaf-Bälle, keine zusätzlichen Zustände.
 //   Freunde verschwinden nie: ein Schneeball, der Juri oder das Krokodil besiegen würde, haut sie nur um.
 
@@ -74,7 +75,8 @@ const SnowmanArt = {
         const out = [];
         const list = typeof Game !== 'undefined' && Game.companions ? Game.companions : [];
         for (const c of list) {
-            if (!c || c.dead || typeof c.knockOut !== 'function' || c.koTimer > 0) continue;
+            if (!c || c.dead || typeof c.knockOut !== 'function') continue;
+            if (c.koTimer > 0 || c.iFrames > 0) continue;      // umgefallen oder in der Schonzeit
             out.push(c);
         }
         return out;
@@ -90,9 +92,8 @@ const SnowmanArt = {
     // Schneebälle treffen auch Juri und das Krokodil (hier eigener Treffer, damit es richtig weh tut).
     // Mark übernimmt die Engine – dort zählt die Ausweichrolle und die Schonzeit nach einem Treffer.
     companionHit(proj) {
-        const list = typeof Game !== 'undefined' && Game.companions ? Game.companions : [];
-        for (const c of list) {
-            if (!c || c.dead || c.koTimer > 0 || typeof c.knockOut !== 'function' || typeof c.takeDamage !== 'function') continue;
+        for (const c of this.companions()) {
+            if (typeof c.takeDamage !== 'function') continue;
             const w = c.w || 20, h = c.h || 20;
             const cx = c.x + w / 2, cy = c.y + h / 2;
             if (Math.hypot(proj.x - cx, proj.y - cy) > proj.radius + Math.max(w, h) / 2) continue;
@@ -382,7 +383,7 @@ class SnowBall extends Projectile {
         this.big = !!big;
         this.spin = randRange(-7, 7);
         this.wob = Math.random() * 10;
-        this.grace = 0.12;              // direkt an der Hand darf niemand getroffen werden
+        this.grace = 0.12;              // direkt an der Hand darf kein Freund getroffen werden
     }
 
     update(dt, world) {
@@ -530,7 +531,7 @@ class Snowman extends Enemy {
                     if (this.stateT <= this.stateDur * 0.35) this.aimLock = true;   // Bahn steht jetzt fest
                 }
                 if (this.stateT <= 0) {
-                    this._throw(0, projectiles);
+                    this._throw(projectiles);
                     this.throwLeft = this.gray ? 2 : 0;
                     this._set('throw', 0.26);
                 }
@@ -539,7 +540,7 @@ class Snowman extends Enemy {
                 if (this.stateT <= 0) {
                     if (this.throwLeft > 0) {
                         this.throwLeft--;
-                        this._throw(3 - this.throwLeft, projectiles);
+                        this._throw(projectiles);
                         this._set('throw', 0.2);
                     } else {
                         this.cool = this.gray ? randRange(1.4, 1.9) : randRange(1.2, 2.0);
@@ -596,15 +597,15 @@ class Snowman extends Enemy {
         this.cool = 0.5;
     }
 
-    // Nummer 0 = erster Wurf, 1..2 = die Schnellfolge des Schlüsselträgers (gleiche, angesagte Bahn)
-    _throw(n, projectiles) {
+    // Alle Würfe – auch die Schnellfolge des Schlüsselträgers – fliegen genau die angesagte Bahn.
+    _throw(projectiles) {
         const list = projectiles || (typeof Game !== 'undefined' ? Game.projectiles : null);
         const h = this._hand();
         if (!list || list.length > SNOWBALL_CAP) {
             SnowmanArt.burst(h.x, h.y, ['#ffffff', SnowmanCfg.snowMid], 5, 80, 0.3, { kind: 'spark' });
             return;
         }
-        const a = this.aimAng + (n ? (n - 1.5) * 0.1 : 0);
+        const a = this.aimAng;
         list.push(new SnowBall(h.x + Math.cos(a) * 6, h.y + Math.sin(a) * 6, a));
         SnowmanArt.burst(h.x, h.y, ['#ffffff', SnowmanCfg.snowMid], 5, 95, 0.3, { kind: 'spark' });
     }
@@ -913,7 +914,6 @@ class BossGiantSnowman extends Enemy {
         if (this.ringT <= 0 && this.ringLeft > 0) {
             this.ringLeft--;
             this.ringT = 0.28;
-            this.ringA += 0.3;
             const list = projectiles || (typeof Game !== 'undefined' ? Game.projectiles : null);
             const m = this._muzzle();
             const n = this.phase === 2 ? 11 : 9;
@@ -926,6 +926,7 @@ class BossGiantSnowman extends Enemy {
             SnowmanArt.ring(m.x, m.y, SnowmanCfg.ice, 44, 0.32, 3.4);
             SnowmanArt.burst(m.x, m.y, ['#ffffff', SnowmanCfg.ice], 8, 130, 0.36, { kind: 'spark' });
             SnowmanArt.shake(2.6, 0.12);
+            this.ringA += 0.3;      // erst nach dem Wurf: die nächste Salve dreht den Ring ein Stück weiter
         }
         if (this.stateT <= 0 || (this.ringLeft === 0 && this.ringT <= 0)) this._afterBig();
     }
@@ -993,7 +994,11 @@ class BossGiantSnowman extends Enemy {
             const p = camera.worldToScreen(m.x, m.y);
             const n = this.phase === 2 ? 9 : 7;
             const step = this.phase === 2 ? 0.19 : 0.21;
-            LateWorldArt.rays(ctx, p.x, p.y, n, this.fanA - ((n - 1) / 2) * step, 22, 168, k, SnowmanCfg.warn);
+            // Jede einzelne Wurfbahn: LateWorldArt.rays stellt die Speichen im vollen Kreis, angesagt werden
+            // muss aber genau die breite Salve, die gleich fliegt (Ansage = Treffer).
+            for (let i = 0; i < n; i++) {
+                LateWorldArt.lane(ctx, p.x, p.y, this.fanA + (i - (n - 1) / 2) * step, 168, 15, k, SnowmanCfg.warn);
+            }
             return;
         }
         if (st === 'ringWind' || st === 'ringShot') {
