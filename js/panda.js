@@ -68,10 +68,6 @@ const PandaArt = {
         if (typeof FX !== 'undefined') FX.ring(x, y, color, radius, life, width);
     },
 
-    text(x, y, s, color) {
-        if (typeof FX !== 'undefined' && FX.text) FX.text(x, y, s, color);
-    },
-
     // Wache, treffbare Begleiter (nicht die Schlange auf Marks Schulter)
     companions() {
         const out = [];
@@ -85,6 +81,7 @@ const PandaArt = {
 
     // Begleiter treffen: nie verschwinden lassen, ein tödlicher Treffer haut nur um.
     hitCompanion(c, amount) {
+        if (c.iFrames > 0) return;                      // Schonzeit direkt nach einem Treffer
         if (c.hp - amount <= 0) c.knockOut(7);
         else c.takeDamage(amount);
         this.burst(c.x + (c.w || 20) / 2, c.y + (c.h || 20) / 2, [PandaCfg.darkMid, '#ffffff'], 9, 130, 0.42, { kind: 'star' });
@@ -129,12 +126,6 @@ const PandaArt = {
         e.y = clamp(e.y, r.y + 2, r.y + r.h - e.h - 2);
     },
 
-    // Freier Punkt in der Welt (für Lande- und Stichpunkte)?
-    free(world, x, y, r) {
-        if (!world || !world.collideRect) return true;
-        return world.collideRect({ x: x - r, y: y - r, w: r * 2, h: r * 2 }).length === 0;
-    },
-
     // Winkel nach Normieren (-PI .. PI)
     ang(a) {
         let v = a;
@@ -155,6 +146,7 @@ const PandaArt = {
     // ── Warnung in Form eines Sektors (Stockschwung) oder Rings (ganzer Kreis) ──
     // from = Anfangswinkel auf dem Schirm, span = Winkelbreite (negativ = gegen den Uhrzeigersinn).
     sector(ctx, x, y, r0, r1, from, span, k, color) {
+        ctx.save();
         const prev = ctx.globalAlpha;
         const pulse = 0.5 + 0.5 * Math.sin(Art.time * 15);
         const path = (rr0, rr1) => {
@@ -178,7 +170,8 @@ const PandaArt = {
         ctx.lineCap = 'round';
         ctx.beginPath();
         for (const f of [0.28, 0.6, 0.92]) {
-            const a = from + span * ((f + Art.time * 0.55 * Math.sign(span || 1)) % 1);
+            const w = (f + Art.time * 0.55 * Math.sign(span || 1)) % 1;
+            const a = from + span * (w < 0 ? w + 1 : w);
             const dr = (r0 + r1) / 2;
             const px = x + Math.cos(a) * dr, py = y + Math.sin(a) * dr;
             const ta = a + (span >= 0 ? Math.PI / 2 : -Math.PI / 2);
@@ -189,7 +182,7 @@ const PandaArt = {
         }
         ctx.globalAlpha = prev * (0.45 + 0.3 * pulse);
         ctx.stroke();
-        ctx.globalAlpha = prev;
+        ctx.restore();
     },
 
     // ── Bambus-Stange (Rohr des Pandas, Riesenstock des Bosses) ──
@@ -465,7 +458,8 @@ class BambooPanda extends Enemy {
     // lokaler (blickrichtungsbezogener) Winkel -> Winkel auf dem Schirm
     _worldA(a) { return Math.atan2(Math.sin(a), Math.cos(a) * this.face); }
 
-    // Rohr-Winkel je Zustand: eine Quelle für Bild, Rohrspitze und Ziellinie
+    // Rohr-Winkel je Zustand: nur für das Bild. toolA selbst bleibt der gesetzte Zielwinkel,
+    // sonst würde der Zustands-Offset in jeder Folgezeichnung noch einmal obendrauf kommen.
     _tool() {
         const t = Art.time + this.seed;
         const k = this._k();
@@ -537,7 +531,6 @@ class BambooPanda extends Enemy {
                 break;
             default: this._walk(dt, world, player, dist, dx, dy);
         }
-        this.toolA = this._tool();
     }
 
     // ── Ansatz: sehr langsam näher rücken, dann Angriff wählen ──
@@ -656,8 +649,8 @@ class BambooPanda extends Enemy {
         const bob = dead ? -1 : (this.moving ? Math.abs(walk) * 1.1 : Math.sin(t * 1.7) * 0.7) + (huff ? 1.2 : 0);
         const squ = dead ? 0 : (this.moving ? Math.abs(walk) * 0.03 : Math.sin(t * 1.7) * 0.015) + (bonk ? 0.03 : 0);
         const hip = -9 - bob;
-        // Rohr: Winkel kommt aus _tool() – Bild, Spitze und Ziellinie nutzen dieselbe Zahl
-        const a = this.toolA;
+        // Rohr: Winkel kommt aus _tool() – toolA bleibt der Zielwinkel, der Zustand verschiebt ihn nur hier
+        const a = this._tool();
         const gx = 2, gy = hip - 14;                       // Griff vor der Brust
         const dx = Math.cos(a), dy = Math.sin(a);
         const hands = { f: { x: gx + dx * 9, y: gy + dy * 9 }, b: { x: gx - dx * 5, y: gy - dy * 5 } };
@@ -914,11 +907,15 @@ class BossGiantPanda extends Enemy {
         let best = null;
         for (const t of PandaArt.targets(player)) {
             const d = Math.hypot(t.x - pv.x, t.y - pv.y);
-            if (d < 180 && (!best || d < best.d)) best = { t, d };
+            if (d < 150 && (!best || d < best.d)) best = { t, d };
         }
         let x, y;
         if (best) { x = best.t.x; y = best.t.y; }
         else { const a = Math.atan2(this.look.y, this.look.x || 1); x = pv.x + Math.cos(a) * 90; y = pv.y + Math.sin(a) * 90; }
+        // Der Stich trifft nur, wohin der Stock sichtbar reicht – sonst/sticht er ins Leere und es macht trotzdem Schaden
+        const dxj = x - pv.x, dyj = y - pv.y, dj = Math.hypot(dxj, dyj) || 1;
+        const reich = BossGiantPanda.R - 8;
+        if (dj > reich) { x = pv.x + dxj * reich / dj; y = pv.y + dyj * reich / dj; }
         const room = PandaArt.room(world);
         if (room) {
             x = clamp(x, room.x + 20, room.x + room.w - 20);
