@@ -688,3 +688,630 @@ registerUpgrade({
         });
     },
 });
+
+// ══════════════════════════════════════════════════════════════════════════
+// ── Paket 2: die neuen Schattenkrokodil-Extras (Auftrag croc2, 18.10.2026) ──
+// Wieder alles über die Haken aus js/upgrades.js; js/entities.js bleibt unberührt.
+// ══════════════════════════════════════════════════════════════════════════
+
+const CROC14_ZWILLING_SEKUNDEN = 10;   // wie lange ein Schattenzwilling mitkämpft
+const CROC14_ZWILLING_TAKT = 16;       // Abklingzeit bis zum nächsten Zwilling
+const CROC15_WEITE = 2;                // Weitspucke: die Spucke fliegt doppelt so weit
+const CROC16_BOMBE_RADIUS = 62;        // Spuck-Bombe:Radius der Detonation
+const CROC16_BOMBE_SCHADEN = 7;
+const CROC16_BOMBE_TAKT = 4.5;         // Abklingzeit zwischen zwei Bomben
+const CROC17_SPRINT_TAKT = 5;          // Schatten-Sprint: alle fünf Sekunden ein Satz
+const CROC17_SPRINT_TAKT_KRAFT = 760;  // wie schnell es dabei über den Boden flitzt
+const CROC17_SPRINT_DAUER = 0.22;
+const CROC18_ZAHN_DURCH = 2;           // Zahnschuss: durch so viele Gegner hindurch (insgesamt drei)
+const CROC18_ZAHN_SCHADEN = 5;
+const CROC19_TAXI_TEMPO = 1.9;         // Krokodil-Taxi: Mark ist auf dem Krokodil so viel schneller
+const CROC20_WAECHTER_BISS = 46;       // Wächter: so nah darf kein Gegner an Mark heran
+const CROC20_WAECHTER_TAKT = 1.6;
+const CROC21_HEILUNG_TAKT = 1.2;       // Schatten-Heilung: ein Herzchen alle 1,2 Sekunden im Sitzen
+const CROC22_BRUELL_RADIUS = 96;       // Brüllwelle: so weit fliegt die Druckwelle
+const CROC22_BRUELL_TAKT = 7;
+const CROC22_BRUELL_KRAFT = 700;       // so kräftig fliegt ein Gegner vom Gebrüll weg
+const CROC23_MUENZ_HUNGER = 0.7;       // Münzschlucker: so oft schnappt es sich eine Münze
+const CROC23_MUENZ_WEITE = 230;
+const CROC23_MUENZ_SATZ = 0.12;        // so schnell macht es seine Sätze zur Münze hin
+const CROC24_SUMPF_DAUER = 9;          // Sumpfruf: so lange helfen die kleinen Sumpfkrokodile
+const CROC24_SUMPF_TAKT = 18;
+const CROC25_EXPLO_RADIUS = 150;       // Schatten-Explosion: trifft alle Gegner rundherum
+const CROC25_EXPLO_SCHADEN = 10;
+const CROC25_EXPLO_TAKT = 12;
+
+// ── croc14 Schattenzwilling: ein zweites Schattenkrokodil kämpft mit ──
+registerUpgrade({
+    id: 'croc14', figur: 'croc', name: 'Schattenzwilling', emoji: '👥',
+    text: 'Von Zeit zu Zeit taucht ein zweites Schattenkrokodil auf und kämpft eine Zeit lang mit.',
+    where: 'im Shop kaufen',
+    istFrei: () => false,
+    apply(c) {
+        if (!c.croc) return;
+        const k = c.croc;
+        const zwillinge = [];
+        let bereit = 4;
+        k.hooks.onUpdate.push(dt => {
+            if (CrocUp.handlungsfahig(k)) {
+                bereit -= dt;
+                if (bereit <= 0) {
+                    const punkt = CrocUp.freierPunktUm(Game.world, k.centerX(), k.centerY() + 6, 24);
+                    if (punkt) {
+                        bereit = CROC14_ZWILLING_TAKT;      // Abklingzeit
+                        const z = spawnHelper(new ShadowCrocodile(punkt.x - 14, punkt.y - 13),
+                            punkt.x, punkt.y, CROC14_ZWILLING_SEKUNDEN);
+                        if (z) {
+                            z.w = 28; z.h = 26;
+                            z.spitOwner = true;             // seine Kugeln gehören zum Zwilling
+                            if (zwillinge.length < 4) zwillinge.push(z);
+                            Juri.poof(k.centerX(), k.centerY(), true);
+                            Juri.poof(punkt.x, punkt.y, true);
+                            if (typeof FX !== 'undefined') {
+                                FX.text(punkt.x, punkt.y - 20, 'Schattenzwilling!', '#b28cff', 11, { life: 1.3 });
+                            }
+                        }
+                    }
+                }
+            }
+            // Fortgang: Zähler abgelaufen oder k.o. - die eigenen Schattenkugeln räumt es mit weg
+            for (let i = zwillinge.length - 1; i >= 0; i--) {
+                const z = zwillinge[i];
+                if (!z.dead && z.helperTimer > 0) continue;
+                zwillinge.splice(i, 1);
+                if (Game.projectiles) {
+                    for (let j = Game.projectiles.length - 1; j >= 0; j--) {
+                        const p = Game.projectiles[j];
+                        if (p && p.crocSpit && p.spitOwner) Game.projectiles.splice(j, 1);
+                    }
+                }
+                if (!z.dead) Juri.poof(z.centerX(), z.centerY(), true);
+            }
+        });
+        k.hooks.onDraw.push(ctx => CrocUp.abzeichen(ctx, k, '👥', '#b28cff'));
+    },
+});
+
+// ── croc15 Weitspucke: die Spucke fliegt doppelt so weit ──
+registerUpgrade({
+    id: 'croc15', figur: 'croc', name: 'Weitspucke', emoji: '🎯',
+    text: 'Die Spucke fliegt doppelt so weit wie vorher.',
+    where: 'im Shop kaufen',
+    istFrei: () => false,
+    apply(c) {
+        if (!c.croc) return;
+        const k = c.croc;
+        const unterwegs = [];
+        k.hooks.onShoot.push(p => {
+            p.lifetime = (p.lifetime || 3) * CROC15_WEITE;   // 0,08 s Flugzeit werden 0,16 s: doppelte Weite
+            unterwegs.push({ p: p, x0: p.x, y0: p.y, weiter: 0 });
+        });
+        k.hooks.onDraw.push(ctx => CrocUp.abzeichen(ctx, k, '🎯', '#9fe6ff'));
+        c.game.roundHooks.onUpdate.push(dt => {
+            // Leuchtspur hinter der weit fliegenden Kugel, damit man die Weite sehen kann
+            for (let i = unterwegs.length - 1; i >= 0; i--) {
+                const e = unterwegs[i];
+                if (e.p.dead) { unterwegs.splice(i, 1); continue; }
+                e.weiter += Math.hypot(e.p.vx, e.p.vy) * dt;
+                if (typeof FX !== 'undefined' && (i % 2 === 0)) {
+                    FX.burst(e.p.x, e.p.y, 'rgba(159,230,255,0.75)', 1, 18, 0.28, { kind: 'smoke', size: 2.6 });
+                }
+            }
+        });
+        c.game.roundHooks.onDrawWorld.push((ctx, camera) => {
+            for (const e of unterwegs) {
+                if (e.p.dead) continue;
+                const s = camera.worldToScreen(e.p.x, e.p.y);
+                Art.glow(ctx, s.x, s.y, (e.p.radius || 4) * 3, '#9fe6ff', 0.5);
+            }
+        });
+    },
+});
+
+// ── croc16 Spuck-Bombe: eine große Spuckblase explodiert in einem großen Kreis ──
+class Spuckbombe {
+    constructor(x, y, vx, vy, reichweite, radius, schaden) {
+        this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+        this.reichweite = reichweite; this.zurueck = 0;
+        this.radius = radius; this.schaden = schaden;
+        this.dead = false; this.alter = 0;
+    }
+    update(dt, welt) {
+        this.alter += dt;
+        const schritt = Math.hypot(this.vx, this.vy) * dt;
+        // die ersten Zentimeter sind verschont: die Blase startet im Maul, und das sitzt manchmal an einer Wand
+        if (this.zurueck > 16 && welt && welt.isWall(this.x + this.vx * dt, this.y + this.vy * dt)) { this.explodiert(); return; }
+        this.x += this.vx * dt; this.y += this.vy * dt;
+        this.zurueck += schritt;
+        if (typeof FX !== 'undefined' && this.alter > 0.04) {
+            this.alter = 0;
+            FX.burst(this.x, this.y, 'rgba(178,140,255,0.8)', 1, 26, 0.32, { kind: 'smoke', size: 4 });
+        }
+        // die ersten Zentimeter sind auch gegen Gegner verschont: sonst zündet die Blase
+        // im eigenen Gesicht, wenn ein Gegner am Krokodil klebt
+        if (this.zurueck > 20) {
+            for (const e of (Game.enemies || [])) {
+                if (!e || e.dead) continue;
+                if (Math.hypot(e.centerX() - this.x, e.centerY() - this.y) <=
+                    this.blase() + Math.max(e.w, e.h) / 2) { this.explodiert(); return; }
+            }
+        }
+        if (this.zurueck >= this.reichweite) this.explodiert();
+    }
+    blase() { return 9 + Math.sin(Art.time * 16) * 1.6; }
+    draw(ctx, camera) {
+        // die Engine wirft Geschosse ohne zeichnbare Blase still aus der Liste - also muss sie hier stehen
+        const p = camera.worldToScreen(this.x, this.y);
+        const r = this.blase();
+        ctx.save();
+        Art.glow(ctx, p.x, p.y, r * 2.6, '#b28cff', 0.7);
+        ctx.fillStyle = 'rgba(178,140,255,0.6)';
+        ctx.beginPath();
+        ctx.ellipse(p.x, p.y, r, r * 1.12, 0, 0, TAU);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(230,251,255,0.85)';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.beginPath();
+        ctx.ellipse(p.x - r * 0.3, p.y - r * 0.4, r * 0.26, r * 0.2, -0.5, 0, TAU);
+        ctx.fill();
+        ctx.restore();
+    }
+    explodiert() {
+        if (this.dead) return;
+        this.dead = true;
+        CrocUp.schlag(this.x, this.y, this.radius, this.schaden, 340, 'Spuck-Bombe!');
+        if (typeof FX !== 'undefined') {
+            FX.ring(this.x, this.y, '#b28cff', this.radius, 0.5, 7);
+            FX.ring(this.x, this.y, '#ffffff', this.radius * 0.55, 0.34, 4);
+            FX.burst(this.x, this.y, ['#2b1466', '#8a5cff', '#b28cff', '#ffffff'], 20, 240, 0.6);
+            if (Game.camera) Game.camera.shake(5, 0.22);
+        }
+    }
+}
+
+registerUpgrade({
+    id: 'croc16', figur: 'croc', name: 'Spuck-Bombe', emoji: '💣',
+    text: 'Das Krokodil spuckt eine große Spuckblase, die in einem großen Kreis explodiert.',
+    where: 'im Shop kaufen',
+    istFrei: () => false,
+    apply(c) {
+        if (!c.croc) return;
+        const k = c.croc;
+        let bereit = 1.5;
+        k.hooks.onUpdate.push(dt => {
+            if (!CrocUp.handlungsfahig(k)) return;
+            bereit -= dt;
+            if (bereit > 0) return;
+            const ziel = CrocUp.ziel(k, Game.enemies, 260, true);
+            if (!ziel) return;
+            bereit = CROC16_BOMBE_TAKT;              // Abklingzeit
+            const a = Math.atan2(ziel.centerY() - k.centerY(), ziel.centerX() - k.centerX());
+            Game.projectiles.push(new Spuckbombe(k.centerX() + Math.cos(a) * 8, k.centerY() + Math.sin(a) * 8,
+                Math.cos(a) * 210, Math.sin(a) * 210,
+                Math.max(60, Math.min(240, Math.hypot(ziel.centerX() - k.centerX(), ziel.centerY() - k.centerY()))),
+                CROC16_BOMBE_RADIUS, CROC16_BOMBE_SCHADEN));
+            k.mouthTimer = 0.35;
+            if (typeof FX !== 'undefined') {
+                FX.burst(k.centerX() + Math.cos(a) * 10, k.centerY() + Math.sin(a) * 10, '#b28cff', 6, 90, 0.35, { kind: 'bubble' });
+            }
+        });
+        k.hooks.onDraw.push(ctx => CrocUp.abzeichen(ctx, k, '💣', '#b28cff'));
+    },
+});
+
+// ── croc17 Schatten-Sprint: es flitzt blitzschnell zu Gegnern ──
+registerUpgrade({
+    id: 'croc17', figur: 'croc', name: 'Schatten-Sprint', emoji: '💨',
+    text: 'Von Zeit zu Zeit flitzt das Krokodil blitzschnell auf einen Gegner zu.',
+    where: 'im Shop kaufen',
+    istFrei: () => false,
+    apply(c) {
+        if (!c.croc) return;
+        const k = c.croc;
+        const effekte = new CrocEffekte();
+        let bereit = 2, schluss = 0, winkel = 0, strecke = 0;
+        k.hooks.onUpdate.push(dt => {
+            effekte.update(dt);
+            if (!CrocUp.handlungsfahig(k)) { schluss = 0; return; }
+            if (schluss > 0) {
+                schluss -= dt;
+                const schritt = CROC17_SPRINT_TAKT_KRAFT * dt;
+                strecke -= Juri.step(k, Math.cos(winkel) * schritt, Math.sin(winkel) * schritt, Game.world);
+                effekte.schwung(k.centerX(), k.centerY(), 20, winkel);
+                if (typeof FX !== 'undefined') {
+                    FX.burst(k.centerX(), k.centerY() + 8, 'rgba(178,140,255,0.85)', 2, 70, 0.3, { kind: 'smoke', size: 4 });
+                }
+                if (schluss <= 0 || strecke <= 0) { schluss = 0; bereit = CROC17_SPRINT_TAKT; }
+                return;
+            }
+            bereit -= dt;
+            if (bereit > 0) return;
+            const ziel = CrocUp.ziel(k, Game.enemies, 300, true);
+            if (!ziel) return;
+            winkel = Math.atan2(ziel.centerY() - k.centerY(), ziel.centerX() - k.centerX());
+            let weg = Math.max(30, Math.hypot(ziel.centerX() - k.centerX(), ziel.centerY() - k.centerY()) - 26);
+            const frei = (s) => !Game.world || Juri.lineClear(Game.world, k.centerX(), k.centerY(),
+                k.centerX() + Math.cos(winkel) * s, k.centerY() + Math.sin(winkel) * s);
+            if (!frei(weg)) weg = weg / 2;
+            if (!frei(weg)) return;
+            schluss = CROC17_SPRINT_DAUER;
+            strecke = weg;
+            k.facingAngle = winkel;
+            Juri.poof(k.centerX(), k.centerY(), true);
+            if (typeof FX !== 'undefined') FX.text(k.centerX(), k.centerY() - 18, 'Schatten-Sprint!', '#b28cff', 11, { life: 1 });
+        });
+        k.hooks.onDraw.push(ctx => CrocUp.abzeichen(ctx, k, '💨', '#b28cff'));
+        c.game.roundHooks.onDrawWorld.push((ctx, camera) => effekte.draw(ctx, camera));
+    },
+});
+
+// ── croc18 Zahnschuss: es spuckt Zähne, die durch mehrere Gegner fliegen ──
+registerUpgrade({
+    id: 'croc18', figur: 'croc', name: 'Zahnschuss', emoji: '🦈',
+    text: 'Das Krokodil spuckt Zähne, die durch mehrere Gegner hindurchfliegen.',
+    where: 'im Shop kaufen',
+    istFrei: () => false,
+    apply(c) {
+        if (!c.croc) return;
+        const k = c.croc;
+        k.hooks.onShoot.push(p => {
+            p.damage = Math.max(p.damage, CROC18_ZAHN_SCHADEN);
+            p.pierce = CROC18_ZAHN_DURCH;          // die Engine zählt die Treffer ab (js/main.js)
+            p.radius = 5;
+            p.crocZahn = true;
+            p.draw = function (ctx, camera) {
+                const s = camera.worldToScreen(this.x - 5, this.y - 5);
+                zahnZeichnen(ctx, s.x + 5, s.y + 5, Math.atan2(this.vy, this.vx), 6);
+            };
+        });
+        k.hooks.onDraw.push(ctx => CrocUp.abzeichen(ctx, k, '🦈', '#f2f6ff'));
+    },
+});
+
+// Ein Zahn: weiße Spitze mit dunklem Rand, dreht sich in Flugrichtung
+function zahnZeichnen(ctx, x, y, dreh, groesse) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(dreh);
+    ctx.beginPath();
+    ctx.moveTo(groesse, 0);
+    ctx.lineTo(-groesse * 0.7, -groesse * 0.62);
+    ctx.lineTo(-groesse * 0.34, 0);
+    ctx.lineTo(-groesse * 0.7, groesse * 0.62);
+    ctx.closePath();
+    ctx.fillStyle = '#f7fbff';
+    ctx.fill();
+    ctx.strokeStyle = '#33406a';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.restore();
+    Art.glow(ctx, x, y, groesse * 2.1, '#cfe6ff', 0.42);
+}
+
+// ── croc19 Krokodil-Taxi: Mark reitet auf dem Krokodil und ist schneller ──
+registerUpgrade({
+    id: 'croc19', figur: 'croc', name: 'Krokodil-Taxi', emoji: '🚕',
+    text: 'Mark reitet auf dem Krokodil und ist damit deutlich schneller unterwegs.',
+    where: 'im Shop kaufen',
+    istFrei: () => false,
+    apply(c) {
+        if (!c.croc) return;
+        const k = c.croc;
+        const p = c.player;
+        let staub = 0;
+        c.game.roundHooks.onUpdate.push(dt => {
+            if (p.dead || !CrocUp.handlungsfahig(k)) return;
+            p.speed = Math.max(p.speed || 0, (p.baseSpeed || 150) * CROC19_TAXI_TEMPO);
+            staub -= dt;
+            if (k.moving && staub <= 0) {
+                staub = 0.16;
+                if (typeof FX !== 'undefined') {
+                    FX.burst(k.centerX(), k.centerY() + 11, 'rgba(200,225,255,0.75)', 2, 60, 0.32, { kind: 'smoke', size: 4 });
+                }
+            }
+        });
+        // Reiten: nach jedem Schritt des Krokodils sitzt Mark auf dem Rücken
+        k.hooks.onUpdate.push(() => {
+            if (p.dead || !CrocUp.handlungsfahig(k)) return;
+            if (!Game.world || Game.world.isWall(k.centerX(), k.centerY() - 10)) return;
+            p.x = k.centerX() - p.w / 2;
+            p.y = k.centerY() - p.h + 3;
+            if (k.moving) p.facingAngle = (k.faceX || 1) > 0 ? 0 : Math.PI;
+            p.stuckTimer = 0;
+        });
+        k.hooks.onDraw.push(ctx => CrocUp.abzeichen(ctx, k, '🚕', '#ffd23f'));
+    },
+});
+
+// ── croc20 Wächter: es bleibt bei Mark und beißt jeden, der zu nah kommt ──
+registerUpgrade({
+    id: 'croc20', figur: 'croc', name: 'Wächter', emoji: '🛡️',
+    text: 'Das Krokodil bleibt dicht bei Mark und beißt jeden Gegner, der zu nah herankommt.',
+    where: 'im Shop kaufen',
+    istFrei: () => false,
+    apply(c) {
+        if (!c.croc) return;
+        const k = c.croc, p = c.player;
+        let bereit = 1;
+        k.hooks.onUpdate.push(dt => {
+            bereit -= dt;
+            const mx = p.x + p.w / 2, my = p.y + p.h / 2;   // Mark hat keinen center-Helfer, selbst ausrechnen
+            // Wächter halten: zu weit weg kommt das Krokodil zurück zu Mark
+            const d = Math.hypot(k.centerX() - mx, k.centerY() - my);
+            if (d > 64 && CrocUp.handlungsfahig(k)) {
+                const punkt = CrocUp.freierPunktUm(Game.world, mx, my + 6, 20);
+                if (punkt) {
+                    k.x = punkt.x - k.w / 2; k.y = punkt.y - k.h / 2;
+                    k.stuckTimer = 0;
+                    Juri.poof(k.centerX(), k.centerY(), true);
+                }
+            }
+            if (!CrocUp.handlungsfahig(k) || bereit > 0 || p.dead) return;
+            const ziel = CrocUp.zielVon(mx, my, Game.enemies, CROC20_WAECHTER_BISS, null, false) ||
+                CrocUp.ziel(k, Game.enemies, 62, false);
+            if (!ziel) return;
+            bereit = CROC20_WAECHTER_TAKT;          // Abklingzeit zwischen zwei Bissen
+            k.mouthTimer = 0.32;
+            CrocUp.schlag(ziel.centerX(), ziel.centerY(), 15, 7, 300, 'Wächterbiss!');
+        });
+        k.hooks.onDraw.push(ctx => CrocUp.abzeichen(ctx, k, '🛡️', '#ffd23f'));
+    },
+});
+
+// ── croc21 Schatten-Heilung: es heilt sich, wenn es still im Schatten liegt ──
+registerUpgrade({
+    id: 'croc21', figur: 'croc', name: 'Schatten-Heilung', emoji: '💚',
+    text: 'Wenn das Krokodil still im Schatten liegt, heilt es sich langsam selbst.',
+    where: 'im Shop kaufen',
+    istFrei: () => false,
+    apply(c) {
+        if (!c.croc) return;
+        const k = c.croc;
+        let ruhig = 0, takt = 0;
+        k.hooks.onUpdate.push(dt => {
+            if (!CrocUp.handlungsfahig(k) || k.hp >= k.maxHp || k.moving) { ruhig = 0; return; }
+            ruhig += dt;
+            if (ruhig < 0.7) return;               // erst eine Weile stillstehen, dann heilt es
+            takt -= dt;
+            if (takt > 0) return;
+            takt = CROC21_HEILUNG_TAKT;
+            k.hp = Math.min(k.maxHp, k.hp + 1);
+            if (typeof FX !== 'undefined') {
+                FX.burst(k.centerX(), k.centerY() - 6, '#7dff8a', 4, 45, 0.5, { kind: 'spark' });
+                FX.ring(k.centerX(), k.centerY(), '#6bff9a', 17, 0.36, 2);
+            }
+        });
+        k.hooks.onDraw.push(ctx => {
+            if (ruhig > 0.7 && k.hp < k.maxHp && Game.camera) {
+                const s = Game.camera.worldToScreen(k.centerX(), k.centerY());
+                Art.glow(ctx, s.x, s.y, 19, '#4fd46a', 0.3 + 0.12 * Math.sin(Art.time * 4));
+            }
+            CrocUp.abzeichen(ctx, k, '💚', '#6bff9a');
+        });
+    },
+});
+
+// ── croc22 Brüllwelle: ein Gebrüll schubst alle Gegner weg ──
+registerUpgrade({
+    id: 'croc22', figur: 'croc', name: 'Brüllwelle', emoji: '📢',
+    text: 'Von Zeit zu Zeit brüllt das Krokodil: ein Schwall schubst alle Gegner rundherum weg.',
+    where: 'im Shop kaufen',
+    istFrei: () => false,
+    apply(c) {
+        if (!c.croc) return;
+        const k = c.croc;
+        let bereit = 3;
+        k.hooks.onUpdate.push(dt => {
+            if (!CrocUp.handlungsfahig(k)) return;
+            bereit -= dt;
+            if (bereit > 0) return;
+            if (!CrocUp.ziel(k, Game.enemies, CROC22_BRUELL_RADIUS, false)) return;
+            bereit = CROC22_BRUELL_TAKT;           // Abklingzeit
+            k.mouthTimer = 0.45;                   // das Maul geht weit auf
+            if (typeof FX !== 'undefined') {
+                FX.ring(k.centerX(), k.centerY(), '#ffd23f', CROC22_BRUELL_RADIUS, 0.5, 8);
+                FX.ring(k.centerX(), k.centerY(), '#ffffff', CROC22_BRUELL_RADIUS * 0.62, 0.36, 4);
+                FX.ring(k.centerX(), k.centerY(), '#b28cff', CROC22_BRUELL_RADIUS * 0.34, 0.26, 3);
+                FX.burst(k.centerX(), k.centerY(), ['#ffe86b', '#ffffff', '#b28cff'], 18, 250, 0.55, { kind: 'smoke', size: 5 });
+                FX.text(k.centerX(), k.centerY() - 22, 'GRAAAR!', '#ffe86b', 13, { life: 1.2 });
+                if (Game.camera) Game.camera.shake(6, 0.25);
+            }
+            for (const e of (Game.enemies || [])) {
+                if (!e || e.dead) continue;
+                const dx = e.centerX() - k.centerX(), dy = e.centerY() - k.centerY();
+                const dist = Math.hypot(dx, dy);
+                if (dist > CROC22_BRUELL_RADIUS + Math.max(e.w, e.h) / 2) continue;
+                const winkel = Math.atan2(dy, dx);
+                // Bosse widerstehen: sie werden nur ein bisschen geschubst
+                if (e.isBoss) { knockBack(e, winkel, 90); continue; }
+                // Schaden und Schubs in einem Schritt: takeDamage überschreibt den eigenen Schwung
+                e.takeDamage(2, winkel, CROC22_BRUELL_KRAFT);
+            }
+        });
+        k.hooks.onDraw.push(ctx => CrocUp.abzeichen(ctx, k, '📢', '#ffe86b'));
+    },
+});
+
+// ── croc23 Münzschlucker: es sammelt Münzen ein und bringt sie Mark ──
+registerUpgrade({
+    id: 'croc23', figur: 'croc', name: 'Münzschlucker', emoji: '🪙',
+    text: 'Das Krokodil schnappt sich Münzen im weiten Umkreis und bringt sie Mark.',
+    where: 'im Shop kaufen',
+    istFrei: () => false,
+    apply(c) {
+        if (!c.croc) return;
+        const k = c.croc, p = c.player;
+        let hungrig = 0.3, satz = 0;
+        k.hooks.onUpdate.push(dt => {
+            if (!CrocUp.handlungsfahig(k)) return;
+            hungrig -= dt; satz -= dt;
+            const troeg = (Game.coinDrops || []).filter(x => x && !x.collected);
+            if (!troeg.length) return;
+            let naechste = null, beste = CROC23_MUENZ_WEITE;
+            for (const x of troeg) {
+                const d = Math.hypot(x.x + x.w / 2 - k.centerX(), x.y + x.h / 2 - k.centerY());
+                if (d < beste) { beste = d; naechste = x; }
+            }
+            if (!naechste) return;
+            const zx = naechste.x + naechste.w / 2, zy = naechste.y + naechste.h / 2;
+            const weg = Math.hypot(zx - k.centerX(), zy - k.centerY());
+            if (weg > 26) {                      // noch weg: einen Satz dorthin (Schlucktakt bleibt frei)
+                // Satz zur Münze hin (dasselbe Hüpfen, mit dem das Krokodil auch zu Mark kommt):
+                // hinterherlaufen würde ständig gegen das Folgen kämpfen und käme nie an
+                if (satz > 0 || !Game.world || Game.world.isWall(zx, zy)) return;
+                satz = CROC23_MUENZ_SATZ;
+                Juri.poof(k.centerX(), k.centerY(), true);
+                k.x = zx - k.w / 2; k.y = zy - k.h / 2; k.stuckTimer = 0;
+                if (typeof FX !== 'undefined') {
+                    FX.burst(zx, zy + 5, 'rgba(178,140,255,0.8)', 5, 90, 0.32, { kind: 'smoke', size: 4 });
+                }
+                return;
+            }
+            if (hungrig > 0) return;               // erst schluckt es, dann eine kurze Pause
+            hungrig = CROC23_MUENZ_HUNGER;         // Abklingzeit zwischen zwei Schluckern
+            naechste.collected = true;
+            Game.coins += naechste.value;
+            Game.levelCoins += naechste.value;
+            k.mouthTimer = 0.3;
+            if (typeof FX !== 'undefined') {
+                FX.text(k.centerX(), k.centerY() - 16, '+' + naechste.value, '#ffd23f', 10, { life: 0.7 });
+                FX.burst(k.centerX(), k.centerY() - 4, '#ffd23f', 6, 80, 0.4, { kind: 'star' });
+                FX.text(p.x + p.w / 2, p.y + p.h / 2 - 22, 'Münzen zu Mark!', '#ffe9a8', 10, { life: 0.9 });
+                if (typeof Sound !== 'undefined') Sound.coin();
+            }
+        });
+        k.hooks.onDraw.push(ctx => CrocUp.abzeichen(ctx, k, '🪙', '#ffd23f'));
+    },
+});
+
+// ── croc24 Sumpfruf: kleine Sumpfkrokodile helfen kurz mit ──
+class Sumpfkrokodil {
+    constructor(x, y, saettigung) {
+        this.x = x; this.y = y; this.w = 18; this.h = 15;
+        this.hp = 6; this.maxHp = 6;
+        this.dead = false; this.iFrames = 0; this.hitFlash = 0;
+        this.koTimer = 0; this.stunTimer = 0; this.sleepTimer = 0;
+        this.bissTimer = 0.4; this.seed = Math.random() * 10;
+        this.faceX = 1; this.moving = false; this.walkT = 0;
+        this.helperTimer = saettigung !== undefined ? saettigung : CROC24_SUMPF_DAUER;
+        setupHooks(this, 'croc');
+    }
+    centerX() { return this.x + this.w / 2; }
+    centerY() { return this.y + this.h / 2; }
+    takeDamage(menge) {
+        if (this.iFrames > 0 || this.dead || this.koTimer > 0) return;
+        this.hp -= menge; this.iFrames = 0.8; this.hitFlash = 0.12;
+        if (this.hp <= 0) { this.hp = 0; this.dead = true; Juri.poof(this.centerX(), this.centerY(), true); }
+    }
+    stun(sekunden) { if (this.koTimer > 0 || this.dead) return; this.stunTimer = Math.max(this.stunTimer, sekunden); }
+    poison(sekunden) { return false; }
+    sleep(sekunden) { return false; }
+    knockOut(sekunden) { Juri.knockOutCompanion(this, sekunden); }
+    update(dt, welt, spieler, gegner) {
+        if (this.dead) return;
+        if (this.iFrames > 0) this.iFrames -= dt;
+        if (this.hitFlash > 0) this.hitFlash -= dt;
+        if (Juri.koUpdate(this, dt)) return;
+        if (this.stunTimer > 0) { this.stunTimer -= dt; this.moving = false; return; }
+        this.bissTimer -= dt;
+        const ziel = CrocUp.ziel(this, gegner, 190, false);
+        this.moving = false;
+        if (ziel) {
+            const dx = ziel.centerX() - this.centerX(), dy = ziel.centerY() - this.centerY();
+            const weg = Math.hypot(dx, dy) || 1;
+            this.facingAngle = Math.atan2(dy, dx);
+            this.faceX = Math.cos(this.facingAngle) >= 0 ? 1 : -1;
+            if (weg > 13) {
+                this.moving = Juri.step(this, dx / weg * 95 * dt, dy / weg * 95 * dt, welt) > 0.04;
+                if (this.moving) this.walkT += dt;
+            } else if (this.bissTimer <= 0) {
+                this.bissTimer = 1;                // alle Sekunde ein Biss
+                ziel.takeDamage(3, this.facingAngle, ziel.isBoss ? 40 : 150);
+                if (typeof FX !== 'undefined') {
+                    FX.burst(this.centerX() + this.faceX * 7, this.centerY(), '#b8ff9a', 4, 80, 0.3, { kind: 'spark' });
+                    FX.ring(this.centerX() + this.faceX * 7, this.centerY(), '#6bf2a0', 9, 0.24, 2);
+                }
+            }
+        }
+        Juri.bump(this, gegner);
+    }
+    draw(ctx, camera) {
+        if (this.dead) return;
+        const s = camera.worldToScreen(this.x, this.y);
+        const cx = s.x + this.w / 2, cy = s.y + this.h / 2;
+        const f = this.faceX || 1;
+        const bob = this.moving ? -Math.abs(Math.sin(this.walkT * 13)) * 1.1 : Math.sin(Art.time * 2.6 + this.seed) * 0.4;
+        Art.glow(ctx, cx, cy + 1, 14, '#3f8f4a', 0.24);
+        Art.body(ctx, cx - f * 9, cy + 3 + bob, 5, 2.4, '#2f7a42', { outline: '#14472a', lineWidth: 1 });
+        Art.body(ctx, cx, cy + bob, 8, 5.2, '#3f9a4e', { outline: '#14472a', lineWidth: 1.2 });
+        Art.body(ctx, cx + f * 7, cy - 1 + bob, 4.4, 3.2, '#4fae5c', { outline: '#14472a', lineWidth: 1 });
+        for (let i = -1; i <= 1; i++) {
+            Art.body(ctx, cx + i * 4, cy - 5 + bob, 1.5, 1.9, '#8fe07a', { outline: '#2b6b34', lineWidth: 0.8 });
+        }
+        Art.eye(ctx, cx + f * 7.5, cy - 3 + bob, 1.7, { x: f, y: 0 });
+        Art.sparkle(ctx, cx, cy - 11, 3, '#b8ff9a', 0.5 + 0.3 * Math.sin(Art.time * 3 + this.seed));
+    }
+}
+
+registerUpgrade({
+    id: 'croc24', figur: 'croc', name: 'Sumpfruf', emoji: '🐊',
+    text: 'Das Krokodil ruft drei kleine Sumpfkrokodile, die eine Weile lang mithelfen.',
+    where: 'im Shop kaufen',
+    istFrei: () => false,
+    apply(c) {
+        if (!c.croc) return;
+        const k = c.croc;
+        let bereit = 2;
+        k.hooks.onUpdate.push(dt => {
+            if (!CrocUp.handlungsfahig(k)) return;
+            bereit -= dt;
+            if (bereit > 0) return;
+            const punkt = CrocUp.freierPunktUm(Game.world, k.centerX(), k.centerY() + 6, 20);
+            if (!punkt) return;
+            bereit = CROC24_SUMPF_TAKT;            // Abklingzeit bis zum nächsten Ruf
+            for (let i = 0; i < 3; i++) {
+                const ort = CrocUp.freierPunktUm(Game.world, punkt.x, punkt.y, 12 + i * 9) || punkt;
+                spawnHelper(new Sumpfkrokodil(ort.x - 9, ort.y - 7), ort.x, ort.y, CROC24_SUMPF_DAUER);
+                Juri.poof(ort.x, ort.y, true);
+            }
+            if (typeof FX !== 'undefined') {
+                FX.text(punkt.x, punkt.y - 20, 'Sumpfruf!', '#8fe07a', 12, { life: 1.3 });
+                FX.ring(punkt.x, punkt.y, '#8fe07a', 30, 0.45, 3);
+            }
+        });
+        k.hooks.onDraw.push(ctx => CrocUp.abzeichen(ctx, k, '🐊', '#8fe07a'));
+    },
+});
+
+// ── croc25 Schatten-Explosion: geht es k.o., trifft eine Schattenexplosion alle Gegner ──
+registerUpgrade({
+    id: 'croc25', figur: 'croc', name: 'Schatten-Explosion', emoji: '🌑',
+    text: 'Geht das Krokodil k.o., geht eine Schattenexplosion über alle Gegner nieder.',
+    where: 'im Shop kaufen',
+    istFrei: () => false,
+    apply(c) {
+        if (!c.croc) return;
+        const k = c.croc;
+        let bereit = 2, warKo = false, warTod = false;
+        c.game.roundHooks.onUpdate.push(dt => {
+            bereit -= dt;
+            const ko = k.dead || k.koTimer > 0;
+            const neu = (k.koTimer > 0 && !warKo) || (k.dead && !warTod);
+            warKo = k.koTimer > 0; warTod = k.dead;
+            if (!neu || bereit > 0) return;
+            bereit = CROC25_EXPLO_TAKT;            // Abklingzeit, damit nicht jede Welle explodes
+            const x = k.centerX(), y = k.centerY();
+            CrocUp.schlag(x, y, CROC25_EXPLO_RADIUS, CROC25_EXPLO_SCHADEN, 380, 'Schatten-Explosion!');
+            if (typeof FX !== 'undefined') {
+                FX.ring(x, y, '#8a5cff', CROC25_EXPLO_RADIUS, 0.6, 9);
+                FX.ring(x, y, '#2b1466', CROC25_EXPLO_RADIUS * 0.7, 0.5, 7);
+                FX.burst(x, y, ['#2b1466', '#6a3fd6', '#b28cff', '#ffffff'], 26, 280, 0.7);
+                FX.screenFlash('#6a3fd6', 0.3);
+                if (Game.camera) Game.camera.shake(8, 0.3);
+            }
+        });
+        k.hooks.onDraw.push(ctx => CrocUp.abzeichen(ctx, k, '🌑', '#6a3fd6'));
+    },
+});
