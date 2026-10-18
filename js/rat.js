@@ -71,6 +71,9 @@ const RAT_SPIN_R = 64;        // Radius der Schwertkreise (Phase 1)
 const RAT_SPIN_R2 = 70;       // Radius in Phase 2
 const RAT_BOOM_R = 116;       // Radius der riesigen Explosion (Phase 1)
 const RAT_BOOM_R2 = 130;      // Radius in Phase 2
+const RAT_LUNGE_T = 0.3;      // Zeit des Stich-Ansturms
+const RAT_STAB_R = 17;        // Trefferradius der Schwertspitze
+const RAT_LANE_W = 40;        // Breite der angesagten Stichbahn (deckt Spitze und Mark ab)
 
 const RatArt = {
     // Schaden an Mark ueber die Engine (Wackeln, Ton, roter Rand); ohne Engine direkt.
@@ -121,6 +124,7 @@ const RatArt = {
     room(world) {
         if (typeof Game === 'undefined' || !Game.bossActive || Game.bossDefeated ||
             typeof Game._bossRoomRect !== 'function') return null;
+        if (world && Game.world && Game.world !== world) return null;
         return Game._bossRoomRect();
     },
 
@@ -487,6 +491,12 @@ class ArmorRat extends Enemy {
         };
     }
 
+    _rushSpeed() { return this.gold ? 372 : 330; }
+
+    // Laenge der angesagten Bahn: bis dorthin, wo die Spitze im Ansturm hoechstens hinkommt,
+    // zueglich ihr Trefferradius – so passt der Kreis der Spitze in jedem Bild in die Bahn.
+    _laneReach() { return this.aimLen - 8 + this._rushSpeed() * RAT_LUNGE_T + RAT_STAB_R; }
+
     update(dt, world, player, enemies, projectiles) {
         this.baseUpdate(dt, world);
         if (this.dead) return;
@@ -529,22 +539,33 @@ class ArmorRat extends Enemy {
                         this.aimLen = clamp(near.d + 30, 54, 108);
                         if (Math.abs(Math.cos(this.aimAng)) > 0.25) this.face = Math.cos(this.aimAng) > 0 ? 1 : -1;
                     }
-                    if (this.stateT <= this.stateDur * 0.4) this.aimLock = true;   // Bahn steht jetzt fest
+                    if (this.stateT <= this.stateDur * 0.4) {
+                        this.aimLock = true;   // Bahn steht jetzt fest
+                        this.laneFrom = { x: mx, y: my + 2 };   // ab hier bleibt ihr Anfang stehen, auch im Ansturm
+                    }
                 }
                 if (this.stateT <= 0) {
                     this.hit = [];
-                    this._set('lunge', 0.3);
+                    this._set('lunge', RAT_LUNGE_T);
                 }
                 break;
             case 'lunge': {
                 // Sie rennt die angesagte Bahn entlang und trifft mit der Spitze, wer darin steht.
-                const sp = this.gold ? 372 : 330;
-                const moved = Kit915.rush(this, Math.cos(this.aimAng) * sp * dt, Math.sin(this.aimAng) * sp * dt, world);
+                const sp = this._rushSpeed();
+                const ux = Math.cos(this.aimAng), uy = Math.sin(this.aimAng);
+                const from = this.laneFrom || { x: mx, y: my + 2 };
+                // Seitlichen Abtrieb (Stoss von Marks Hieben) ausgleichen: sie bleibt auf der Bahn.
+                const off = -(mx - from.x) * uy + (my + 2 - from.y) * ux;
+                if (Math.abs(off) > 0.25) { this.x += off * uy; this.y -= off * ux; }
+                // Der Ansturm endet spaetestens am Bahnende – auch bei langsamen Bildern.
+                const used = (mx - from.x) * ux + (my + 2 - from.y) * uy;
+                const step = Math.min(sp * dt, Math.max(0, sp * RAT_LUNGE_T - used));
+                const blocked = Kit915.rush(this, ux * step, uy * step, world);
                 this.moving = true;
                 this.step += dt * 22;
                 const tip = this._tip(this.aimLen - 8);
-                RatArt.areaHit(tip.x, tip.y, 17, 2, 200, this.hit);
-                if (moved || this.stateT <= 0) {
+                RatArt.areaHit(tip.x, tip.y, RAT_STAB_R, 2, 200, this.hit);
+                if (blocked || this.stateT <= 0) {
                     if (this.gold && this.combo > 0) { this._startSwing(player); break; }
                     this.cool = this.gold ? randRange(0.75, 1.1) : randRange(1.05, 1.6);
                     this._set('recover', 0.24);
@@ -562,7 +583,7 @@ class ArmorRat extends Enemy {
                 if (this.stateT <= 0) {
                     if (this.state === 'swing' && this.gold && this.combo > 0) {
                         this.combo = 0;
-                        this._startStab();
+                        this._startStab(true);   // der zweite Stich schliesst die Kette ab
                         break;
                     }
                     this.cool = this.gold ? randRange(0.8, 1.2) : randRange(1.1, 1.7);
@@ -591,14 +612,17 @@ class ArmorRat extends Enemy {
         } else this.step += dt * 1.6;
         if (this.cool > 0) return;
         if (dist < 40) { this._startSwing(player); return; }
-        if (dist < 128) { this._startStab(); return; }
+        if (dist < 128) { this._startStab(false); return; }
         this.cool = 0.5;
     }
 
     // Stich: Ziel und Richtung werden jetzt festgelegt und nicht mehr geaendert.
-    _startStab() {
+    // chain = true ist der Folgestich nach einem Schlag: der bringt die Folge zum Abschluss.
+    _startStab(chain) {
         this.aimLock = false;
-        this.combo = this.gold ? 1 : 0;
+        this.combo = (this.gold && !chain) ? 1 : 0;
+        if (!(this.aimLen > 0)) this.aimLen = 54;
+        this.laneFrom = { x: this.centerX(), y: this.centerY() + 2 };
         this._set('stabWind', this.gold ? 0.34 : 0.42);
     }
 
@@ -625,15 +649,16 @@ class ArmorRat extends Enemy {
     drawUnder(ctx, camera) {
         if (this.dead) return;
         const st = this.state;
-        if (st === 'stabWind') {
-            const p = camera.worldToScreen(this.centerX(), this.centerY() + 2);
-            LateWorldArt.lane(ctx, p.x, p.y, this.aimAng, this.aimLen, 20, this._k(), RatCfg.warn);
-            return;
-        }
-        if (st === 'lunge') {
-            const t = this._tip(this.aimLen - 8);
-            const p = camera.worldToScreen(t.x, t.y);
-            LateWorldArt.warn(ctx, p.x, p.y, 17, 1, RatCfg.warn);
+        if (st === 'stabWind' || st === 'lunge') {
+            // Die Bahn steht in voller Laenge fest, bevor der Ansturm laeuft: die Spitze bleibt immer darin.
+            const from = this.laneFrom || { x: this.centerX(), y: this.centerY() + 2 };
+            const p = camera.worldToScreen(from.x, from.y);
+            LateWorldArt.lane(ctx, p.x, p.y, this.aimAng, this._laneReach(), RAT_LANE_W, this._k(), RatCfg.warn);
+            if (st === 'lunge') {
+                const t = this._tip(this.aimLen - 8);
+                const q = camera.worldToScreen(t.x, t.y);
+                LateWorldArt.warn(ctx, q.x, q.y, RAT_STAB_R, 1, RatCfg.warn);
+            }
             return;
         }
         if (st === 'swingWind' && this.aim) {
@@ -754,8 +779,6 @@ class BossGiantRat extends Enemy {
         this.boomR = RAT_BOOM_R;
         this.boomFx = null;             // {x, y, r, t} laufender Feuerball
     }
-
-    static room(world) { return RatArt.room(world); }
 
     _set(state, dur) {
         this.state = state;
@@ -891,10 +914,12 @@ class BossGiantRat extends Enemy {
     // Wer in den Schwertkreisen steht, wird getroffen (Schutzzeit verhindert Mehrfachtreffer)
     _spinHits(player) {
         const R = this._spinR();
-        const m = this._muzzle();
+        // Mittelpunkt wie beim gezeichneten Warnkreis – der Treffer bleibt genau in seinem Kreis.
+        const m = { x: this.centerX(), y: this.centerY() };
         RatArt.areaHit(m.x, m.y, R, 2, 250, this.spinHit);
         // Nach einer halben Umdrehung darf die naechste treffen – Schutzzeiten der Engine laufen daneben mit.
-        if (Math.abs(Math.sin(this.spinAngle)) < 0.12 && Math.abs(Math.cos(this.spinAngle)) > 0.9) this.spinHit = [];
+        // Das Fenster ist breiter als ein Drehschritt, sonst wird es bei schneller Drehung uebersprungen.
+        if (Math.abs(Math.sin(this.spinAngle)) < 0.34 && Math.cos(this.spinAngle) > 0.8) this.spinHit = [];
     }
 
     // ── b) Schwerter in den Boden: riesiger Warnkreis, dann die Explosion ──
@@ -1044,7 +1069,9 @@ class BossGiantRat extends Enemy {
             ctx.save();
             ctx.scale(S, S);
             const m = { x: 0, y: -18 + bob };
-            RatArt.whirl(ctx, m.x, m.y, this.spinAngle * (this.face > 0 ? 1 : -1), spin ? 34 : 26,
+            // Die Klingenspitzen enden genau am angesagten Kreis: was droht, trifft – und nicht weiter.
+            const reach = this._spinR() / S - 16;
+            RatArt.whirl(ctx, m.x, m.y, this.spinAngle * (this.face > 0 ? 1 : -1), spin ? reach : reach * 0.78,
                 { lw: 0.8, blade: RatCfg.steel, wind: p2 ? RatCfg.warnHot : RatCfg.steelMid });
             ctx.restore();
         }
