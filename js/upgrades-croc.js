@@ -142,12 +142,24 @@ const CrocUp = {
         return best;
     },
     // Nächster Gegner zu einem freien Punkt; `ausser` sind Gegner, die nicht gewählt werden dürfen
-    zielVon(x, y, gegner, radius, ausser) {
+    zielVon(x, y, gegner, radius, ausser, sichtbar) {
         let best = null, bester = radius;
         for (const e of (gegner || [])) {
             if (!e || e.dead || (ausser && ausser.indexOf(e) >= 0)) continue;
+            if (sichtbar && !sichtbar(e)) continue;
             const d = Math.hypot(e.centerX() - x, e.centerY() - y);
             if (d > bester) continue;
+            best = e; bester = d;
+        }
+        return best;
+    },
+    // Ob ein Geschoss einen Gegner berührt - dieselbe Regel wie der Einschlag in js/main.js
+    beruehrt(x, y, radius, gegner, extra) {
+        let best = null, bester = Infinity;
+        for (const e of (gegner || [])) {
+            if (!e || e.dead) continue;
+            const d = Math.hypot(e.centerX() - x, e.centerY() - y);
+            if (d > radius + Math.max(e.w, e.h) / 2 + (extra || 0) || d >= bester) continue;
             best = e; bester = d;
         }
         return best;
@@ -230,7 +242,7 @@ registerUpgrade({
 registerUpgrade({
     id: 'croc02', figur: 'croc', name: 'Giftspucke', emoji: '🧪',
     text: 'Getroffene Gegner sind vergiftet und verlieren über ein paar Sekunden Leben.',
-    where: 'Welt 53 schaffen',
+    where: 'Welt 53 schaffen',   // die Shop-Sperre ueber das Feld `welt` setzt der parallele Auftrag
     welt: 53,
     istFrei: g => !!g.unlockedPoisonSpit,
     apply(c) {
@@ -248,6 +260,12 @@ registerUpgrade({
         });
         k.hooks.onDraw.push(ctx => CrocUp.abzeichen(ctx, k, '🧪', '#7dff5a'));
         c.game.roundHooks.onUpdate.push(dt => {
+            // Das Gift zählt sonst nur, wenn der Panda-Freund mitspielt (js/pandafreund.js ruft den
+            // Tick allein in seinem Update auf) - ohne ihn übernimmt diese Runde das Nachzählen.
+            if (typeof PandaBuddy !== 'undefined' &&
+                !(Game.companions || []).some(cf => cf instanceof PandaBuddy)) {
+                PandaBuddy.poisonTick(Game.enemies, dt);
+            }
             for (let i = unterwegs.length - 1; i >= 0; i--) if (unterwegs[i].dead) unterwegs.splice(i, 1);
         });
         c.game.roundHooks.onDrawWorld.push((ctx, camera) => {
@@ -283,7 +301,10 @@ registerUpgrade({
         const springe = (von, schaden) => {
             const getroffen = [von];
             for (let s = 0; s < SPRUNGE; s++) {
-                const naechster = CrocUp.zielVon(von.centerX(), von.centerY(), Game.enemies, WEITE, getroffen);
+                const start = von;
+                const naechster = CrocUp.zielVon(von.centerX(), von.centerY(), Game.enemies, WEITE, getroffen,
+                    e => !Game.world || Juri.lineClear(Game.world, start.centerX(), start.centerY(),
+                        e.centerX(), e.centerY()));
                 if (!naechster) break;
                 getroffen.push(naechster);
                 effekte.blitz(von.centerX(), von.centerY(), naechster.centerX(), naechster.centerY(), '#ffe86b');
@@ -300,20 +321,19 @@ registerUpgrade({
                 const p = e.p;
                 if (!p.dead) {
                     // noch unterwegs: letzte lebende Position merken, Einschlag selbst erkennen
-                    const treffer = CrocUp.zielVon(p.x, p.y, Game.enemies, 15);
+                    const treffer = CrocUp.beruehrt(p.x, p.y, p.radius || 4, Game.enemies, 0);
                     if (treffer) {
                         unterwegs.splice(i, 1);
                         springe(treffer, p.damage);
                     } else {
                         e.x = p.x; e.y = p.y;
-                        if (p.age > 4) unterwegs.splice(i, 1);
                     }
                     continue;
                 }
                 // von der Engine gestoppt (Treffer, Wand oder abgelaufen): von der letzten
                 // lebenden Position aus blitzen - das ist die Stelle, an der die Kugel ankam
                 unterwegs.splice(i, 1);
-                const getroffener = CrocUp.zielVon(e.x, e.y, Game.enemies, 24);
+                const getroffener = CrocUp.beruehrt(e.x, e.y, p.radius || 4, Game.enemies, 6);
                 if (getroffener) springe(getroffener, p.damage);
             }
         });
@@ -400,9 +420,8 @@ registerUpgrade({
             Juri.poof(k.centerX(), k.centerY(), true);
             k.x = punkt.x - k.w / 2; k.y = punkt.y - k.h / 2;
             k.stuckTimer = 0;
-            k.iFrames = Math.max(k.iFrames, 0.5);
             effekte.schwung(punkt.x, punkt.y, 26, 0);
-            CrocUp.schlag(punkt.x, punkt.y, 20, 6, 200, 'Schattentauchen!');
+            effekte.schwung(punkt.x, punkt.y, 13, 0.5);
         });
         k.hooks.onDraw.push(ctx => CrocUp.abzeichen(ctx, k, '🕳️', '#8a5cff'));
         c.game.roundHooks.onDrawWorld.push((ctx, camera) => effekte.draw(ctx, camera));
@@ -476,12 +495,15 @@ registerUpgrade({
         const effekte = new CrocEffekte();
         let bereit = 2, rollt = 0, winkel = 0;
         const getroffen = [];
+        const CROC_ROLLE_TAKT = 250, CROC_ROLLE_DAUER = 0.45;
+        const CROC_ROLLE_STRECKE = CROC_ROLLE_TAKT * CROC_ROLLE_DAUER;
         k.hooks.onUpdate.push(dt => {
             effekte.update(dt);
             if (!CrocUp.handlungsfahig(k)) { rollt = 0; return; }
             if (rollt > 0) {
                 rollt -= dt;
-                Juri.step(k, Math.cos(winkel) * 250 * dt, Math.sin(winkel) * 250 * dt, Game.world);
+                Juri.step(k, Math.cos(winkel) * CROC_ROLLE_TAKT * dt,
+                    Math.sin(winkel) * CROC_ROLLE_TAKT * dt, Game.world);
                 effekte.rolle(k.centerX(), k.centerY(), 18);
                 for (const e of (Game.enemies || [])) {
                     if (!e || e.dead || getroffen.indexOf(e) >= 0) continue;
@@ -501,10 +523,17 @@ registerUpgrade({
             const ziel = CrocUp.ziel(k, Game.enemies, 210, true);
             if (!ziel) return;
             winkel = Math.atan2(ziel.centerY() - k.centerY(), ziel.centerX() - k.centerX());
-            // nur losrollen, wenn die Strecke frei ist (sonst rollt es gegen die Wand)
-            const wx = k.centerX() + Math.cos(winkel) * 70, wy = k.centerY() + Math.sin(winkel) * 70;
-            if (Game.world && !Juri.lineClear(Game.world, k.centerX(), k.centerY(), wx, wy)) return;
-            rollt = 0.45;
+            // nur so weit losrollen, wie die Strecke wirklich frei ist (sonst rollt es gegen die Wand)
+            let dauer = 0;
+            for (const Teil of [1, 0.5]) {
+                const s = CROC_ROLLE_STRECKE * Teil;
+                const wx = k.centerX() + Math.cos(winkel) * s, wy = k.centerY() + Math.sin(winkel) * s;
+                dauer = (!Game.world || Juri.lineClear(Game.world, k.centerX(), k.centerY(), wx, wy))
+                    ? CROC_ROLLE_DAUER * Teil : 0;
+                if (dauer > 0) break;
+            }
+            if (dauer <= 0) return;
+            rollt = dauer;
             getroffen.length = 0;
             k.facingAngle = winkel;
             if (typeof FX !== 'undefined') FX.text(k.centerX(), k.centerY() - 18, 'Krokodilrolle!', '#b28cff', 11, { life: 1.1 });
@@ -594,7 +623,7 @@ registerUpgrade({
 // ── croc12 Riesen-Krokodil: es wird größer und stärker ──
 registerUpgrade({
     id: 'croc12', figur: 'croc', name: 'Riesen-Krokodil', emoji: '🦖',
-    text: 'Das Krokodil wird groß und kräftig: mehr Schaden und ein deutlich größeres Maul.',
+    text: 'Das Krokodil wird riesengroß und trifft mit seiner Spucke viel härter.',
     where: 'im Shop kaufen',
     istFrei: () => false,
     apply(c) {
