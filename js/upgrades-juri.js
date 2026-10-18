@@ -214,6 +214,8 @@ class JuriWurfhammer {
             const schritt = Math.min(this.tempo * 1.2 * dt, d);
             this.x += dx / d * schritt;
             this.y += dy / d * schritt;
+            // Auch zurück fliegt er nicht durch Wände: er fällt dort runter, wo er anstösst
+            if (this.welt && this.welt.isWall && this.welt.isWall(this.x, this.y)) { this.dead = true; return; }
             if (d < 14) this.dead = true;
         }
         this.drehung += dt * 20;
@@ -490,7 +492,10 @@ registerUpgrade({
                     const a = Math.atan2(e.centerY() - cy, e.centerX() - cx);
                     e.takeDamage(JURI_ERDBEBEN.schaden, a, 200);
                     if (e.freeze) e.freeze(JURI_ERDBEBEN.betaubung);   // Bosse: kürzer, regelt Enemy.freeze
-                    knockBack(e, a, 240);
+                    // Bosse werden beim Wegschubsen ebenso gebremst wie bei der Betäubung
+                    knockBack(e, a, e.isBoss ? 50 : 240);
+                    // Sterne über dem Kopf: die Betäubung soll nicht wie eine Eiswirkung aussehen
+                    if (typeof FX !== 'undefined') FX.burst(e.centerX(), e.centerY() - 14, ['#ffe35a', '#ffffff'], 5, 60, 0.55, { kind: 'star' });
                 }
                 if (typeof FX !== 'undefined') {
                     FX.ring(cx, cy, '#ffd8a8', JURI_ERDBEBEN.reichweite, 0.5, 6);
