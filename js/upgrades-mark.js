@@ -273,9 +273,10 @@ const MarkExtras = (() => {
                     const a = camera.worldToScreen(b.ax, b.ay);
                     const q = camera.worldToScreen(b.bx, b.by);
                     if (!MarkExtras.sichtbar(q)) continue;
+                    ctx.save();
                     ctx.globalAlpha = clamp(b.rest / 0.2, 0, 1);
                     MarkExtras.blitz(ctx, a.x, a.y, q.x, q.y, Art.time + b.ax * 0.01);
-                    ctx.globalAlpha = 1;
+                    ctx.restore();
                 }
             });
         },
@@ -285,8 +286,8 @@ const MarkExtras = (() => {
 // ── mark04 Bumerang-Ball: der Ball fliegt zurück und trifft dabei noch einmal ──
 (() => {
     const WENDE_NACH = 0.45;         // Sekunden Hinflug, spätestens dann dreht der Ball um
-    const WENDE_NACH_TREFFER = 0.13; // Sekunden nach einem Treffer, dann geht er heim
-    const DREHRATE = 60;             // rad/s: die Kehre dauert fünf Hundertstel, der Rückweg liegt
+    const WENDE_NACH_TREFFER = 0.18; // Sekunden nach einem Treffer, dann geht er heim
+    const DREHRATE = 90;             // rad/s: enge Kehre (Wenderadius vier px), damit der Rückweg
                                      // fast auf dem Hinweg - dort liegt auch der zweite Treffer
     const DURCHSCHUSS = 2;           // Gegner, die ein Ball auf seinem Flug durchfliegen darf
     const FREIGABE_NACH = 0.22;      // Sekunden, dann darf derselbe Gegner erneut getroffen werden
@@ -305,8 +306,12 @@ const MarkExtras = (() => {
                 const px = p.x + p.w / 2, py = p.y + p.h / 2;
                 for (const b of Game.projectiles) {
                     if (!MarkExtras.marksBall(b)) continue;
-                    if (b.lifetime < FLUG_DAUER) b.lifetime = FLUG_DAUER;
-                    b._bumiZeit = (b._bumiZeit || 0) + dt;
+                    if (b._bumiZeit === undefined) {
+                        // Kurze Flugzeit einmalig auf die Bumerang-Zeit stellen - und nicht jeden
+                        // Bild-Takt nachfuellen, sonst koennte der Ball nie mehr ablaufen.
+                        if (b.lifetime < FLUG_DAUER) b.lifetime = FLUG_DAUER;
+                        b._bumiZeit = 0;
+                    } else b._bumiZeit += dt;
                     // Wann dreht der Ball um? Nach dem Treffer oder nach dem Hinflug
                     if (b._bumiHeim) {
                         b._bumiZiel = Math.atan2(py - b.y, px - b.x);   // er fliegt zu Mark heim
@@ -351,8 +356,11 @@ const MarkExtras = (() => {
             });
             c.player.hooks.onProjectileHit.push((e, b) => {
                 if (!MarkExtras.marksBall(b)) return;
-                // Der Ball stirbt beim Treffer nicht, sondern fliegt durch hindurch
-                if (b.pierce < DURCHSCHUSS) b.pierce = DURCHSCHUSS;
+                // Der Ball stirbt beim Treffer nicht sofort. js/main.js setzt `pierce` erst NACH
+                // diesem Haken herab, also hier einen Treffer vorzaehlen und eine weniger als
+                // erlaubt eintragen: nach DURCHSCHUSS Gegnern ist der Flug zu Ende.
+                b._bumiDurch = (b._bumiDurch || 0) + 1;
+                b.pierce = Math.max(0, DURCHSCHUSS - b._bumiDurch);
                 if (!b.pierceHits) b.pierceHits = [];
                 (b._bumiFrei || (b._bumiFrei = [])).push({ e, rest: FREIGABE_NACH });
                 if (b._bumiWende === undefined && !b._bumiHeim) b._bumiWende = WENDE_NACH_TREFFER;
@@ -372,7 +380,8 @@ const MarkExtras = (() => {
 // ── mark05 Riesenball: doppelt so groß, schubst Gegner weg ──
 (() => {
     const GROESSE = 2;          // doppelter Ball-Durchmesser (Trefferkreis wächst mit)
-    const SCHUB_KRAFT = 430;    // Wegschubsen beim Treffer
+    const SCHUB_KRAFT = 430;    // Wegschubsen beim Treffer (normale Gegner)
+    const BOSS_SCHUB = 110;     // Bosse lassen sich von einem Ball kaum zurueckstossen
 
     registerUpgrade({
         id: 'mark05', figur: 'mark', name: 'Riesenball', emoji: '⚾',
@@ -389,7 +398,7 @@ const MarkExtras = (() => {
             c.player.hooks.onProjectileHit.push((e, p) => {
                 if (!MarkExtras.marksBall(p)) return;
                 const w = MarkExtras.winkelVon(p.x, p.y, e);
-                knockBack(e, w, SCHUB_KRAFT);
+                knockBack(e, w, e.isBoss ? BOSS_SCHUB : SCHUB_KRAFT);
                 FX.ring(p.x, p.y, '#ffe066', 20, 0.26, 3);
                 FX.burst(e.centerX(), e.centerY(), ['#ffffff', '#ffd23f'], 6, 130, 0.3, { kind: 'spark' });
             });
@@ -528,7 +537,9 @@ const MarkExtras = (() => {
                 if (ladung < 1) ladung = Math.min(1, ladung + dt / LADE_ZEIT);
                 const p = Game.player;
                 const w = p.activeWeapon;
-                if (w && w.type === 'melee' && !w.swinging) schlagDa = false;
+                // Der aufgeladene Schwung ist abgelaufen, sobald nicht mehr geschlagen wird -
+                // auch dann, wenn Mark in der Schwungphase auf den Werfer wechselt.
+                if (!w || w.type !== 'melee' || !w.swinging) schlagDa = false;
                 if (!fluege.size) return;
                 for (const [e, f] of fluege) {
                     if (e.dead) { fluege.delete(e); continue; }
