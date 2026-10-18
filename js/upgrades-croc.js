@@ -743,7 +743,8 @@ registerUpgrade({
                             punkt.x, punkt.y, CROC14_ZWILLING_SEKUNDEN);
                         if (z) {
                             z.w = 28; z.h = 26;
-                            z.spitOwner = true;             // seine Kugeln gehören zum Zwilling
+                            setupHooks(z, 'croc');          // eigene Haken: damit sind auch SEINE Kugeln markierbar
+                            z.hooks.onShoot.push(kugel => { kugel.spitOwner = z; });
                             if (zwillinge.length < 4) zwillinge.push(z);
                             Juri.poof(k.centerX(), k.centerY(), true);
                             Juri.poof(punkt.x, punkt.y, true);
@@ -783,8 +784,9 @@ registerUpgrade({
         const k = c.croc;
         const unterwegs = [];
         k.hooks.onShoot.push(p => {
-            p.lifetime = (p.lifetime || 3) * CROC15_WEITE;   // 0,08 s Flugzeit werden 0,16 s: doppelte Weite
+            p.lifetime = (p.lifetime || 3) * CROC15_WEITE;   // drei Sekunden Flugzeit werden sechs: doppelte Weite
             unterwegs.push({ p: p, x0: p.x, y0: p.y, weiter: 0 });
+            if (unterwegs.length > 40) unterwegs.shift();   // die Engine wirft Kugeln auch ohne dead=true hinaus
         });
         k.hooks.onDraw.push(ctx => CrocUp.abzeichen(ctx, k, '🎯', '#9fe6ff'));
         c.game.roundHooks.onUpdate.push(dt => {
@@ -914,7 +916,10 @@ registerUpgrade({
         let bereit = 2, schluss = 0, winkel = 0, strecke = 0;
         k.hooks.onUpdate.push(dt => {
             effekte.update(dt);
-            if (!CrocUp.handlungsfahig(k)) { schluss = 0; return; }
+            if (!CrocUp.handlungsfahig(k)) {              // abgebrochener Sprint kostet dieselbe Pause
+                if (schluss > 0) { schluss = 0; bereit = CROC17_SPRINT_TAKT; }
+                return;
+            }
             if (schluss > 0) {
                 schluss -= dt;
                 const schritt = CROC17_SPRINT_TAKT_KRAFT * dt;
@@ -1000,26 +1005,27 @@ registerUpgrade({
         if (!c.croc) return;
         const k = c.croc;
         const p = c.player;
+        const grund = p.baseSpeed || 150;
+        const schritt = k.speed || 120;
         let staub = 0;
+        // Reiten heisst hier: Mark und sein Krokodil sind zusammen viel schneller unterwegs.
+        // Marks Position darf man ihm NICHT setzen: das Krokodil folgt erst ab 52 px Abstand
+        // (js/entities.js), und ein Zuruecksetzen auf seinen Ruecken haette beide festgenagelt.
+        k.speed = Math.round(schritt * 1.5);
         c.game.roundHooks.onUpdate.push(dt => {
-            if (p.dead || !CrocUp.handlungsfahig(k)) return;
-            p.speed = Math.max(p.speed || 0, (p.baseSpeed || 150) * CROC19_TAXI_TEMPO);
+            const faehrig = !p.dead && CrocUp.handlungsfahig(k);
+            // Tempo ueber baseSpeed: player.js:311 macht jedes Bild `speed = baseSpeed`,
+            // ein in `speed` gesetzter Wert waere vor jedem Schritt wieder weg
+            p.baseSpeed = faehrig ? grund * CROC19_TAXI_TEMPO : grund;
             staub -= dt;
-            if (k.moving && staub <= 0) {
-                staub = 0.16;
+            const unterwegs = !!Input.direction && Math.hypot(Input.direction.x, Input.direction.y) > 0.1;
+            if (faehrig && (k.moving || unterwegs) && staub <= 0) {
+                staub = 0.14;
                 if (typeof FX !== 'undefined') {
-                    FX.burst(k.centerX(), k.centerY() + 11, 'rgba(200,225,255,0.75)', 2, 60, 0.32, { kind: 'smoke', size: 4 });
+                    FX.burst((k.centerX() + p.x + p.w / 2) / 2, k.centerY() + 11,
+                        'rgba(200,225,255,0.75)', 2, 70, 0.32, { kind: 'smoke', size: 4 });
                 }
             }
-        });
-        // Reiten: nach jedem Schritt des Krokodils sitzt Mark auf dem Rücken
-        k.hooks.onUpdate.push(() => {
-            if (p.dead || !CrocUp.handlungsfahig(k)) return;
-            if (!Game.world || Game.world.isWall(k.centerX(), k.centerY() - 10)) return;
-            p.x = k.centerX() - p.w / 2;
-            p.y = k.centerY() - p.h + 3;
-            if (k.moving) p.facingAngle = (k.faceX || 1) > 0 ? 0 : Math.PI;
-            p.stuckTimer = 0;
         });
         k.hooks.onDraw.push(ctx => CrocUp.abzeichen(ctx, k, '🚕', '#ffd23f'));
     },
