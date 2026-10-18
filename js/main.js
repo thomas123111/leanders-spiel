@@ -414,7 +414,7 @@ const Game = {
                 iceBall: this.unlockedIceBall,
                 shadowCloud: this.unlockedShadowCloud,
                 iceHammer: this.unlockedIceHammer,
-                upgrade: this.activeUpgrade,
+                upgrades: this.activeUpgrades,
                 boughtUps: this.boughtUpgrades,
                 star: this.shopRandomStarActive ? {
                     tier: this.shopRandomStarTier, tries: this.shopRandomStarAttempts, done: this.shopRandomStarFinished,
@@ -467,8 +467,19 @@ const Game = {
                 this.unlockedIceBall = !!data.iceBall;
                 this.unlockedShadowCloud = !!data.shadowCloud;
                 this.unlockedIceHammer = !!data.iceHammer;
-                // Ausgewähltes Extra (Knopf „Waffen“): unbekannte Einträge fallen weg
-                this.activeUpgrade = upgradeKnown(data.upgrade) ? data.upgrade : null;
+                // Gewählte Extras (Knopf „Waffen“): je Figur höchstens eins, unbekannte Einträge fallen weg.
+                // Alter Spielstand (bis 9.6.0) kannte genau EIN gewähltes Extra in `data.upgrade` - es wird
+                // seiner Figur zugeordnet und bleibt so erhalten (Leanders Regel, 18.10.2026).
+                this.activeUpgrades = {};
+                if (data.upgrades && typeof data.upgrades === 'object') {
+                    for (const h of UPGRADE_HEROES) {
+                        const id = data.upgrades[h.id];
+                        if (upgradeKnown(id) && UPGRADE_BY_ID[id].figur === h.id) this.activeUpgrades[h.id] = id;
+                    }
+                } else if (upgradeKnown(data.upgrade)) {
+                    const alt = UPGRADE_BY_ID[data.upgrade];
+                    this.activeUpgrades[alt.figur] = alt.id;
+                }
                 // Im Shop gekaufte Extras: ebenfalls nur Einträge, die die Liste heute kennt
                 this.boughtUpgrades = {};
                 if (data.boughtUps && typeof data.boughtUps === 'object') {
@@ -719,7 +730,7 @@ const Game = {
             { coins: [5, 250], jewels: [5, 50], p: [0.5, 0.3, 0.2], ups: ALL_UPS.slice(0, 2) },   // Episch
             { coins: [5, 450], jewels: [5, 100], p: [0.5, 0.3, 0.2], ups: ALL_UPS.slice(0, 3) },  // Mythisch
             { coins: [5, 1000], p: [0.7, 0, 0.3], ups: ALL_UPS },                                // Legendär
-            { coins: [5, 1500], jewels: [5, 250], p: [0.45, 0.35, 0.2], ups: ALL_UPS, all: true }, // Ultralegendär
+            { coins: [5, 1500], jewels: [5, 250], p: [0.45, 0.35, 0.2], ups: ALL_UPS },           // Ultralegendär
         ];
         const r = rewards[Math.min(tier, rewards.length - 1)];
         const res = { tier, coins: 0, jewels: 0, upgrades: [], owned: null };
@@ -727,9 +738,11 @@ const Game = {
         const kind = x < r.p[0] ? 'coins' : x < r.p[0] + r.p[1] ? 'jewels' : 'upgrade';
         const missing = (r.ups || []).filter(f => !this[f]);
         if (kind === 'upgrade' && missing.length) {
-            // Ultralegendär: alle fehlenden Upgrades auf einmal, sonst eines davon
-            const got = r.all ? missing : [missing[randInt(0, missing.length - 1)]];
-            for (const f of got) { this[f] = true; res.upgrades.push(f); }
+            // Leander (18.10.2026): ein Böser Stern gibt IMMER genau EINE Belohnung - auch Ultralegendär
+            // höchstens ein Upgrade, damit es bei einer Belohnungsseite ohne Zahl bleibt.
+            const f = missing[randInt(0, missing.length - 1)];
+            this[f] = true;
+            res.upgrades.push(f);
         } else if (kind === 'jewels') {
             res.jewels = roll(r.jewels[0], r.jewels[1]);
         } else {
@@ -744,7 +757,7 @@ const Game = {
         const parts = [];
         if (res.coins) parts.push('+' + res.coins + ' Münzen');
         if (res.jewels) parts.push('+' + res.jewels + ' Juwelen');
-        if (res.upgrades.length) parts.push(res.upgrades.length > 1 ? 'alle Werfer-Upgrades' : UPGRADE_INFO[res.upgrades[0]].name);
+        if (res.upgrades.length) parts.push(UPGRADE_INFO[res.upgrades[0]].name);
         res.text = rar.name + '! ' + parts.join(', ') + ' ' + rar.emoji;
         this.shopRandomStarActive = false;
         this.shopRandomStarFinished = false;
@@ -824,8 +837,8 @@ const Game = {
         this._resultDelay = 0;
         this._resultState = null;
 
-        // Das eine ausgewählte Extra wird hier für die ganze Runde festgehalten (js/upgrades.js):
-        // Pause und andere Menüs können es in der Runde nicht mehr ändern.
+        // Die gewählten Extras (eins je Figur) werden hier für die ganze Runde festgehalten
+        // (js/upgrades.js): Pause und andere Menüs können sie in der Runde nicht mehr ändern.
         this.lockRoundUpgrade();
 
         // Die Runden-Haken (js/upgrades.js) beginnen leer; das gewählte Upgrade füllt sie in seinem apply().
@@ -853,7 +866,7 @@ const Game = {
             this.companions.push(new PandaBuddy(this.player.x + 16, this.player.y + 28));
         }
 
-        // Grundausstattung und die Extras, für die genau das gewählte Upgrade steht (js/upgrades.js)
+        // Grundausstattung und die Extras, für die das gewählte Upgrade ihrer Figur steht (js/upgrades.js)
         if (this.unlockedRanged || worldNum >= 3) {
             this.unlockedRanged = true;
             const w = new BaseballLauncher();
@@ -933,23 +946,26 @@ const Game = {
 
         this._spawnWorldContent(worldNum);
 
-        // Das Upgrade-Gerüst (js/upgrades.js): hat das gewählte Upgrade eine eigene apply-Funktion
+        // Das Upgrade-Gerüst (js/upgrades.js): hat ein gewähltes Upgrade eine eigene apply-Funktion
         // (aus seiner Datei js/upgrades-mark|juri|croc|panda.js), wirkt sie genau einmal pro Runde -
-        // hier, nachdem Ausrüstung, Power-Stufen und Weltinhalt stehen. c nennt die Figuren;
+        // hier, nachdem Ausrüstung, Power-Stufen und Weltinhalt stehen. Jede Figur kann ihr Extra
+        // gewählt haben, also laufen alle gewählten apply-Funktionen. c nennt die Figuren;
         // Begleiter stehen nur drin, wenn sie in dieser Welt dabei sind (sonst null).
-        const auftrag = this.selectedUpgrade();
-        if (auftrag && typeof auftrag.apply === 'function' && !auftrag._appliedRound) {
-            auftrag._appliedRound = true;
+        const auftraege = this.selectedUpgrades().filter(u => typeof u.apply === 'function' && !u._appliedRound);
+        if (auftraege.length) {
             const c = {
                 game: this, welt: this.world, player: this.player,
                 juri: (typeof Juri !== 'undefined' && this.companions.find(cf => cf instanceof Juri)) || null,
                 croc: (typeof ShadowCrocodile !== 'undefined' && this.companions.find(cf => cf instanceof ShadowCrocodile)) || null,
                 panda: (typeof PandaBuddy !== 'undefined' && this.companions.find(cf => cf instanceof PandaBuddy)) || null,
             };
-            try { auftrag.apply(c); }
-            catch (err) {
-                // ein kaputtes Upgrade hält den Weltstart nicht an, meldet sich aber in der Konsole
-                if (typeof hookProblem === 'function') hookProblem('apply ' + auftrag.id, err);
+            for (const auftrag of auftraege) {
+                auftrag._appliedRound = true;
+                try { auftrag.apply(c); }
+                catch (err) {
+                    // ein kaputtes Upgrade hält den Weltstart nicht an, meldet sich aber in der Konsole
+                    if (typeof hookProblem === 'function') hookProblem('apply ' + auftrag.id, err);
+                }
             }
         }
         HUD.onWorldStart();

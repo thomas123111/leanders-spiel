@@ -3,6 +3,8 @@
 // Regeln und Zahlen stehen in js/progress.js (BOX_RARITIES, BOX_TRIES, Progress.startBox/boxTap/openBox).
 // showRewards() ist derselbe Seitenweg für alle Belohnungen: Weltbelohnung, Gratis-Tagesbelohnung im
 // Shop, Tagesleiste nach der Runde und Power-Pfad zeigen ihre Berge hier, nicht an eigener Stelle.
+// Regel von Leander (18.10.2026): Der runde Zähler unten rechts (box-badge, "×N Belohnungen") steht nur
+// beim Öffnen einer Glücksbox - alle anderen Belohnungsseiten zeigen ihn nicht (opts.count).
 
 const BOX_PRICE = 30;
 
@@ -39,6 +41,7 @@ const BoxUI = {
     _boxPage: 0,
     _boxPageT: 0,
     _boxLockUntil: 0,
+    _boxCount: false,             // Zähler "×N Belohnungen" zeigen? (nur bei der geöffneten Glücksbox)
     _boxHead: null,               // Kopfzeile der Belohnungsseite (leer = Seltenheitsname der Box)
     _boxReturn: null,             // wohin nach der letzten Seite zurueck (leer = Shop)
 
@@ -145,7 +148,8 @@ const BoxUI = {
     // Eine Seite gibt es nur für Münzen, Juwelen und Powerpunkte; Böse Sterne und Glücksboxen werden wie
     // bisher sofort geöffnet und Erfahrung (EP) bekommt keinen Berg. Liefert false, wenn nichts davon
     // eine Seite bekommt – der Aufrufer zeigt dann wie bisher seine kurze Meldung.
-    // opts = { head: Kopfzeile über dem Berg, tier: Seltenheit der Box, summary: true = danach Übersicht }
+    // opts = { head: Kopfzeile über dem Berg, tier: Seltenheit der Box, summary: true = danach Übersicht,
+    //          count: true = runden Zähler "×N Belohnungen" zeigen (nur die Glücksbox tut das) }
     showRewards(items, back, opts) {
         const pages = this._pilePages(items);
         if (!pages.length) return false;
@@ -153,6 +157,7 @@ const BoxUI = {
         this._resetRun();
         this._boxTier = clamp(o.tier === undefined ? (this._boxTier || 0) : o.tier, 0, BOX_RARITIES.length - 1);
         this._boxHead = o.head || null;
+        this._boxCount = !!o.count;
         this._boxItems = o.summary ? (items || []).slice() : null;
         this._boxPages = pages;
         this._boxPage = 0;
@@ -182,6 +187,7 @@ const BoxUI = {
         this._boxPages = null;
         this._boxPage = 0;
         this._boxHead = null;
+        this._boxCount = false;
     },
 
     // ── Box-Bildschirm: ganzer Bildschirm, kein Knopf außer der Box selbst ──
@@ -230,7 +236,8 @@ const BoxUI = {
             const res = Progress.openBox();   // schreibt und schreibt alles gut
             this._boxItems = res.items;
             // dieselben Belohnungsseiten wie überall sonst (kein eigener Seitenweg mehr), danach die Übersicht
-            if (!this.showRewards(res.items, null, { tier: res.tier, summary: true })) this.renderBoxSummary();
+            // einzigen Orte mit Zähler: die geöffnete Glücksbox (Leander, 18.10.2026)
+            if (!this.showRewards(res.items, null, { tier: res.tier, summary: true, count: true })) this.renderBoxSummary();
         }, (delay || 0) + 700);
     },
 
@@ -244,6 +251,11 @@ const BoxUI = {
         this._boxPageT = performance.now();
         this._boxLockUntil = performance.now() + 550;   // wildes Weitertippen überspringt keine Belohnung
         const left = pages.length - this._boxPage;      // diese und alle noch kommenden Belohnungen
+        // Zähler nur bei der Glücksbox - Weltbelohnung, Tagesbelohnung, Tagesleiste, Power-Pfad
+        // und Böse Sterne stehen ohne Zahl da (Leander, 18.10.2026)
+        const badge = this._boxCount
+            ? `<div class="box-badge${this._boxPage === 0 ? ' hop' : ''}"><b>×${left}</b><span>${left === 1 ? 'Belohnung' : 'Belohnungen'}</span></div>`
+            : '';
         // Kopf und Randfarbe: bei der Box die Seltenheit, sonst ein kurzer Name (Tagesbelohnung, Power-Pfad …)
         const head = this._boxHead || rar.name;
         const c = this._boxHead ? (PILE_C[p.kind] || rar.c) : rar.c;
@@ -253,7 +265,7 @@ const BoxUI = {
             <div class="box-btn"><canvas></canvas></div>
             <div class="reward-label">${p.label}</div>
             <div class="msg small">Tippen zum Weitermachen</div>
-            <div class="box-badge${this._boxPage === 0 ? ' hop' : ''}"><b>×${left}</b><span>${left === 1 ? 'Belohnung' : 'Belohnungen'}</span></div>
+            ${badge}
             <button class="box-tap" data-act="boxnext" aria-label="Weiter"></button>`;
         this._boxBurst(18, p.kind === 'coins' ? ['#ffd23f', '#fff6c2', '#ffb01f']
             : (p.kind === 'jewels' ? ['#39d5ff', '#ff5fd2', '#b98cff']

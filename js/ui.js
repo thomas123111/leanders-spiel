@@ -134,6 +134,7 @@ const UI = {
             <div class="menu">
                 <div class="logo"><span class="l1">Mark</span><span class="l2">und die geklauten Erfindungen</span></div>
                 <p class="story">${this._titleCharText()}</p>
+                ${this._upgradeLine()}
                 <button class="btn big pulse" data-act="play">▶ SPIELEN</button>
                 <div class="menu-row">
                     <button class="btn blue" data-act="shop">🛒 Shop</button>
@@ -157,6 +158,13 @@ const UI = {
             if (Math.abs(dx) > 28 && Math.abs(dx) > Math.abs(dy)) this.titleTurn(dx < 0 ? 1 : -1);
             else { Game.titleSpin = 1; Sound.dodge(); }
         });
+    },
+
+    // Zeile auf der Startseite: was in der nächsten Runde gilt. Leander (18.10.2026): ein Upgrade je
+    // Figur, also stehen hier bis zu vier Extras - die Auswahl selbst trifft das Menü „Waffen“.
+    _upgradeLine() {
+        const texte = upgradesSummaryText(Game);
+        return texte ? `<p class="title-ups">Für die nächste Runde: <b>${texte}</b></p>` : '';
     },
 
     // Text der vorderen Figur im Karussell (nur freigeschaltete Figuren, siehe titleCharList)
@@ -270,8 +278,10 @@ const UI = {
                     ${owned && !free ? '' : `<button class="btn small ${free ? 'green' : ''}" data-act="buystar" data-tier="${t.id}" ${can ? '' : 'disabled'}>${label}</button>`}
                 </div></div>`;
         }
-        // Upgrades, die noch fehlen: eine Karte je Eintrag, der Preis in Juwelen richtet sich nach der Figur
-        // (UPGRADE_PRICES in js/upgrades.js). Gekauft = eigener Merker, danach auf der Seite „Waffen“ wählbar.
+        // Upgrades, die noch fehlen UND man kaufen kann: eine Karte je Eintrag, der Preis in Juwelen
+        // richtet sich nach der Figur (UPGRADE_PRICES in js/upgrades.js). Gekauft = eigener Merker, danach
+        // auf der Seite „Waffen“ wählbar. Belohnungen aus einer Welt (Eintrag hat `welt`) zeigt
+        // upgradesToBuy() gar nicht erst an - die gibt es nur in ihrer Welt (Leander, 18.10.2026).
         const hero = f => UPGRADE_HEROES.find(h => h.id === f) || { name: '', farbe: '#7b4dff' };
         const lockedRound = upgradePurchaseBlocked(g);
         let upCards = '';
@@ -292,7 +302,8 @@ const UI = {
         if (!upCards) {
             upCards = `<div class="card" style="--a:#3ddc97">
                 <div class="head"><span class="ico">🎖️</span><div><h3>Upgrades</h3>
-                <p>Alle Extras sind schon frei - im Menü „Waffen“ suchst du jedes Runde das Extra aus.</p></div></div></div>`;
+                <p>Jedes Extra, das man kaufen kann, hast du schon. Der Rest ist Belohnung in einer Welt
+                und steht nicht zum Kauf - im Menü „Waffen“ suchst du für jede Figur ihr Extra aus.</p></div></div></div>`;
         }
         // Gleicher Kurs in beide Richtungen (1 💎 = 10 🪙) – vorher ließen sich unendlich Münzen erzeugen.
         const exchange = [
@@ -435,7 +446,7 @@ const UI = {
         if (res.jewels) pages.push({ kind: 'jewels', n: res.jewels, label: res.jewels + ' Juwelen' });
         if (res.upgrades.length) {
             pages.push({ kind: 'upgrade', ids: res.upgrades.slice(),
-                label: res.upgrades.length > 1 ? 'Alle Werfer-Upgrades!' : UPGRADE_INFO[res.upgrades[0]].name });
+                label: UPGRADE_INFO[res.upgrades[0]].name });
         }
         return pages.length ? pages : [{ kind: 'coins', n: 0, label: 'Leider leer' }];
     },

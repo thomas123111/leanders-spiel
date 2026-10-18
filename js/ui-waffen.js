@@ -1,4 +1,4 @@
-// ── Seite „Waffen“: genau EIN auswählbares Upgrade für die nächste Runde (Knopf auf der Startseite) ──
+// ── Seite „Waffen“: je Figur EIN auswählbares Upgrade für die nächste Runde (Knopf der Startseite) ──
 // Die Liste der Upgrades und die Auswahl-Regeln stehen in js/upgrades.js, hier ist nur Anzeige und Antippen.
 // Optik schlicht im Stil von css/progress.css - die Feinarbeit macht Claude.
 
@@ -13,13 +13,12 @@ const UIWaffen = {
             return true;
         }
         if (act === 'waffenpick') {
+            // Antippen wählt für DIESE Figur an, nochmaliges Antippen wählt sie ab (Leander, 18.10.2026)
             const id = btn.dataset.id;
-            const before = Game.activeUpgrade;
-            Game.chooseUpgrade(id);
-            if (Game.activeUpgrade !== before) {
-                const u = UPGRADE_BY_ID[Game.activeUpgrade];
-                UI.flashMessage(u ? u.emoji + ' ' + u.name + ' gilt für die nächste Runde' : 'Kein Extra ausgewählt');
-            }
+            const nach = Game.chooseUpgrade(id);
+            const u = UPGRADE_BY_ID[id];
+            if (nach === id) UI.flashMessage(u.emoji + ' ' + u.name + ' gilt für die nächste Runde');
+            else if (nach === null) UI.flashMessage(u.emoji + ' ' + u.name + ' ist abgewählt');
             this.render();
             return true;
         }
@@ -36,11 +35,12 @@ const UIWaffen = {
 
     _card(u) {
         const frei = upgradeIsFree(u.id, Game);
-        const gewaehlt = frei && Game.activeUpgrade === u.id;
+        const gewaehlt = frei && Game.chosenUpgradeId(u.figur) === u.id;
+        const figure = UPGRADE_HEROES.find(h => h.id === u.figur) || { name: '' };
         const cls = 'wf-card' + (frei ? (gewaehlt ? ' sel' : ' free') : ' locked');
         const state = gewaehlt
             ? '<span class="wf-state ok">✓ ausgewählt</span>'
-            : (frei ? '<span class="wf-state">Antippen: gilt für die Runde</span>'
+            : (frei ? `<span class="wf-state">Antippen: gilt für die Runde (${figure.name})</span>`
                 : `<span class="wf-state lock">🔒 ${u.where}</span>`);
         const inner = `<span class="wf-ico">${u.emoji}</span>
             <span class="wf-body"><b>${u.name}${u.bald ? '<i class="wf-bald">bald</i>' : ''}</b>
@@ -55,12 +55,12 @@ const UIWaffen = {
         if (!el) return;
         const hero = UPGRADE_HEROES.find(h => h.id === this.tab) || UPGRADE_HEROES[0];
         const preise = UPGRADE_HEROES.map(h => `${h.name} ${UPGRADE_PRICES[h.id]}`).join(', ');
+        const alle = upgradesSummaryText(Game);
         const list = UPGRADES.filter(u => u.figur === hero.id);
         const cards = list.length
             ? `<div class="wf-cards">${list.map(u => this._card(u)).join('')}</div>`
             : `<p class="wf-empty">Noch keine Upgrades – der Panda hat noch nichts geklaut.</p>`;
-        const cur = Game.selectedUpgrade();
-        const curHero = cur ? UPGRADE_HEROES.find(h => h.id === cur.figur) : null;
+        const cur = Game.selectedUpgrades();
         el.innerHTML = `
             <div class="page-head">
                 <button class="btn small gray" data-act="title">◀ Zurück</button>
@@ -69,14 +69,15 @@ const UIWaffen = {
             </div>
             <div class="page-body">
                 ${this._tabBar()}
-                <p class="wf-now">${cur ? `Für die nächste Runde: ${cur.emoji} <b>${cur.name}</b> (${curHero ? curHero.name : ''})`
+                <p class="wf-now">${alle ? `Für die nächste Runde: <b>${alle}</b>${cur.length > 1 ? ` – ${cur.length} Extras an` : ''}`
                     : 'Kein Extra ausgewählt – nur die Grundausstattung ist an.'}</p>
                 ${cards}
-                <p class="wf-note">Grundausstattung ist immer an: Marks Schläger und Baseball-Werfer, das Auto,
-                    Juris Hammer, das Spucken des Krokodils und die Power-Stufen.
+                <p class="wf-note">Jede Figur darf EIN Extra für die nächste Runde haben - du kannst also alle
+                    vier gleichzeitig wählen. Grundausstattung ist immer an: Marks Schläger und Baseball-Werfer,
+                    das Auto, Juris Hammer, das Spucken des Krokodils und die Power-Stufen.
                     In einer laufenden Runde kannst du hier nichts mehr ändern.
-                    Noch gesperrte Extras gibt es auch im Shop – dort kaufst du sie für Juwelen
-                    (${preise}).</p>
+                    Noch gesperrte Extras, die man kaufen kann, gibt es im Shop für Juwelen (${preise}).
+                    Extras mit einer Welt dahinter sind Belohnung in dieser Welt und stehen dort nicht zum Kauf.</p>
             </div>`;
         UI.show('waffen');
     },

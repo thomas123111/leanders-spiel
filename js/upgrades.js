@@ -1,10 +1,14 @@
 // ── Auswählbare Upgrades: die Liste dahinter und die Auswahl für genau eine Runde (Knopf „Waffen“) ──
 // Regel von Leander (12.10.2026): Die Grundausstattung (Schläger, Baseball-Werfer, Auto, Juris Hammer,
-// das Spucken des Krokodils, Power-Stufen) ist immer an. Von den Extras hier gilt pro Runde genau EINS.
-// Antippen auf der Waffen-Seite wählt an, nochmaliges Antippen wählt ab. In einer laufenden Runde
+// das Spucken des Krokodils, Power-Stufen) ist immer an.
+// Regel von Leander (18.10.2026, ersetzt „pro Runde genau EINS“): PRO FIGUR höchstens EIN Extra - Mark,
+// Juri, Schattenkrokodil und Panda können also gleichzeitig je ein Extra haben. Antippen auf der
+// Waffen-Seite wählt für diese Figur an, nochmaliges Antippen wählt ab. In einer laufenden Runde
 // lässt sich nichts mehr ändern - js/main.js legt die Auswahl beim Weltstart für die Runde fest.
 // Spätere Aufträge hängen hier einfach weitere Einträge an und fragen in js/main.js Game.upgradeOn(id) ab.
-// Jedes noch fehlende Extra kann man außerdem im Shop für Juwelen kaufen (Wunsch von Leander, 12.10.2026) -
+// Regel von Leander (18.10.2026): Einträge mit `welt: <Nummer>` sind Belohnungen einer Welt und damit
+// NICHT im Shop kaufbar (upgradesToBuy() und buyUpgrade() halten sich daran). tripleShot (Böser Stern)
+// hat kein `welt` und bleibt kaufbar. Wer etwas schon hat, behält es natürlich.
 // Preise, Kauf und Freiheitsprüfung stehen weiter unten in dieser Datei, die Shop-Seite in js/ui.js zeigt sie nur.
 
 const UPGRADE_HEROES = [
@@ -17,6 +21,7 @@ const UPGRADE_HEROES = [
 // figur: 'mark' | 'juri' | 'croc' | 'panda'
 // istFrei(game): frei, sobald der Merker gesetzt ist ODER die Welt erreicht wurde, die es früher automatisch gab
 // where: Hinweis, wo man das Upgrade bekommt (steht auf der gesperrten Karte)
+// welt:  <Nummer> = Belohnung dieser Welt, deshalb NICHT im Shop kaufbar (Regel von Leander, 18.10.2026)
 // bald: ein Eintrag ist nur Vorbereitet, die Wirkung baut ein späterer Auftrag (heute hat keines mehr)
 const UPGRADES = [
     // ── Mark ──
@@ -27,60 +32,74 @@ const UPGRADES = [
     { id: 'shadowCaster', figur: 'mark', name: 'Schatten-Werfer', emoji: '🌈',
         text: 'Marks Bälle schleudern Schatten hinterher und machen mehr Schaden.',
         where: 'Welt 9 schaffen',
+        welt: 9,
         istFrei: g => !!g.unlockedShadowCaster || g.maxWorldUnlocked >= 10 },
     { id: 'gamerPistol', figur: 'mark', name: 'Gamer-Pistole', emoji: '🔫',
         text: 'Mark schießt die Gamer-Pistole: deutlich mehr Schaden pro Schuss.',
         where: 'Welt 11 schaffen',
+        welt: 11,
         istFrei: g => !!g.unlockedGamerPistol || g.maxWorldUnlocked >= 12 },
     { id: 'fruit', figur: 'mark', name: 'Obst-Upgrades', emoji: '🍊',
         text: 'Orangen-Explosion bei Treffern. Juri und Krokodil werfen auch mit Obst.',
         where: 'Welt 10 schaffen',
+        welt: 10,
         istFrei: g => !!g.unlockedFruitUpgrades },
     { id: 'boneBat', figur: 'mark', name: 'Knochen-Schläger', emoji: '🦴',
         text: 'Marks Schläger haut mit dem Knochen kräftiger zu.',
         where: 'Welt 13 schaffen',
+        welt: 13,
         istFrei: g => !!g.unlockedBoneBat },
     { id: 'petrifyStone', figur: 'mark', name: 'Stein-Gift', emoji: '🪨',
         text: 'Treffer verwandeln Gegner manchmal kurz in Stein.',
         where: 'Welt 15 schaffen',
+        welt: 15,
         istFrei: g => !!g.unlockedPetrifyStone },
     { id: 'snake', figur: 'mark', name: 'Schlangen-Freund', emoji: '🐍',
         text: 'Eine kleine Schlange sitzt auf Marks Schulter und spuckt Gift.',
         where: 'Welt 14 schaffen',
+        welt: 14,
         istFrei: g => !!g.unlockedSnakeCompanion },
     { id: 'crown', figur: 'mark', name: 'Goldene Krone', emoji: '👑',
         text: 'Die Krone startet die Runde mit einem schützenden Schild.',
         where: 'Welt 4 schaffen oder 500 🪙 im Shop',
+        welt: 4,
         istFrei: g => !!g.unlockedCrown },
     { id: 'laserBalls', figur: 'mark', name: 'Baseball-Laserkugeln', emoji: '🔮',
         text: 'Marks Werfer schießt leuchtende Laser-Baseballs: schneller als Bälle und durch bis zu drei Gegner hindurch.',
         where: 'Welt 45 schaffen',
+        welt: 45,
         istFrei: g => !!g.unlockedLaserBalls },
     { id: 'boomBall', figur: 'mark', name: 'Knallball', emoji: '💥',
         text: 'Marks Würfe knallen beim Aufprall und treffen alle Gegner im Umkreis - auch hinter Ecken.',
         where: 'Welt 46 schaffen',
+        welt: 46,
         istFrei: g => !!g.unlockedBoomBall },
     { id: 'iceBall', figur: 'mark', name: 'Eisball', emoji: '❄️',
         text: 'Getroffene Gegner frieren zwei Sekunden ein und können sich nicht bewegen. Bosse halten nur 0,6 Sekunden dicht.',
         where: 'Welt 48 schaffen',
+        welt: 48,
         istFrei: g => !!g.unlockedIceBall },
     // ── Juri ──
     { id: 'juriFireCircle', figur: 'juri', name: 'Feuerkreis', emoji: '🔥',
         text: 'Juri zündet um sich herum einen brennenden Kreis an.',
         where: 'Ab Welt 8 dabei',
+        welt: 8,
         istFrei: g => g.maxWorldUnlocked >= 8 },
     { id: 'juriIceHammer', figur: 'juri', name: 'Eishammer', emoji: '🧊',
         text: 'Juris Hammerschläge frieren Gegner ein, und der Hammer sieht eisig aus. Für Bosse gilt dasselbe wie beim Eisball.',
         where: 'Welt 50 schaffen',
+        welt: 50,
         istFrei: g => !!g.unlockedIceHammer },
     // ── Schattenkrokodil ──
     { id: 'crocFire', figur: 'croc', name: 'Feuerschüsse', emoji: '🎇',
         text: 'Die Schüsse des Krokodils explodieren in Feuer.',
         where: 'Ab Welt 9 dabei',
+        welt: 9,
         istFrei: g => g.maxWorldUnlocked >= 9 },
     { id: 'crocShadowCloud', figur: 'croc', name: 'Schattenwolke', emoji: '🌑',
         text: 'Alle 12 Sekunden legt das Krokodil eine dunkle Wolke um Mark. Solange er darin steht, suchen ihn die Gegner woanders.',
         where: 'Welt 49 schaffen',
+        welt: 49,
         istFrei: g => !!g.unlockedShadowCloud },
 ];
 
@@ -99,14 +118,20 @@ function upgradePrice(u) {
     return (u && UPGRADE_PRICES[u.figur]) || 0;
 }
 
+// Belohnung einer Welt? Die gibt es nur in dieser Welt und NIEMALS im Shop (Regel von Leander, 18.10.2026).
+function isWorldReward(u) {
+    return !!(u && u.welt);
+}
+
 // In einer laufenden Runde kauft man nichts (dieselbe Grenze wie beim Auswählen auf der Waffen-Seite).
 function upgradePurchaseBlocked(g) {
     return !!g && (g.roundUpgradeSet || g.state === 'PLAYING');
 }
 
 // Die Einträge, die man noch nicht hat und im Shop kaufen kann (Reihenfolge der Liste).
+// Weltbelohnungen (Eintrag hat `welt`) fallen raus - die gibt es nur über ihre Welt (Leander, 18.10.2026).
 function upgradesToBuy(g) {
-    return UPGRADES.filter(u => !upgradeIsFree(u.id, g));
+    return UPGRADES.filter(u => !isWorldReward(u) && !upgradeIsFree(u.id, g));
 }
 
 // Kennt diese Liste den Eintrag? (gebraucht, wenn ein alter Spielstand ein Upgrade wiederbringt)
@@ -123,10 +148,21 @@ function upgradeIsFree(id, g) {
     try { return !!u.istFrei(g); } catch (e) { return false; }
 }
 
-// ── Auswahl im Spiel: activeUpgrade bleibt, bis man es ändert; roundUpgrade gilt für die laufende Runde ──
+// Die Zeile „Für die nächste Runde: …“ (Steht auf der Startseite und im Menü „Waffen“): alle
+// gewählten Extras mit ihrer Figur, getrennt durch · . Liefert '' wenn keines gewählt ist.
+function upgradesSummaryText(g) {
+    if (!g || typeof g.selectedUpgrades !== 'function') return '';
+    return g.selectedUpgrades().map(u => {
+        const h = UPGRADE_HEROES.find(x => x.id === u.figur);
+        return u.emoji + ' ' + u.name + (h ? ' (' + h.name + ')' : '');
+    }).join(' · ');
+}
+
+// ── Auswahl im Spiel: je Figur ein Extra; in der laufenden Runde gelten die festgelegten Extras ──
+// Pro Figur höchstens EIN Extra (Leander, 18.10.2026) - die vier Figuren können gleichzeitig je eins haben.
 Object.assign(Game, {
-    activeUpgrade: null,     // dauerhaft ausgewähltes Extra (im Spielstand)
-    roundUpgrade: null,      // beim Weltstart festgelegtes Extra, in der Runde unveränderlich
+    activeUpgrades: {},      // je Figur das dauerhaft gewählte Extra (figur -> Id, im Spielstand)
+    roundUpgrades: {},       // beim Weltstart festgelegte Extras (figur -> Id), in der Runde unveränderlich
     roundUpgradeSet: false,  // true, solange eine Runde läuft (auch wenn kein Extra gewählt wurde)
     boughtUpgrades: {},      // im Shop für Juwelen gekaufte Extras (Id -> true, im Spielstand)
 
@@ -134,51 +170,80 @@ Object.assign(Game, {
     hasBoughtUpgrade(id) { return !!id && Object.prototype.hasOwnProperty.call(this.boughtUpgrades, id); },
 
     // Im Shop für Juwelen kaufen: Preis nach Figur, Geld nur bei wirklich fehlenden Extras.
-    // Liefert true, wenn das Extra danach frei ist. In einer laufenden Runde geht nichts.
+    // Liefert true, wenn das Extra danach frei ist. In einer laufenden Runde geht nichts, und
+    // Weltbelohnungen (Eintrag hat `welt`) stehen im Shop gar nicht erst zum Verkauf.
     buyUpgrade(id) {
         const u = UPGRADE_BY_ID[id];
         const price = upgradePrice(u);
-        if (!u || !price || upgradePurchaseBlocked(this) || upgradeIsFree(id, this)) return false;
+        if (!u || !price || isWorldReward(u) || upgradePurchaseBlocked(this) || upgradeIsFree(id, this)) return false;
         if (!this._spendJewels(price)) return false;
         this.boughtUpgrades[id] = true;
         this.save();
         return true;
     },
 
-    // Das Extra, das gerade zählt (in der Runde das festgelegte) - oder null.
-    // Die Freiheitsprüfung sitzt hier mit drin: ein aus einem alten oder veränderten Spielstand
-    // gekipptes Extra wird weder angezeigt noch wirkt es.
-    selectedUpgrade() {
-        const id = this.roundUpgradeSet ? this.roundUpgrade : this.activeUpgrade;
+    // Id des gewählten Extras einer Figur (oder null) - in der laufenden Runde das festgelegte.
+    chosenUpgradeId(figur) {
+        if (!figur) return null;
+        const map = this.roundUpgradeSet ? this.roundUpgrades : this.activeUpgrades;
+        return map[figur] || null;
+    },
+
+    // Das Extra einer Figur, das gerade zählt - oder null. Die Freiheitsprüfung sitzt hier mit
+    // drin: ein aus einem alten oder veränderten Spielstand gekipptes Extra wird weder angezeigt
+    // noch wirkt es.
+    selectedUpgrade(figur) {
+        const id = this.chosenUpgradeId(figur);
         return upgradeIsFree(id, this) ? UPGRADE_BY_ID[id] : null;
     },
 
+    // Alle gewählten Extras (in der Runde die festgelegten) in der Reihenfolge der Figuren.
+    selectedUpgrades() {
+        const out = [];
+        for (const h of UPGRADE_HEROES) {
+            const u = this.selectedUpgrade(h.id);
+            if (u) out.push(u);
+        }
+        return out;
+    },
+
     // Fragt die Wirkungstellen in js/main.js ab: gilt das Extra mit dieser Id gerade?
+    // Es gilt über die Figur, zu der der Eintrag gehört (deshalb braucht jede Figur ihr eigenes Extra).
     upgradeOn(id) {
-        const s = this.selectedUpgrade();
-        return !!id && !!s && s.id === id;
+        const u = UPGRADE_BY_ID[id];
+        if (!u) return false;
+        const s = this.selectedUpgrade(u.figur);
+        return !!s && s.id === id;
     },
 
-    // An- und abtippen auf der Waffen-Seite. Genau eins insgesamt; in einer laufenden Runde geht nichts mehr.
+    // An- und abtippen auf der Waffen-Seite: wählt für DIESE Figur an oder ab, die anderen Figuren
+    // bleiben, wie sie sind. In einer laufenden Runde geht nichts. Gibt das zurück, was für die
+    // Figur jetzt gewählt ist (Id oder null).
     chooseUpgrade(id) {
-        if (this.roundUpgradeSet) return this.activeUpgrade;
-        if (!upgradeIsFree(id, this)) return this.activeUpgrade;
-        this.activeUpgrade = (this.activeUpgrade === id) ? null : id;
+        if (this.roundUpgradeSet) return null;
+        const u = UPGRADE_BY_ID[id];
+        if (!u || !upgradeIsFree(id, this)) return null;
+        if (this.activeUpgrades[u.figur] === u.id) delete this.activeUpgrades[u.figur];
+        else this.activeUpgrades[u.figur] = u.id;
         this.save();
-        return this.activeUpgrade;
+        return this.activeUpgrades[u.figur] || null;
     },
 
-    // Beim Weltstart für die ganze Runde festhalten
+    // Beim Weltstart für die ganze Runde festhalten: jedes gewählte Extra seiner Figur.
     lockRoundUpgrade() {
-        const id = this.activeUpgrade;
-        this.roundUpgrade = upgradeIsFree(id, this) ? id : null;
+        const fest = {};
+        for (const h of UPGRADE_HEROES) {
+            const u = this.selectedUpgrade(h.id);
+            if (u) fest[h.id] = u.id;
+        }
+        this.roundUpgrades = fest;
         this.roundUpgradeSet = true;
     },
 
     // Zurück im Menü: die Auswahl ist wieder frei
     unlockRoundUpgrade() {
         this.roundUpgradeSet = false;
-        this.roundUpgrade = null;
+        this.roundUpgrades = {};
         this.roundHooks = null;   // die Haken der alten Runde dürfen nicht nachlaufen
     },
 });
@@ -321,8 +386,9 @@ Object.assign(Game, {
 
 // ── Anmelden: ein Upgrade aus seiner eigenen Datei ──
 // Eintrag: { id, figur: 'mark'|'juri'|'croc'|'panda', name, text, emoji,
-//            istFrei(g), where, apply(c) }  - apply bekommt c = { game, welt, player, juri, croc, panda }
+//            istFrei(g), where, welt, apply(c) }  - apply bekommt c = { game, welt, player, juri, croc, panda }
 // und trägt dort seine Haken ein. istFrei/where fehlen? Dann ist das Extra ab der Anmeldung frei.
+// welt = Belohnung einer Welt -> der Eintrag erscheint nicht im Shop (Regel von Leander, 18.10.2026).
 // Doppelte Ids und unbrauchbare Einträge werden abgelehnt (die Konsole sagt warum).
 function registerUpgrade(eintrag) {
     if (!eintrag || typeof eintrag.id !== 'string' || !eintrag.id) {
@@ -348,6 +414,12 @@ function registerUpgrade(eintrag) {
     }
     const u = Object.assign({ emoji: '✨', where: '', bald: false }, eintrag);
     if (typeof u.istFrei !== 'function') u.istFrei = () => true;
+    // `welt` (Belohnung dieser Welt, nicht kaufbar) nur als echte Weltzahl annehmen: ohne gueltige
+    // Zahl zaehlt der Eintrag wie ein ganz normaler und bleibt im Shop kaufbar.
+    if (u.welt !== undefined) {
+        const n = Math.floor(+u.welt);
+        if (Number.isFinite(n) && n >= 1) u.welt = n; else delete u.welt;
+    }
     UPGRADES.push(u);
     // defineProperty statt bloßer Zuweisung: der Schlüssel bleibt ein eigener Eintrag
     // (eine blanke Zuweisung von '__proto__' würde sonst den Objektbau selbst überschreiben).
