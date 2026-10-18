@@ -1246,12 +1246,18 @@ MarkExtras.herz = herz;
         istFrei: () => false,
         apply(c) {
             const bolze = [];
+            let letzterArt = ARTEM[0];
             c.game.roundHooks.onUpdate.push(dt => {
-                // alle Bälle, die gerade neu in der Liste landeten, gehören zu EINEM Wurf
+                // Der Zerleger eines Wurfs lost die Art aus; die Splitter im naechsten Bild
+                // erben genau diese Art - so traegt ein ganzer Wurf immer EINE Art.
                 const neu = MarkExtras.frischeBaelle('_regenBall');
-                if (neu.length) {
-                    const art = ARTEM[(Math.random() * ARTEM.length) | 0];
-                    for (const p of neu) p._regenArt = art;
+                for (const p of neu) {
+                    if (p.splitBurst) {
+                        letzterArt = ARTEM[(Math.random() * ARTEM.length) | 0];
+                        p._regenArt = letzterArt;
+                    } else if (!p._regenArt) {
+                        p._regenArt = letzterArt;
+                    }
                 }
                 // Nachgluehen des Feuers
                 for (const e of Game.enemies) {
@@ -1271,7 +1277,7 @@ MarkExtras.herz = herz;
                 }
             });
             c.player.hooks.onProjectileHit.push((e, p) => {
-                if (!MarkExtras.marksBall(p) || !p._regenArt) return;
+                if (!MarkExtras.marksBall(p) || !p._regenArt || e.dead) return;
                 if (p._regenArt === 'feuer') {
                     const b = e._regenBrand || (e._regenBrand = { rest: 0, tick: 0 });
                     b.rest = Math.max(b.rest, BRAND_REST);
@@ -1386,8 +1392,8 @@ MarkExtras.herz = herz;
                 FX.burst(p.x, p.y, ['#8f98ad', '#ffd23f'], 5, 60, 0.35, { kind: 'smoke', size: 4 });
             });
             c.game.roundHooks.onUpdate.push(dt => {
-                // die Splitter des Bomben-Wurfs tragen nur das boom-Merkmal mit
-                for (const p of MarkExtras.frischeBaelle('_bumm')) {
+                // neutrale Sammel-Marke: nur Bomben-Baelle (boom) bekommen den sichtbaren Kranz
+                for (const p of MarkExtras.frischeBaelle('_bummGesehen')) {
                     if (p.boom) p._bumm = true;
                 }
             });
@@ -1459,8 +1465,11 @@ MarkExtras.herz = herz;
                 const p = amRand(ziel.x, ziel.y);
                 const g = 0.55 + 0.45 * Math.sin(Art.time * 4);
                 if (p.aussen) {
-                    // Pfeil am Rand, auf das Ziel zeigen
-                    const w = Math.atan2(ziel.y - p.y, ziel.x - p.x) || Math.atan2(Game.viewH / 2 - p.y, Game.viewW / 2 - p.x);
+                    // Pfeil am Rand, auf das Ziel zeigen (Fallback nur bei exakt gleichem Punkt)
+                    const dx = ziel.x - p.x, dy = ziel.y - p.y;
+                    const w = (dx !== 0 || dy !== 0)
+                        ? Math.atan2(dy, dx)
+                        : Math.atan2(Game.viewH / 2 - p.y, Game.viewW / 2 - p.x);
                     ctx.save();
                     ctx.translate(p.x, p.y);
                     ctx.rotate(w);
