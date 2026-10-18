@@ -871,6 +871,8 @@ class BossGiantScorpion extends Enemy {
     // ── b) Giftsalve: viele Tropfen entlang angesagter Bahnen ──
     _startVolley() {
         this.fanLock = false;
+        this.fanA2 = null;              // kein Altwert aus der vorigen Salve
+        this.fanWaves = 0;
         this.fanFriend = null;
         const opts = ScorpionArt.companions();
         if (opts.length && Math.random() < 0.7) this.fanFriend = opts[Math.floor(Math.random() * opts.length)];
