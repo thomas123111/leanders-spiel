@@ -15,10 +15,11 @@ const UIWaffen = {
         if (act === 'waffenpick') {
             // Antippen wählt für DIESE Figur an, nochmaliges Antippen wählt sie ab (Leander, 18.10.2026)
             const id = btn.dataset.id;
-            const nach = Game.chooseUpgrade(id);
             const u = UPGRADE_BY_ID[id];
+            const vorher = Game.chosenUpgradeId(u.figur);
+            const nach = Game.chooseUpgrade(id);
             if (nach === id) UI.flashMessage(u.emoji + ' ' + u.name + ' gilt für die nächste Runde');
-            else if (nach === null) UI.flashMessage(u.emoji + ' ' + u.name + ' ist abgewählt');
+            else if (nach !== vorher) UI.flashMessage(u.emoji + ' ' + u.name + ' ist abgewählt');
             this.render();
             return true;
         }

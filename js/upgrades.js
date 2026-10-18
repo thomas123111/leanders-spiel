@@ -230,11 +230,13 @@ Object.assign(Game, {
     },
 
     // Beim Weltstart für die ganze Runde festhalten: jedes gewählte Extra seiner Figur.
+    // Gelesen wird ausdrücklich die Auswahl für die nächste Runde (activeUpgrades) - ein Neustart
+    // mitten in der Runde darf nicht die schon festgelegte Runde noch einmal festschreiben.
     lockRoundUpgrade() {
         const fest = {};
         for (const h of UPGRADE_HEROES) {
-            const u = this.selectedUpgrade(h.id);
-            if (u) fest[h.id] = u.id;
+            const id = this.activeUpgrades[h.id];
+            if (upgradeIsFree(id, this)) fest[h.id] = id;
         }
         this.roundUpgrades = fest;
         this.roundUpgradeSet = true;
