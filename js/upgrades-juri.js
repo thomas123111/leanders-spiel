@@ -625,7 +625,7 @@ registerUpgrade({
             }
             abklingzeit -= dt;
             if (abklingzeit > 0) return;
-            if (juri.dead || juri.koTimer > 0 || player.dead || player.hp >= player.maxHp) return;
+            if (juri.dead || juri.koTimer > 0 || juri.stunTimer > 0 || juri.sleepTimer > 0 || player.dead || player.hp >= player.maxHp) return;
             const mark = juriMarkMitte(player);
             if (Math.hypot(mark.x - juri.centerX(), mark.y - juri.centerY()) > JURI_HEILUNG.naehe) return;
             abklingzeit = JURI_HEILUNG.abstand;
