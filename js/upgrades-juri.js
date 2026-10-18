@@ -868,13 +868,14 @@ function juriSchubStart(gegner, sekunden, kraft, ziel, winkel) {
 
 // Ein Takt der gewollten Bewegungen (melden sich Gegner, deren Gegner nicht mehr da sind, von allein ab).
 function juriSchubTakt(dt, juri) {
-    if (!Game.enemies || !juri || juri.dead) return;
+    if (!Game.enemies || !juri) return;
     for (const e of Game.enemies) {
         const s = e && e._juriSchub;
         if (!s) continue;
         if (e.dead) { e._juriSchub = null; continue; }
         s.zeit -= dt;
         if (s.zeit <= 0) { e._juriSchub = null; continue; }
+        if (juri.dead) continue;          // die Zähler laufen aus, geschubst wird aber nicht mehr
         const a = s.ziel === 'juri'
             ? Math.atan2(juri.centerY() - e.centerY(), juri.centerX() - e.centerX())
             : (s.ziel === 'weg'
@@ -1208,15 +1209,30 @@ registerUpgrade({
         if (!c.juri) return;
         const juri = c.juri;
         let abwehr = 0;
+        const auswerfen = [];
         juri.hooks.onUpdate.push(dt => {
             if (abwehr > 0) abwehr -= dt;
+            auswerfen.length = 0;
             if (juri.dead || juri.koTimer > 0 || juri.stunTimer > 0 || juri.sleepTimer > 0 || !Game.projectiles) return;
             const cx = juri.centerX(), cy = juri.centerY();
             for (const p of Game.projectiles) {
                 if (!p || p.dead || p.owner !== 'enemy' || !(p instanceof Projectile) || p._juriAbwehr) continue;
                 if (Math.hypot(p.x - cx, p.y - cy) > JURI_SCHILD.radius + (p.radius || 5)) continue;
+                abwehr = 0.3;
+                // Sondergeschosse (Giftstaude, Clownball, Schneeball ...) prüfen ihren Treffer in ihrem
+                // eigenen update() selbst - ob Freund oder Feind. Die dreht man nicht um, die schlägt
+                // Juri aus dem Feld; nur die normalen Geschosse (Kern-update) fliegen zurück.
+                if (Object.getPrototypeOf(p).update !== Projectile.prototype.update) {
+                    p.dead = true;
+                    auswerfen.push(p);
+                    if (typeof FX !== 'undefined') {
+                        FX.burst(p.x, p.y, ['#7fe0ff', '#ffffff'], 9, 130, 0.4, { kind: 'spark' });
+                        FX.ring(p.x, p.y, '#7fe0ff', 20, 0.28, 3);
+                    }
+                    Sound.hit();
+                    continue;
+                }
                 // Zurück zum Abschusspunkt: gleiche Richtung, wie sie ankam, nur umgedreht.
-                // Die Sonder-Zünder bleiben am Gegner-Geschoss - abprallen ist eine reine Richtungsänderung.
                 const tempo = Math.hypot(p.vx, p.vy) || 240;
                 const a = Math.atan2(p.y - cy, p.x - cx);
                 p.vx = Math.cos(a) * tempo;
@@ -1237,12 +1253,17 @@ registerUpgrade({
                 p.pandaPlant = false;
                 p.slow = false;
                 p.poison = false;
+                p.explosive = false;
+                p.big = false;
                 p._juriAbwehr = true;
-                abwehr = 0.3;
                 if (typeof FX !== 'undefined') {
                     FX.burst(p.x, p.y, ['#7fe0ff', '#ffffff', '#ffd23f'], 10, 150, 0.4, { kind: 'spark' });
                     FX.ring(cx, cy, '#7fe0ff', JURI_SCHILD.radius, 0.25, 4);
                 }
+            }
+            for (const p of auswerfen) {
+                const i = Game.projectiles.indexOf(p);
+                if (i >= 0) Game.projectiles.splice(i, 1);
             }
         });
         // Der Wirbel: Hammer kreist sichtbar um Juri, der Bogen leuchtet bei Abwehr hell auf
@@ -1274,7 +1295,7 @@ registerUpgrade({
 });
 
 // juri20 – Juri öffnet Truhen mit einem Schlag, und in ihnen stecken mehr Münzen.
-const JURI_TRUHEN = { suche: 260, reichweite: 40, ausholen: 66, muenzen: 6, wartefrist: 1.6 };
+const JURI_TRUHEN = { suche: 260,leine: 230, reichweite: 40, ausholen: 66, muenzen: 6, wartefrist: 1.6 };
 
 registerUpgrade({
     id: 'juri20', figur: 'juri', name: 'Truhenknacker', emoji: '🔓',
@@ -1282,18 +1303,21 @@ registerUpgrade({
     where: 'Im Shop kaufen',
     istFrei: () => false,
     apply(c) {
-        if (!c.juri) return;
-        const juri = c.juri;
+        if (!c.juri || !c.player) return;
+        const juri = c.juri, player = c.player;
         let bester = JURI_TRUHEN.suche, blockiert = 0, letztes = null;   // kommt er nicht ran, gibt er die Truhe auf
         const chancen = new WeakMap();                 // Truhen hinter Mauern versucht er nicht ewig
         juri.hooks.onUpdate.push(dt => {
             if (juri.dead || juri.koTimer > 0 || juri.stunTimer > 0 || juri.sleepTimer > 0) return;
             if (juri.target || !Game.chests) return;   // erst kämpfen, dann Truhen knacken
             const cx = juri.centerX(), cy = juri.centerY();
+            const mark = juriMarkMitte(player);
             let ziel = null, abstand = JURI_TRUHEN.suche;
             for (const ch of Game.chests) {
                 if (!ch || ch.opened || (chancen.get(ch) || 0) >= 3) continue;
-                const d = Math.hypot(ch.x + ch.w / 2 - cx, ch.y + ch.h / 2 - cy);
+                const mx = ch.x + ch.w / 2, my = ch.y + ch.h / 2;
+                if (Math.hypot(mx - mark.x, my - mark.y) > JURI_TRUHEN.leine) continue;  // sonst holt ihn die Engine zurück
+                const d = Math.hypot(mx - cx, my - cy);
                 if (d < abstand) { abstand = d; ziel = ch; }
             }
             if (!ziel) return;
@@ -1564,7 +1588,7 @@ registerUpgrade({
             for (const e of Game.enemies) {
                 if (!e || e.dead || !(e._juriAngst > 0)) continue;
                 const q = juriSchirm(camera, e);
-                const hoch = Math.abs(Math.sin(Art.time * 9 + e.seed)) * 2.5;
+                const hoch = Math.abs(Math.sin(Art.time * 9 + (e.seed || 0))) * 2.5;
                 Art.text(ctx, '!', q.x + e.w / 2 - 1, q.y - e.h / 2 - 9 - hoch,
                     { size: 13, color: '#ffe35a', outline: 'rgba(40,20,60,0.9)', lineWidth: 3 });
             }
@@ -1685,7 +1709,7 @@ registerUpgrade({
 });
 
 // juri25 – Jeder besiegte Gegner gibt extra Münzen.
-const JURI_GOLD = { muenzen: 2, von: 1, bis: 3, bossMuenzen: 6, bossVon: 3, bossBis: 6 };
+const JURI_GOLD = { muenzen: 2, von: 1, bis: 3, bossMuenzen: 4, bossVon: 2, bossBis: 4 };
 
 registerUpgrade({
     id: 'juri25', figur: 'juri', name: 'Goldhammer', emoji: '🪙',
