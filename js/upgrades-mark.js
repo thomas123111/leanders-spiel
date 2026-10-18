@@ -292,7 +292,6 @@ const MarkExtras = (() => {
     const DURCHSCHUSS = 2;           // Gegner, die ein Ball auf seinem Flug durchfliegen darf
     const FREIGABE_NACH = 0.22;      // Sekunden, dann darf derselbe Gegner erneut getroffen werden
                                      // (knapp ueber der Treffer-Schutzzeit der Gegner)
-    const FLUG_DAUER = 1.6;          // Sekunden, länger bleibt ein Bumerang nicht in der Luft
     const HEIM_KREIS = 22;           // px: hier ist der Ball bei Mark angekommen
 
     registerUpgrade({
@@ -306,12 +305,9 @@ const MarkExtras = (() => {
                 const px = p.x + p.w / 2, py = p.y + p.h / 2;
                 for (const b of Game.projectiles) {
                     if (!MarkExtras.marksBall(b)) continue;
-                    if (b._bumiZeit === undefined) {
-                        // Kurze Flugzeit einmalig auf die Bumerang-Zeit stellen - und nicht jeden
-                        // Bild-Takt nachfuellen, sonst koennte der Ball nie mehr ablaufen.
-                        if (b.lifetime < FLUG_DAUER) b.lifetime = FLUG_DAUER;
-                        b._bumiZeit = 0;
-                    } else b._bumiZeit += dt;
+                    // Flugzeit des Balles: die eigene der Engine (drei Sekunden), hier nur die Zeit
+                    // seit dem Wurf mitzaehlen - der Bumerang laeuft also ganz normal ab.
+                    b._bumiZeit = (b._bumiZeit || 0) + dt;
                     // Wann dreht der Ball um? Nach dem Treffer oder nach dem Hinflug
                     if (b._bumiHeim) {
                         b._bumiZiel = Math.atan2(py - b.y, px - b.x);   // er fliegt zu Mark heim
