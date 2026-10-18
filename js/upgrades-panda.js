@@ -73,7 +73,8 @@ function pandaKugelForm(p, kugel) {
 // onDraw-Haken, die nach dem Koerper laufen), damit nicht Figur und Kugel gleichzeitig zu sehen sind.
 function pandaKugelZeichnen(ctx, pos, p, dreh, zusatz) {
     const x = pos.x + p.w / 2, y = pos.y + p.h / 2;
-    const r = 15 + Math.max(0, Math.min(54, zusatz || 0)) * 0.05;
+    // 18 px: die Figur ragt mit Rohr und Blatt bis ~17 px aus ihrer Mitte, die Kugel muss sie ganz verdecken
+    const r = 18 + Math.max(0, Math.min(54, zusatz || 0)) * 0.05;
     Art.glow(ctx, x, y, r * 1.8, '#9dff72', 0.42);
     ctx.save();
     ctx.translate(x, y);
