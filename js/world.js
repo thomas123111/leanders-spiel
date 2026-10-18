@@ -6413,8 +6413,8 @@ const WORLD41_LEVEL = createLateLevel(64, 56, 20, 4141, 3, 3, 4, 3);
 const WORLD42_LEVEL = createLateLevel(64, 56, 20, 4242, 4, 3, 4, 2);
 const WORLD43_LEVEL = createLateLevel(64, 56, 20, 4343, 3, 6, 3, 2);
 const WORLD44_LEVEL = createLateLevel(64, 56, 20, 4444, 4, 7, 3, 2);
-// Welten 45–50 (Gerüst): Karten wie bei 31–44. Viel Wasser in 45 (Insel) und 47/48 (Teiche, Bäche),
-// Welt 50 ist die letzte Welt – ihre Belohnung und ihr Sieg beenden das Spiel.
+// Welten 45–50 (Gerüst): Karten wie bei 31–44. Viel Wasser in 45 (Insel) und 47/48 (Teiche, Bäche).
+// (Die letzte Welt ist inzwischen 53 – siehe Kommentar zu 51–53 unten.)
 const WORLD45_LEVEL = createLateLevel(64, 56, 20, 4545, 7, 4, 3, 2);
 const WORLD46_LEVEL = createLateLevel(64, 56, 21, 4646, 3, 6, 4, 2);
 const WORLD47_LEVEL = createLateLevel(66, 58, 21, 4747, 6, 5, 3, 2);
