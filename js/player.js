@@ -61,6 +61,11 @@ class Player {
         this.sleepTimer = 0;
         this.sleepGuard = 0;
         this.sleepGuardTime = 1.5;
+        // Einschleimen (Welt 51): > 0 = klebt an Gummi fest und läuft nur mit etwa 20 % Tempo (Angriff und
+        // Ausweichen bleiben möglich). `slimeGuard` = Schonzeit, in der kein neues slime wirkt.
+        this.slimeTimer = 0;
+        this.slimeGuard = 0;
+        this.slimeGuardTime = 1.5;
 
         // Jump pads
         this.jumpPadStandTimer = 0;
@@ -212,6 +217,16 @@ class Player {
         return true;
     }
 
+    // Einschleimen (Welt 51): der Gummi hält nicht komplett fest, aber Mark läuft nur noch mit etwa
+    // 20 % Tempo (Angriff und Ausweichen bleiben möglich). Danach 1,5 s Schonzeit, in der kein neues
+    // slime wirkt; erneutes Schleimen verlängert nur. Schutz wie bei `sleep`.
+    slime(seconds) {
+        if (this.dead || this.dodging || this.autoActive || this.crownShieldTimer > 0) return false;
+        if (this.slimeGuard > 0) return false;
+        this.slimeTimer = Math.max(this.slimeTimer, seconds);
+        return true;
+    }
+
     // Gift-Schaden abzählen: 1 von 20 Lebenspunkten alle halben Sekunde = ein halbes Herz pro Sekunde.
     // Die halbe Sekunde wird mit einer hundertstel Sekunde Toleranz gezählt, sonst hängt der letzte
     // Tropfen eines drei Sekunden langen Gifts an den Rundungsfehlern der Bildzeiten.
@@ -273,6 +288,15 @@ class Player {
                 this.sleepGuard = this.sleepGuardTime;
             }
         }
+        // Schonzeit nach dem Abschleimen ablaufen lassen
+        if (this.slimeGuard > 0) this.slimeGuard = Math.max(0, this.slimeGuard - dt);
+        if (this.slimeTimer > 0) {
+            this.slimeTimer -= dt;
+            if (this.slimeTimer <= 0) {
+                this.slimeTimer = 0;
+                this.slimeGuard = this.slimeGuardTime;
+            }
+        }
 
         // Slow countdown
         if (this.slowTimer > 0) {
@@ -317,6 +341,8 @@ class Player {
             }
         }
         if (this.hasPowerUp('speed')) this.speed *= 1.5;
+        // Eingeleimt: nur noch etwa 20 % Tempo (das Auto im Gummi unten durch – es macht sowieso schneller)
+        if (this.slimeTimer > 0 && !this.autoActive) this.speed *= 0.2;
 
         // Invincibility
         if (this.iFrames > 0) this.iFrames -= dt;
@@ -455,6 +481,9 @@ class Player {
         if (this.poisonTimer > 0) this._drawPoison(ctx, cx, cy, t);
         if (this.sleepTimer > 0 && typeof Juri !== 'undefined' && Juri.zzz) {
             Juri.zzz(ctx, cx + 6, cy - 22, 3.4);
+        }
+        if (this.slimeTimer > 0 && typeof Juri !== 'undefined' && Juri.slimeCoat) {
+            Juri.slimeCoat(ctx, cx, cy, t);
         }
         // onDraw (Upgrade-Gerüst): Upgrades malen ihr Eigenes über Mark (Bildschirmmaße wie hier)
         if (this.hooks && this.hooks.onDraw.length) dispatchHooks(this, 'onDraw', [ctx]);

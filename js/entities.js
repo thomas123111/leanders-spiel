@@ -2604,9 +2604,10 @@ class Juri {
         this.fireFlash = 0; this.stuckTimer = 0;
         this.poisonTimer = 0; this.poisonTick = 0;   // > 0: vergiftet (zieht Leben ab, kein Tempo-Abzug)
         this.sleepTimer = 0; this.sleepGuard = 0;    // > 0: eingeschlafen, danach Schonzeit gegen neues sleep
+        this.slimeTimer = 0; this.slimeGuard = 0;    // > 0: eingesleimt (nur ~20 % Tempo), danach Schonzeit gegen neues slime
         this.seed = Math.random() * 10;
         this.stunTimer = 0;   // > 0: betäubt (z. B. vom Hammer des Riesen-Zombies)
-        this.koTimer = 0;     // > 0: k.o. am Boden (Drachenstrahl), steht danach mit halben LP auf
+        this.koTimer = 0;     // > 0: k.o. am Boden (Drachenstrahl), steht danach mit halben LP wieder auf
         this.koDur = 0;
         // Ereignis-Haken des Upgrade-Gerüsts (js/upgrades.js, Datei js/upgrades-juri.js)
         setupHooks(this, 'juri');
@@ -2643,6 +2644,14 @@ class Juri {
     sleep(seconds) {
         if (this.dead || this.koTimer > 0 || this.sleepGuard > 0) return false;
         this.sleepTimer = Math.max(this.sleepTimer, seconds);
+        return true;
+    }
+
+    // Einschleimen: läuft nur noch sehr langsam (etwa 20 % Tempo), haut aber weiter – und fällt dabei
+    // ausdrücklich nicht k.o. Danach Schonzeit, in der kein neues slime wirkt.
+    slime(seconds) {
+        if (this.dead || this.koTimer > 0 || this.slimeGuard > 0) return false;
+        this.slimeTimer = Math.max(this.slimeTimer, seconds);
         return true;
     }
 
@@ -2753,6 +2762,49 @@ class Juri {
             c.sleepGuard = Juri.SLEEP_GUARD;
         }
         return true;
+    }
+
+    // ── Einschleimen (Welt 51, für alle Begleiter gleich): drei Sekunden kleben, nur ~20 % Tempo,
+    // danach 1,5 s Schonzeit. Die Figur bleibt wach – Angriff und Spucken laufen weiter. ──
+
+    static get SLIME_GUARD() { return 1.5; }
+    static get SLIME_FACTOR() { return 0.2; }
+
+    // Schleim abzählen; true = klebt noch (der Aufrufer läuft die Figur dann nur langsam).
+    // Beim Ablösen beginnt die Schonzeit, in der kein neues slime wirkt.
+    static slimeUpdate(c, dt) {
+        if (c.slimeGuard > 0) c.slimeGuard = Math.max(0, c.slimeGuard - dt);
+        if (!(c.slimeTimer > 0)) return false;
+        c.slimeTimer -= dt;
+        if (c.slimeTimer <= 0) {
+            c.slimeTimer = 0;
+            c.slimeGuard = Juri.SLIME_GUARD;
+        }
+        return true;
+    }
+
+    // Rosa-durchsichtiger Gummi-Überzug über der Figur. Nur Darstellung.
+    static slimeCoat(ctx, cx, cy, t) {
+        const r = 1 + Math.sin(t * 5) * 0.05;
+        Art.glow(ctx, cx, cy + 2, 24, '#ff7ac0', 0.3 + 0.08 * Math.sin(t * 6));
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,110,190,0.4)';
+        ctx.strokeStyle = 'rgba(255,160,215,0.85)';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy - 2, 13 * r, 15 / r, 0, 0, TAU);
+        ctx.fill();
+        ctx.stroke();
+        // drei Gummitropfen hängen unten am Überzug
+        for (let i = 0; i < 3; i++) {
+            const dx = -7 + i * 7;
+            const d = 2.2 + Math.sin(t * 4 + i * 2.1) * 0.9;
+            ctx.beginPath();
+            ctx.ellipse(cx + dx, cy + 11 + d, 2.4, 2.8 + d * 0.5, 0, 0, TAU);
+            ctx.fill();
+        }
+        Art.shine(ctx, cx - 5, cy - 9, 4, 2.4, -0.5, 0.8);
+        ctx.restore();
     }
 
     // Gift-Anzeige über einer Figur: grünes Leuchten und ein Gift-Tropfen. Nur Darstellung.
@@ -2881,6 +2933,7 @@ class Juri {
         if (Juri.koUpdate(this, dt)) return;
         Juri.poisonUpdate(this, dt);
         const asleep = Juri.sleepUpdate(this, dt);
+        const slimed = Juri.slimeUpdate(this, dt);
         // Betäubt oder eingeschlafen: steht still, haut nicht, springt nicht zu Mark
         if (this.stunTimer > 0 || asleep) {
             if (this.stunTimer > 0) this.stunTimer -= dt;
@@ -2915,7 +2968,7 @@ class Juri {
         const gd = Math.hypot(gx - cx, gy - cy);
         this.moving = false;
         if (gd > stop) {
-            const sp = this.speed * (tg ? 1.25 : (gd > 110 ? 1.5 : 1));
+            const sp = this.speed * (tg ? 1.25 : (gd > 110 ? 1.5 : 1)) * (slimed ? Juri.SLIME_FACTOR : 1);
             const len = Math.min(sp * dt, gd - stop);
             const moved = Juri.step(this, (gx - cx) / gd * len, (gy - cy) / gd * len, world);
             this.stuckTimer = moved < len * 0.3 ? this.stuckTimer + dt : 0;
@@ -3133,6 +3186,7 @@ class Juri {
             Juri.zzz(ctx, cx + f * 5, pos.y - 8, this.seed);
         }
         if (this.poisonTimer > 0) Juri.poisonMark(ctx, cx + f * 9, pos.y - 12, t);
+        if (this.slimeTimer > 0) Juri.slimeCoat(ctx, cx, pos.y + this.h / 2, t);
         Juri.hpBar(ctx, cx, pos.y - 13, this.hp, this.maxHp);
     }
 
@@ -3220,9 +3274,10 @@ class ShadowCrocodile {
         this.mouthTimer = 0; this.stuckTimer = 0;
         this.poisonTimer = 0; this.poisonTick = 0;   // > 0: vergiftet (zieht Leben ab, kein Tempo-Abzug)
         this.sleepTimer = 0; this.sleepGuard = 0;    // > 0: eingeschlafen, danach Schonzeit gegen neues sleep
+        this.slimeTimer = 0; this.slimeGuard = 0;    // > 0: eingesleimt (nur ~20 % Tempo), danach Schonzeit gegen neues slime
         this.seed = Math.random() * 10;
         this.stunTimer = 0;   // > 0: betäubt (z. B. vom Hammer des Riesen-Zombies)
-        this.koTimer = 0;     // > 0: k.o. am Boden (Drachenstrahl), steht danach mit halben LP auf
+        this.koTimer = 0;     // > 0: k.o. am Boden (Drachenstrahl), steht danach mit halben LP auf.
         this.koDur = 0;
         // Ereignis-Haken des Upgrade-Gerüsts (js/upgrades.js, Datei js/upgrades-croc.js)
         setupHooks(this, 'croc');
@@ -3262,6 +3317,14 @@ class ShadowCrocodile {
         return true;
     }
 
+    // Einschleimen: läuft nur noch sehr langsam (etwa 20 % Tempo), spuckt aber weiter – und fällt dabei
+    // ausdrücklich nicht k.o. Danach Schonzeit, in der kein neues slime wirkt.
+    slime(seconds) {
+        if (this.dead || this.koTimer > 0 || this.slimeGuard > 0) return false;
+        this.slimeTimer = Math.max(this.slimeTimer, seconds);
+        return true;
+    }
+
     // K.o. statt verschwinden (Drachenstrahl): liegt am Boden, steht nach `seconds` mit halben LP auf.
     knockOut(seconds) { Juri.knockOutCompanion(this, seconds); }
 
@@ -3274,6 +3337,7 @@ class ShadowCrocodile {
         if (Juri.koUpdate(this, dt)) return;
         Juri.poisonUpdate(this, dt);
         const asleep = Juri.sleepUpdate(this, dt);
+        const slimed = Juri.slimeUpdate(this, dt);
         // Betäubt oder eingeschlafen: steht still, spuckt nicht, springt nicht zu Mark
         if (this.stunTimer > 0 || asleep) {
             if (this.stunTimer > 0) this.stunTimer -= dt;
@@ -3303,7 +3367,7 @@ class ShadowCrocodile {
         const gd = Math.hypot(px - cx, py - cy);
         this.moving = false;
         if (gd > 52) {
-            const len = Math.min(this.speed * (gd > 120 ? 1.5 : 1) * dt, gd - 52);
+            const len = Math.min(this.speed * (gd > 120 ? 1.5 : 1) * (slimed ? Juri.SLIME_FACTOR : 1) * dt, gd - 52);
             const moved = Juri.step(this, (px - cx) / gd * len, (py - cy) / gd * len, world);
             this.stuckTimer = moved < len * 0.3 ? this.stuckTimer + dt : 0;
             this.moving = moved > 0.05;
@@ -3550,6 +3614,7 @@ class ShadowCrocodile {
             Juri.zzz(ctx, cx + f * 6, pos.y - 9, this.seed);
         }
         if (this.poisonTimer > 0) Juri.poisonMark(ctx, cx + f * 10, pos.y - 13, t);
+        if (this.slimeTimer > 0) Juri.slimeCoat(ctx, cx, pos.y + this.h / 2, t);
         Juri.hpBar(ctx, cx, pos.y - 14, this.hp, this.maxHp);
         // onDraw (Upgrade-Gerüst, js/upgrades-croc.js): eigene Zeichnung über dem Krokodil
         if (this.hooks && this.hooks.onDraw.length) dispatchHooks(this, 'onDraw', [ctx]);

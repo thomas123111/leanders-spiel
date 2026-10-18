@@ -79,6 +79,7 @@ class PandaBuddy {
         this.stuckTimer = 0;
         this.poisonTimer = 0; this.poisonTick = 0;   // > 0: vergiftet (zieht Leben ab, kein Tempo-Abzug)
         this.sleepTimer = 0; this.sleepGuard = 0;    // > 0: eingeschlafen, danach Schonzeit gegen neues sleep
+        this.slimeTimer = 0; this.slimeGuard = 0;    // > 0: eingesleimt (nur ~20 % Tempo), danach Schonzeit gegen neues slime
         this.seed = Math.random() * 10;
         this.stunTimer = 0;   // > 0: betäubt (z. B. vom Hammer des Riesen-Zombies)
         this.koTimer = 0;     // > 0: k.o. am Boden (Drachenstrahl), steht danach mit halben LP auf
@@ -117,6 +118,14 @@ class PandaBuddy {
     sleep(seconds) {
         if (this.dead || this.koTimer > 0 || this.sleepGuard > 0) return false;
         this.sleepTimer = Math.max(this.sleepTimer, seconds);
+        return true;
+    }
+
+    // Einschleimen: rollt nur noch sehr langsam (etwa 20 % Tempo), schießt aber weiter – und fällt dabei
+    // ausdrücklich nicht k.o. Danach Schonzeit, in der kein neues slime wirkt.
+    slime(seconds) {
+        if (this.dead || this.koTimer > 0 || this.slimeGuard > 0) return false;
+        this.slimeTimer = Math.max(this.slimeTimer, seconds);
         return true;
     }
 
@@ -176,6 +185,7 @@ class PandaBuddy {
         if (Juri.koUpdate(this, dt)) return;
         Juri.poisonUpdate(this, dt);
         const asleep = Juri.sleepUpdate(this, dt);
+        const slimed = Juri.slimeUpdate(this, dt);
         // Betäubt oder eingeschlafen: steht still, schießt nicht, rollt nicht zu Mark
         if (this.stunTimer > 0 || asleep) {
             if (this.stunTimer > 0) this.stunTimer -= dt;
@@ -205,7 +215,7 @@ class PandaBuddy {
         const gd = Math.hypot(px - cx, py - cy);
         this.moving = false;
         if (gd > 46) {
-            const len = Math.min(this.speed * (gd > 120 ? 1.5 : 1) * dt, gd - 46);
+            const len = Math.min(this.speed * (gd > 120 ? 1.5 : 1) * (slimed ? Juri.SLIME_FACTOR : 1) * dt, gd - 46);
             const moved = Juri.step(this, (px - cx) / gd * len, (py - cy) / gd * len, world);
             this.stuckTimer = moved < len * 0.3 ? this.stuckTimer + dt : 0;
             this.moving = moved > 0.05;
@@ -399,6 +409,7 @@ class PandaBuddy {
             Juri.zzz(ctx, cx + f * 5, pos.y - 9, this.seed);
         }
         if (this.poisonTimer > 0) Juri.poisonMark(ctx, cx + f * 10, pos.y - 13, t);
+        if (this.slimeTimer > 0) Juri.slimeCoat(ctx, cx, pos.y + this.h / 2, t);
         Juri.hpBar(ctx, cx, pos.y - 14, this.hp, this.maxHp);
         // onDraw (Upgrade-Gerüst, js/upgrades-panda.js): eigene Zeichnung über dem Panda (Bildschirmmaße wie hier)
         if (this.hooks && this.hooks.onDraw.length) dispatchHooks(this, 'onDraw', [ctx]);

@@ -716,6 +716,40 @@ const WORLD_THEMES = {
         deco: [['sparkle', 3], ['icecrack', 2], ['snowmound', 2], ['frost', 1], ['cone', 1.2], ['pebble', 0.8]], rate: 0.3,
         sk: 'snowballs', win: 'crystal', glow: '#dff2ff',
     },
+    // Welt 51: Süßigkeitenland – heller Keks- und Waffelboden, Wände aus Lebkuchen mit Zuckerstreifen,
+    // Gummidrops als Büsche, Schokolade statt Wasser (Boss-Raum: runder Tortenplatz)
+    candy: {
+        void: '#2a1206', vignette: 0.22, shade: '#3a1e0c', fs: 'sand', floor: ['#e8c896', '#e0bc86'],
+        ws: 'jelly', wall: '#b0482a', wallF: '#6a2818', accent: '#ff5aa0', tints: ['#f6e2c0', '#eed4ac', '#ffe2ee', '#f2d8b8'],
+        deep: 0.34, deepCol: '#4a2410', arena: '#ffd6e8',
+        bush: ['#e84a7a', '#ff7aa8', '#ffc0d8'], bx: 'glow', bxc: ['#ffd23f', '#7fe0ff', '#ffffff', '#8fdc5a'],
+        water: 'goo', wc: ['#5a3018', '#7a4a28', '#c8987a'], bone: '#f6e8d0', pad: '#ff5aa0',
+        deco: [['ball', 1.4], ['gem', 1], ['sparkle', 1.2], ['splat', 0.8], ['cone', 0.8], ['crack', 0.8]], rate: 0.32,
+        flowers: ['#ffffff', '#ffe14a', '#ff9ad0', '#8fd6ff'], sk: 'balls', win: 'crystal', glow: '#ffd0e0',
+    },
+    // Welt 52: Rattenkanal – helle Steinwege an grünen Wasserkanälen, Gitter, Ketten und Pfützen am
+    // Boden, Fackelschein (Boss-Raum: runde Halle mit Gullydeckel)
+    rat: {
+        void: '#0a1410', vignette: 0.36, shade: '#14231c', fs: 'flag', stone: 24, seams: true,
+        floor: ['#c2c8bc', '#b8c0b2'],
+        ws: 'bricks', wall: '#7a8a76', wallF: '#3f4c3e', accent: '#8a9a5a', tints: ['#d2d8cc', '#c8d0c2', '#dde2d6', '#c2cab8'],
+        deep: 0.46, deepCol: '#1a3a24', arena: '#8a94a0',
+        bush: ['#2a5a34', '#3f7a48', '#8fc88a'], bx: 'none',
+        water: 'water', wc: ['#2a5a2a', '#4a8a3f', '#cfe8c0'], bone: '#e8e4d8', pad: '#8a94a0',
+        deco: [['grate', 1.2], ['can', 0.8], ['chain', 0.8], ['puddle', 1], ['splat', 0.8], ['gear', 0.6]], rate: 0.3,
+        win: 'porthole', glow: '#ffc878', dark: 0.3, darkCol: '#060d08',
+    },
+    // Welt 53: Skorpionwüste – helle Sanddünen, rote Sandsteinwände, Kakteen und ausgebleichte Äste,
+    // kleine türkisfarbene Oasen (Boss-Raum: runder Felskessel aus rotem Sandstein)
+    scorpion: {
+        void: '#4a2410', vignette: 0.2, shade: '#8a4a24', fs: 'sand', floor: ['#f0d8a8', '#e8cd9a'],
+        ws: 'strata', wall: '#c05a34', wallF: '#7a2e18', accent: '#ff8c4a', tints: ['#f8e4b8', '#f0d8a4', '#ffe8c8', '#e8cc9c'],
+        deep: 0.36, deepCol: '#1a6a72', arena: '#e0a06a',
+        bush: ['#3f7a3a', '#5fa04a', '#9fd07a'], bx: 'cattail', bxc: ['#ffd23f', '#ff8c4a'],
+        water: 'water', wc: ['#2a9ab0', '#4fd0dc', '#e0fff8'], bone: '#f2e2c0', pad: '#ff8c4a',
+        deco: [['cactus', 1.4], ['shard', 1], ['bone', 0.8], ['crack', 1], ['pebble', 1], ['crater', 0.8]], rate: 0.28,
+        win: 'fossil', glow: '#ffe0b0',
+    },
 };
 
 // Welt 24: Die drei Elemente des Drachenvaters (und Gold dazwischen) liegen als Zonen über der Karte:
@@ -6387,3 +6421,8 @@ const WORLD47_LEVEL = createLateLevel(66, 58, 21, 4747, 6, 5, 3, 2);
 const WORLD48_LEVEL = createLateLevel(66, 58, 22, 4848, 5, 6, 3, 2);
 const WORLD49_LEVEL = createLateLevel(68, 58, 22, 4949, 3, 4, 5, 2);
 const WORLD50_LEVEL = createLateLevel(68, 60, 23, 5050, 6, 4, 5, 2);
+// Welten 51–53 (Gerüst): Karten wie bei 45–50. Welt 51 hat ein paar Schokoladenflüsse, Welt 52 viele
+// Wasserkanäle, Welt 53 nur wenige Oasen. Welt 53 ist die letzte Welt – ihre Belohnung und ihr Sieg beenden das Spiel.
+const WORLD51_LEVEL = createLateLevel(68, 60, 23, 5151, 5, 5, 4, 2);
+const WORLD52_LEVEL = createLateLevel(70, 60, 23, 5252, 7, 4, 4, 2);
+const WORLD53_LEVEL = createLateLevel(70, 62, 24, 5353, 4, 5, 4, 2);

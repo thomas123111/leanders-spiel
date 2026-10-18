@@ -208,9 +208,10 @@ for (const n of worlds) {
     console.log(`${ok ? 'OK  ' : 'FEHLER'} Welt ${n}: ${r.fehler ? 'bei „' + r.schritt + '“: ' + r.fehler
         : `Gegner ${r.gegner} (${r.arten}), Boss ${r.boss} ${r.bossHp} LP, im Raum ${r.imRaum}, Geschosse max ${r.geschosseMax}, Ende ${r.ende}, Zustände ${r.zustaende}`}`);
 }
-// ── Zustände Gift und Schlaf: eigene Probe in Welt 45 (Mark, Juri und das Schattenkrokodil) ──
+// ── Zustände Gift, Schlaf und Einschleimen: eigene Probe in Welt 51 (Mark, Juri, Krokodil, Panda) ──
 // Gift zieht ein halbes Herz pro Sekunde ab, macht nicht langsamer und endet von selbst.
 // Schlaf hält fest (kein Laufen, kein Angriff), danach 1,5 s Schonzeit. Die Freunde fallen nicht k.o.
+// Einschleimen (Welt 51): drei Sekunden kleben – die Figur läuft nur mit ~20 % Tempo, danach 1,5 s Schonzeit.
 gameErrors.length = 0;
 const z = vm.runInContext(`(function () {
     const r = { fehl: null, schritt: 'start' };
@@ -224,7 +225,7 @@ const z = vm.runInContext(`(function () {
     const durch = sek => bild(Math.round(sek * 60));
     const inp = Input.update;
     try {
-        Game.startWorld(45);
+        Game.startWorld(51);
         Game.player.iFrames = 1e9;
         bild(4);
         const p = Game.player;
@@ -232,12 +233,13 @@ const z = vm.runInContext(`(function () {
 
         // ── Gift bei Mark ──
         r.schritt = 'gift';
-        // Schutz wie bei stun: Krone und Auto lassen Gift und Schlaf gar nicht erst wirken
+        // Schutz wie bei stun: Krone und Auto lassen Gift, Schlaf und Schleim gar nicht erst wirken
         p.autoActive = false; p.dodging = false;
         p.crownShieldTimer = 5;
-        r.kroneSchuetzt = p.poison(3) === false && p.sleep(1) === false;
+        r.kroneSchuetzt = p.poison(3) === false && p.sleep(1) === false && p.slime(3) === false;
         p.crownShieldTimer = 0; p.autoActive = true;
-        r.autoSchuetzt = p.poison(3) === false && p.sleep(1) === false;
+        r.autoSchuetzt = p.poison(3) === false && p.sleep(1) === false && p.slime(3) === false;
+        p.autoActive = false; p.slimeTimer = 0; p.slimeGuard = 0;
         p.autoActive = false;
         p.hp = p.maxHp; p.poisonTimer = 0; p.poisonTick = 0; p.sleepTimer = 0; p.sleepGuard = 0;
         r.giftSetzt = p.poison(3) === true;
@@ -255,9 +257,10 @@ const z = vm.runInContext(`(function () {
         const feld = {
             45: 'unlockedLaserBalls', 46: 'unlockedBoomBall', 47: 'unlockedPandaFriend',
             48: 'unlockedIceBall', 49: 'unlockedShadowCloud', 50: 'unlockedIceHammer',
+            51: 'unlockedStickyBall', 52: 'unlockedDoubleHammer', 53: 'unlockedPoisonSpit',
         };
         // Der Lauf setzt das freigeschaltete Maximum vorab hoch, deshalb kommt die Weltenliste von außen here.
-        const gespielt = [45, 46, 47, 48, 49, 50].filter(w => (${JSON.stringify(worlds)}).includes(w));
+        const gespielt = [45, 46, 47, 48, 49, 50, 51, 52, 53].filter(w => (${JSON.stringify(worlds)}).includes(w));
         r.merker = gespielt.map(w => feld[w] + '=' + Game[feld[w]]).join(' ');
         r.merkerOk = gespielt.every(w => Game[feld[w]] === true);
 
@@ -318,6 +321,53 @@ const z = vm.runInContext(`(function () {
         durch(1.4);
         r.freundeAuf = j.sleepTimer <= 0 && j.sleepGuard > 0 && k.sleepTimer <= 0 && !j.dead && !k.dead;
         r.freundeSchonzeit = j.sleep(1) === false && k.sleep(1) === false;
+
+        // ── Einschleimen (Welt 51): drei Sekunden kleben, nur ~20 % Tempo, danach 1,5 s Schonzeit ──
+        r.schritt = 'schleim';
+        p.slimeTimer = 0; p.slimeGuard = 0;
+        const pb = Game.companions.find(c => c instanceof PandaBuddy);   // dabei, seit Welt 47 gespielt
+        // Temptest: 0,5 s im Schleim kriechen, dann wach dieselbe Richtung laufen. Gewertet nur eine
+        // Richtung mit mindestens 30 px freiem Boden – sonst misst die Prüfung eine Wand.
+        const schleimMass = () => {
+            for (const d of [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }]) {
+                Input.update = () => { Input.direction = d; };
+                p.slimeTimer = 0; p.slimeGuard = 0;
+                p.slime(3);
+                const ax = p.x, ay = p.y;
+                durch(0.5);
+                const schleim = Math.hypot(p.x - ax, p.y - ay);
+                const tempo = p.speed;
+                p.slimeTimer = 0; p.slimeGuard = 0;
+                const bx = p.x, by = p.y;
+                durch(0.5);
+                const wach = Math.hypot(p.x - bx, p.y - by);
+                if (wach > 30) return { schleim, wach, tempo };
+            }
+            return null;
+        };
+        const sm = schleimMass();
+        r.schleimGemessen = !!sm;
+        r.schleimLangsam = !!sm && sm.schleim < sm.wach * 0.5 && sm.schleim > 0.5;
+        r.schleimTempo = !!sm && Math.abs(sm.tempo - p.baseSpeed * 0.2) < 0.01;
+        p.slimeTimer = 0; p.slimeGuard = 0;
+        r.schleimWirkte = p.slime(3) === true && p.slimeTimer === 3;
+        p.slime(1); r.schleimNurVerlaengert = p.slimeTimer === 3;
+        durch(3.05);
+        r.schleimWeg = p.slimeTimer <= 0 && p.slimeGuard > 0;
+        r.schleimSchonzeit = p.slime(2) === false && p.slimeTimer <= 0;
+        durch(1.6);
+        r.schleimFrisch = p.slime(2) === true && p.slimeTimer > 0;
+        p.slimeTimer = 0; p.slimeGuard = 0;
+        // Freunde: dasselbe Spiel – sie kleben, laufen aber weiter (kein k.o.), danach Schonzeit
+        for (const c of [j, k, pb]) { if (c) { c.slimeTimer = 0; c.slimeGuard = 0; } }
+        r.schleimFreunde = j.slime(3) === true && k.slime(3) === true && (!pb || pb.slime(3) === true);
+        durch(1);
+        r.freundeSchleim = j.slimeTimer > 0 && k.slimeTimer > 0 && !j.dead && !k.dead && (!pb || !pb.dead);
+        durch(2.1);
+        r.freundeSchleimWeg = j.slimeTimer <= 0 && j.slimeGuard > 0 && k.slimeTimer <= 0 && !j.dead && !k.dead;
+        r.freundeSchleimSchon = j.slime(1) === false && k.slime(1) === false;
+        durch(1.6);
+        r.freundeSchleimFrisch = j.slime(2) === true && k.slime(2) === true && (!pb || pb.slime(2) === true);
         r.schritt = 'fertig';
     } catch (e) {
         r.fehl = e.message + ' | ' + String(e.stack || '').split('\\n').slice(1, 3).join(' ').trim();
@@ -334,14 +384,20 @@ if (z.fehl) {
         && z.nurVerlaengert && z.schlafWirkte && z.schlaeftNoch && z.haeltFest && z.aufgewacht
         && z.schonzeitWirkt && z.schonzeitNoch && z.nachSchonzeit && z.laeuftWach && z.laeuftWieder
         && z.freundeDa && z.freundeLP === '6/6' && z.keinKo && z.giftWegFreunde && z.schlafFreunde
-        && z.freundeRuhen && z.freundeAuf && z.freundeSchonzeit;
+        && z.freundeRuhen && z.freundeAuf && z.freundeSchonzeit
+        && z.schleimGemessen && z.schleimLangsam && z.schleimTempo && z.schleimWirkte && z.schleimNurVerlaengert
+        && z.schleimWeg && z.schleimSchonzeit && z.schleimFrisch && z.schleimFreunde
+        && z.freundeSchleim && z.freundeSchleimWeg && z.freundeSchleimSchon && z.freundeSchleimFrisch;
     if (!gut) failed++;
     console.log(`${gut ? 'OK  ' : 'FEHLER'} Zustände: Merker ${z.merker}; Schutz durch Krone ${z.kroneSchuetzt} und Auto ${z.autoSchuetzt}; `
         + `Gift ${z.lpNach1s} LP in gut 1 s und ${z.lpNach3s} LP in gut 3 s, danach weg ${z.giftWeg}, `
         + `nicht langsamer ${z.nichtLangsamer}, nur verlängern ${z.nurVerlaengert}; `
         + `Schlaf hält fest ${z.haeltFest}, Schonzeit ${z.schonzeitWirkt}/${z.schonzeitNoch}, danach wieder ${z.nachSchonzeit}, `
         + `wach läuft er ${z.laeuftWieder}; Freunde Gift ${z.freundeLP} LP ohne K.o. ${z.keinKo}, `
-        + `Schlaf ohne K.o. ${z.freundeRuhen}/${z.freundeAuf}, Schonzeit ${z.freundeSchonzeit}`);
+        + `Schlaf ohne K.o. ${z.freundeRuhen}/${z.freundeAuf}, Schonzeit ${z.freundeSchonzeit}; `
+        + `Schleim: Tempo ${z.schleimTempo}, langsamer unterwegs ${z.schleimLangsam}, nur verlängern ${z.schleimNurVerlaengert}, `
+        + `danach weg ${z.schleimWeg}, Schonzeit ${z.schleimSchonzeit}, danach wieder ${z.schleimFrisch}; `
+        + `Freunde Schleim ${z.freundeSchleim}/${z.freundeSchleimWeg}, Schonzeit ${z.freundeSchleimSchon}, danach wieder ${z.freundeSchleimFrisch}`);
 }
 console.log(failed ? `${failed} von ${worlds.length} Welten mit Fehlern` : `Alle ${worlds.length} Welten in Ordnung`);
 process.exitCode = failed ? 1 : 0;

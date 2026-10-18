@@ -251,6 +251,7 @@ const UI = {
             '10000 MUENZEN': '10000 Münzen', '500 JUWELEN': '500 Juwelen',
             'BASEBALL-LASERKUGELN': 'Baseball-Laserkugeln', 'KNALLBALL': 'Knallball', 'PANDA-FREUND': 'Panda-Freund',
             'EISBALL': 'Eisball', 'SCHATTENWOLKE': 'Schattenwolke', 'EISHAMMER': 'Eishammer',
+            'KLEBEBALL': 'Klebeball', 'DOPPELHAMMER': 'Doppelhammer', 'GIFTSPUCKE': 'Giftspucke',
         };
         return map[r.label] || r.label;
     },

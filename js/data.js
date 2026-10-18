@@ -53,6 +53,9 @@ const WORLDS = [
     { name: 'Regenbogental', theme: 'unicorn', accent: '#c9a8ff', emoji: '🦄', boss: 'Rieseneinhorn' },
     { name: 'Vampirschloss', theme: 'vampire', accent: '#b0324f', emoji: '🧛', boss: 'Riesenvampir' },
     { name: 'Schneemann-Tal', theme: 'snowman', accent: '#bfe4ff', emoji: '⛄', boss: 'Riesenschneemann' },
+    { name: 'Süßigkeitenland', theme: 'candy', accent: '#ff5aa0', emoji: '🍬', boss: 'Riesen-Gummibär' },
+    { name: 'Rattenkanal', theme: 'rat', accent: '#8a9a5a', emoji: '🐀', boss: 'Riesenratte' },
+    { name: 'Skorpionwüste', theme: 'scorpion', accent: '#ff8c4a', emoji: '🦂', boss: 'Riesenskorpion' },
 ];
 
 const LAST_WORLD = WORLDS.length - 1;

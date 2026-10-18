@@ -15,7 +15,8 @@ const LEVELS = [TUTORIAL_LEVEL, WORLD1_LEVEL, WORLD2_LEVEL, WORLD3_LEVEL, WORLD4
     WORLD31_LEVEL, WORLD32_LEVEL, WORLD33_LEVEL, WORLD34_LEVEL, WORLD35_LEVEL, WORLD36_LEVEL,
     WORLD37_LEVEL, WORLD38_LEVEL, WORLD39_LEVEL, WORLD40_LEVEL, WORLD41_LEVEL, WORLD42_LEVEL,
     WORLD43_LEVEL, WORLD44_LEVEL,
-    WORLD45_LEVEL, WORLD46_LEVEL, WORLD47_LEVEL, WORLD48_LEVEL, WORLD49_LEVEL, WORLD50_LEVEL];
+    WORLD45_LEVEL, WORLD46_LEVEL, WORLD47_LEVEL, WORLD48_LEVEL, WORLD49_LEVEL, WORLD50_LEVEL,
+    WORLD51_LEVEL, WORLD52_LEVEL, WORLD53_LEVEL];
 
 // Stärkere Bosse in allen Welten (Wunsch von Leander).
 // BOSS_TOUGHNESS: Bosse nehmen nur 1/1,5 des Schadens, halten also 1,5-mal so viel aus. Absichtlich nicht
@@ -90,6 +91,10 @@ const Game = {
     unlockedIceBall: false,
     unlockedShadowCloud: false,
     unlockedIceHammer: false,
+    // Belohnungen aus Welt 51–53: nur der Merker, die Wirkung kommt mit den spaeteren Auftraegen
+    unlockedStickyBall: false,
+    unlockedDoubleHammer: false,
+    unlockedPoisonSpit: false,
     maxWorldUnlocked: 1,
     trainingCompleted: false,
     coins: 0,
@@ -414,6 +419,9 @@ const Game = {
                 iceBall: this.unlockedIceBall,
                 shadowCloud: this.unlockedShadowCloud,
                 iceHammer: this.unlockedIceHammer,
+                stickyBall: this.unlockedStickyBall,
+                doubleHammer: this.unlockedDoubleHammer,
+                poisonSpit: this.unlockedPoisonSpit,
                 upgrades: this.activeUpgrades,
                 boughtUps: this.boughtUpgrades,
                 star: this.shopRandomStarActive ? {
@@ -467,6 +475,10 @@ const Game = {
                 this.unlockedIceBall = !!data.iceBall;
                 this.unlockedShadowCloud = !!data.shadowCloud;
                 this.unlockedIceHammer = !!data.iceHammer;
+                // Alte Spielstaende kennen die drei neuen Merker nicht: dann bleiben sie einfach aus
+                this.unlockedStickyBall = !!data.stickyBall;
+                this.unlockedDoubleHammer = !!data.doubleHammer;
+                this.unlockedPoisonSpit = !!data.poisonSpit;
                 // Gewählte Extras (Knopf „Waffen“): je Figur höchstens eins, unbekannte Einträge fallen weg.
                 // Alter Spielstand (bis 9.6.0) kannte genau EIN gewähltes Extra in `data.upgrade` - es wird
                 // seiner Figur zugeordnet und bleibt so erhalten (Leanders Regel, 18.10.2026).
@@ -568,6 +580,10 @@ const Game = {
             48: { label: 'EISBALL', coins: 0, jewels: 0, item: 'unlockedIceBall' },
             49: { label: 'SCHATTENWOLKE', coins: 0, jewels: 0, item: 'unlockedShadowCloud' },
             50: { label: 'EISHAMMER', coins: 0, jewels: 0, item: 'unlockedIceHammer' },
+            // Welt 51–53: neue Faehigkeiten als Belohnung (Merker wirkt ein spaeterer Auftrag)
+            51: { label: 'KLEBEBALL', coins: 0, jewels: 0, item: 'unlockedStickyBall' },
+            52: { label: 'DOPPELHAMMER', coins: 0, jewels: 0, item: 'unlockedDoubleHammer' },
+            53: { label: 'GIFTSPUCKE', coins: 0, jewels: 0, item: 'unlockedPoisonSpit' },
         };
     },
 
@@ -1106,6 +1122,10 @@ const Game = {
             case 48: add(Unicorn, 20); keyCarrier(Unicorn); chests(10); break;
             case 49: add(Vampire, 20); keyCarrier(Vampire); chests(10); break;
             case 50: add(Snowman, 22); keyCarrier(Snowman); chests(11); break;
+            // Welt 51–53: Ideen von Leander (13./18.10.2026), Figuren noch Platzhalter
+            case 51: add(GummyBear, 20); keyCarrier(GummyBear); chests(10); break;
+            case 52: add(ArmorRat, 21); keyCarrier(ArmorRat); chests(10); break;
+            case 53: add(Scorpion, 22); keyCarrier(Scorpion); chests(11); break;
         }
         this._applyDifficulty(worldNum, diff);
     },
@@ -1148,6 +1168,7 @@ const Game = {
             41: BossGiantEagle, 42: BossGiantFox, 43: BossGiantPorcupine, 44: BossGiantGorilla,
             45: BossGiantPeacock, 46: BossGiantClown, 47: BossGiantPanda, 48: BossGiantUnicorn,
             49: BossGiantVampire, 50: BossGiantSnowman,
+            51: BossGiantGummyBear, 52: BossGiantRat, 53: BossGiantScorpion,
         };
         // Welt 11/12 bekommen eigene Boss-Varianten (Pixel-Roboter, Sternen-Ritter), falls vorhanden
         if (typeof BossPixelRobot !== 'undefined') bosses[11] = BossPixelRobot;
@@ -1195,6 +1216,10 @@ const Game = {
             48: ['unlockedIceBall', 'Eisball! ❄️'],
             49: ['unlockedShadowCloud', 'Schattenwolke! 🌑'],
             50: ['unlockedIceHammer', 'Eishammer! 🔨'],
+            // Welt 51–53: Merker und Text, die Wirkung baut ein spaeterer Auftrag
+            51: ['unlockedStickyBall', 'Klebeball! 🍬'],
+            52: ['unlockedDoubleHammer', 'Doppelhammer! 🔨'],
+            53: ['unlockedPoisonSpit', 'Giftspucke! 🦂'],
         };
         const u = unlocks[this.currentWorld];
         this.lastUnlockText = '';
