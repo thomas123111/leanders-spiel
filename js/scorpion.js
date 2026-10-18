@@ -704,6 +704,7 @@ class BossGiantScorpion extends Enemy {
         this.hitOnce = [];
         // Giftsalve
         this.fanA = 0;
+        this.fanA2 = null;              // Richtung der zweiten Welle – steht vor dem ersten Schuss fest
         this.fanLock = false;
         this.fanWaves = 0;
         this.fanT = 0;
@@ -726,6 +727,18 @@ class BossGiantScorpion extends Enemy {
 
     // Wo der Riese Gift sprüht (Spitze des mittleren Stachels)
     _muzzle() { return { x: this.centerX() + this.face * 16, y: this.y - 2 }; }
+
+    // Richtung der zweiten Welle: wird in der Ansage sichtbar und spaeter nicht mehr umgeworfen
+    _fanA2(player, px, py) {
+        if (this.phase !== 2) return this.fanA;
+        const m = this._muzzle();
+        const fr = this.fanFriend;
+        if (fr && !fr.dead && !(fr.koTimer > 0)) {
+            return Math.atan2(fr.y + (fr.h || 20) / 2 - m.y, fr.x + (fr.w || 20) / 2 - m.x);
+        }
+        if (player && !player.dead) return Math.atan2(py - m.y, px - m.x);
+        return this.fanA;
+    }
 
     // Anzahl Gifttropfen je Salve
     _fanN() { return this.phase === 2 ? 9 : 6; }
@@ -775,7 +788,11 @@ class BossGiantScorpion extends Enemy {
                         this.fanA = Math.atan2(near.t.y - (this.y - 2), near.t.x - this.centerX());
                         if (Math.abs(Math.cos(this.fanA)) > 0.2) this.face = Math.cos(this.fanA) > 0 ? 1 : -1;
                     }
-                    if (this.stateT <= this.stateDur * 0.35) this.fanLock = true;   // Salve steht jetzt fest
+                    if (this.stateT <= this.stateDur * 0.35) {
+                        // beide Wellen stehen fest, bevor die erste fliegt – die zweite wird angesagt, nicht umgeworfen
+                        this.fanA2 = this._fanA2(player, px, py);
+                        this.fanLock = true;
+                    }
                 }
                 if (this.stateT <= 0) {
                     this.fanWaves = this.phase === 2 ? 2 : 1;
@@ -864,22 +881,11 @@ class BossGiantScorpion extends Enemy {
     _volley(dt, projectiles) {
         this.fanT -= dt;
         if (this.fanT <= 0 && this.fanWaves > 0) {
+            const wave = this.fanWaves;
             this.fanWaves--;
             this.fanT = 0.34;
-            if (this.fanWaves > 0) {
-                // zweite Welle zielt auf einen Freund, damit auch die Freunde ausweichen müssen
-                const fr = this.fanFriend;
-                const m = this._muzzle();
-                if (fr && !fr.dead && !(fr.koTimer > 0)) {
-                    this.fanA = Math.atan2(fr.y + (fr.h || 20) / 2 - m.y, fr.x + (fr.w || 20) / 2 - m.x);
-                } else {
-                    const player = typeof Game !== 'undefined' ? Game.player : null;
-                    if (player && !player.dead) {
-                        this.fanA = Math.atan2(player.y + player.h / 2 - m.y, player.x + player.w / 2 - m.x);
-                    }
-                }
-                this.fanLock = true;
-            }
+            // die zweite Welle fliegt auf genau die Bahn, die seit der Ansage sichtbar ist
+            if (wave === 1 && this.fanA2 !== null) this.fanA = this.fanA2;
             this._fireVolley(projectiles);
         }
         if (this.stateT <= 0 || (this.fanWaves === 0 && this.fanT <= 0)) this._afterBig();
@@ -983,6 +989,12 @@ class BossGiantScorpion extends Enemy {
                 LateWorldArt.lane(ctx, p.x, p.y, this.fanA + (i - (n - 1) / 2) * step, 186, 15,
                     st === 'volleyFire' ? 1 : k, ScorpionCfg.warnPoison);
             }
+            if (st === 'volleyFire' && this.fanWaves > 0 && this.fanA2 !== null && this.fanA2 !== this.fanA) {
+                // die noch kommende zweite Welle steht schon sichtbar in der Landschaft
+                for (let i = 0; i < n; i++) {
+                    LateWorldArt.lane(ctx, p.x, p.y, this.fanA2 + (i - (n - 1) / 2) * step, 186, 15, 0.75, ScorpionCfg.warnPoison);
+                }
+            }
             if (st === 'volleyWind') Art.ring(ctx, p.x, p.y, 20 + 12 * k, ScorpionCfg.venom, 2.4, 0.3 + 0.3 * k);
             return;
         }
@@ -992,7 +1004,7 @@ class BossGiantScorpion extends Enemy {
                 const p = camera.worldToScreen(s.x, s.y);
                 if (st === 'stingWind') {
                     // die Kreise füllen sich nacheinander: welcher Stachel als nächstes kommt, ist klar
-                    const part = clamp(this.stateT / this.stateDur * this.stings.length - (this.stings.length - 1 - i), 0, 1);
+                    const part = clamp(this._k() * this.stings.length - i, 0, 1);
                     LateWorldArt.warn(ctx, p.x, p.y, s.R, part, ScorpionCfg.warn);
                     Art.text(ctx, String(i + 1), p.x, p.y, { size: 13, color: '#ffffff', outline: 'rgba(60,10,4,0.85)' });
                 } else if (!s.done) {
