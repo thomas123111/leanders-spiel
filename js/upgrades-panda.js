@@ -69,6 +69,26 @@ function pandaKugelForm(p, kugel) {
     }
 }
 
+// Der rollende bzw. springende Panda: die Kugel wird DECKEND ueber die eigene Figur gemalt (in ihren
+// onDraw-Haken, die nach dem Koerper laufen), damit nicht Figur und Kugel gleichzeitig zu sehen sind.
+function pandaKugelZeichnen(ctx, pos, p, dreh, zusatz) {
+    const x = pos.x + p.w / 2, y = pos.y + p.h / 2;
+    const r = 15 + Math.max(0, Math.min(54, zusatz || 0)) * 0.05;
+    Art.glow(ctx, x, y, r * 1.8, '#9dff72', 0.42);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(dreh);
+    Art.body(ctx, 0, 0, r, r * 0.96, '#f7f5ff', { outline: '#4a4560' });
+    ctx.fillStyle = '#2b2734';
+    for (let i = 0; i < 3; i++) {
+        const a = (TAU * i) / 3;
+        ctx.beginPath();
+        ctx.ellipse(Math.cos(a) * r * 0.55, Math.sin(a) * r * 0.55, r * 0.34, r * 0.28, a, 0, TAU);
+        ctx.fill();
+    }
+    ctx.restore();
+}
+
 // Naechster lebender Gegner um einen Punkt, oder null (max = Entfernung in Pixeln)
 function pandaNextEnemy(x, y, max) {
     if (!Game.enemies) return null;
@@ -180,8 +200,9 @@ class BambooPole {
         this.seed = Math.random() * 10;
     }
     update(dt, world) {
-        this.age += dt;
+        // im Warten laeuft seine Zeit nicht mit: sonst bleibt den spaeten Stangen fast nichts zum Stehen
         if (this.delay > 0) { this.delay -= dt; return; }
+        this.age += dt;
         const k = Math.min(1, this.age / 0.18);
         this.h = this.maxH * (k * (2 - k));           // schnell raus, sanft bremsen
         if (!this.hit && this.age >= 0.1) {
@@ -289,24 +310,8 @@ class RollBall {
             }
         }
     }
-    // gemalt wird der rollende Panda selbst (bildschirmlage), nicht ein Ding in der Welt
-    draw(ctx, p, camera) {
-        const pos = camera.worldToScreen(p.x, p.y);
-        const x = pos.x + 7, y = pos.y + 7, r = 12;
-        Art.glow(ctx, x, y, r * 1.9, '#9dff72', 0.4);
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.rotate(this.age * 16);
-        Art.body(ctx, 0, 0, r, r * 0.95, '#f7f5ff', { outline: '#4a4560' });
-        ctx.fillStyle = '#2b2734';
-        for (let i = 0; i < 3; i++) {
-            const a = (TAU * i) / 3;
-            ctx.beginPath();
-            ctx.ellipse(Math.cos(a) * r * 0.55, Math.sin(a) * r * 0.55, r * 0.34, r * 0.28, a, 0, TAU);
-            ctx.fill();
-        }
-        ctx.restore();
-    }
+    // wird ueber die Figur gemalt (bildschirmlage), nicht als Ding unter ihr
+    aufSchirm(ctx, pos, p) { pandaKugelZeichnen(ctx, pos, p, this.age * 16, 0); }
 }
 
 registerUpgrade({
@@ -345,8 +350,8 @@ registerUpgrade({
             FX.burst(p.centerX(), p.centerY(), ['#9dff72', '#c8ffb0'], 8, 100, 0.4);
             Game.camera.shake(3, 0.12);
         });
-        if (Game.roundHooks) Game.roundHooks.onDrawWorld.push((ctx, camera) => {
-            if (ball) ball.draw(ctx, p, camera);
+        p.hooks.onDraw.push(ctx => {
+            if (ball && p._pandaPos) ball.aufSchirm(ctx, p._pandaPos, p);
         });
     },
 });
@@ -409,9 +414,9 @@ class PandaWall {
         this.welt = welt; this.game = game;
         this.tx = tx; this.ty = ty;
         this.alt = welt.tiles[ty][tx];
-        this.uraelt = welt.tiles[ty][tx];
         this.life = sekunden;
-        welt.tiles[ty][tx] = TILE_WALL;   // echte Kachel: jedes Geschoss prallt hier ab
+        this.dauer = sekunden;
+        welt.setTile(tx, ty, TILE_WALL);  // echte Kachel - ueber setTile, damit der vorgerenderte Block neu gemalt wird
         this.dead = false;
         this.seed = Math.random() * 10;
     }
@@ -423,7 +428,7 @@ class PandaWall {
         if (this.dead) return;
         this.dead = true;
         if (this.welt.tiles[this.ty] && this.welt.tiles[this.ty][this.tx] === TILE_WALL) {
-            this.welt.tiles[this.ty][this.tx] = this.alt;   // nur zurueck, wenn nichts anderes sie umbaute
+            this.welt.setTile(this.tx, this.ty, this.alt);  // nur zurueck, wenn nichts anderes sie umbaute
         }
         const p = this.mitte();
         FX.burst(p.x, p.y, ['#a8d95c', '#5f9a2e'], 10, 90, 0.5);
@@ -439,7 +444,8 @@ class PandaWall {
         ctx.globalAlpha *= 0.55 + 0.45 * welk;
         for (let i = 0; i < 4; i++) {
             const sx = x + 4 + i * 8;
-            const wuch = Math.min(1, (1.6 - this.life) * 4 + 0.35);
+            // direkt nach dem Bauen schnell heraus, in der letzten Sekunde welk er wieder ein
+            const wuch = Math.max(0, Math.min(1, (this.dauer - this.life) * 4 + 0.35));
             pandaStrich(ctx, sx, y + s, sx, y + s - s * wuch, 6, i % 2 ? '#a8d95c' : '#8fc94a', '#5f9a2e');
             for (let k = 1; k * 11 < s * wuch; k++) {
                 pandaStrich(ctx, sx - 2.8, y + s - k * 11, sx + 2.8, y + s - k * 11, 1.2, '#5f9a2e');
@@ -822,6 +828,10 @@ registerUpgrade({
             if (sprung) {
                 p.iFrames = 1;                       // im Flug greift ihn nichts
                 sprung.t += dt / sprung.dauer;
+                const k = Math.min(1, sprung.t);
+                sprung.bx = sprung.vonX + (sprung.x - sprung.vonX) * k;
+                sprung.by = sprung.vonY + (sprung.y - sprung.vonY) * k;
+                sprung.hoehe = Math.sin(Math.PI * k) * 54;
                 p.x = sprung.bx - p.w / 2; p.y = sprung.by - p.h / 2;   // er fliegt mit
                 if (sprung.t >= 1) {
                     // Plumps: alles im Umkreis wird getroffen und weggeschubst
@@ -853,31 +863,20 @@ registerUpgrade({
             cd = 6;
             FX.burst(p.centerX(), p.centerY(), ['#c8ffb0', '#ffffff'], 8, 90, 0.4, { kind: 'smoke', size: 4 });
         });
+        // der Schatten bleibt auf dem Boden und wird in der Flughoehe kleiner - das ist der Hoehenhinweis
         if (Game.roundHooks) Game.roundHooks.onDrawWorld.push((ctx, camera) => {
             if (!sprung) return;
-            const t = sprung.t;
-            sprung.bx = sprung.vonX + (sprung.x - sprung.vonX) * t;
-            sprung.by = sprung.vonY + (sprung.y - sprung.vonY) * t;
-            sprung.hoehe = Math.sin(Math.PI * t) * 54;
             const ground = camera.worldToScreen(sprung.bx, sprung.by);
             ctx.globalAlpha = 0.3;
             ctx.fillStyle = '#120e1c';
             ctx.beginPath();
-            ctx.ellipse(ground.x + 7, ground.y + 12, Math.max(5, 13 - sprung.hoehe * 0.08), 5, 0, 0, TAU);
+            ctx.ellipse(ground.x + p.w / 2, ground.y + p.h / 2, Math.max(5, 13 - sprung.hoehe * 0.08), 5, 0, 0, TAU);
             ctx.fill();
             ctx.globalAlpha = 1;
-            const pos = camera.worldToScreen(sprung.bx, sprung.by - sprung.hoehe);
-            const x = pos.x + 7, y = pos.y + 7;
-            Art.glow(ctx, x, y, 20, '#9dff72', 0.35);
-            Art.body(ctx, x, y, 12, 11.5, '#f7f5ff', { outline: '#4a4560' });
-            ctx.fillStyle = '#2b2734';
-            ctx.beginPath();
-            ctx.ellipse(x - 5, y - 4, 3.4, 3, -0.3, 0, TAU);
-            ctx.moveTo(x + 8.4, y - 4);
-            ctx.ellipse(x + 5, y - 4, 3.4, 3, 0.3, 0, TAU);
-            ctx.fill();
-            pandaStrich(ctx, x - 9, y + 6, x - 3, y + 11, 3.4, '#2b2734');
-            pandaStrich(ctx, x + 9, y + 6, x + 3, y + 11, 3.4, '#2b2734');
+        });
+        // die Kugel sitzt auf der Figur (deckend), damit nicht Panda und Ball doppelt stehen
+        p.hooks.onDraw.push(ctx => {
+            if (sprung && p._pandaPos) pandaKugelZeichnen(ctx, p._pandaPos, p, sprung.t * 14, sprung.hoehe);
         });
     },
 });
@@ -941,7 +940,7 @@ class BambooBoomerang extends Projectile {
     update(dt, world) {
         this.age += dt;
         if (this.tot) { this.dead = true; return; }
-        if (!this.zurueck && this.age >= this.dauer) this.zurueck = true;
+        if (!this.zurueck && this.age >= this.dauer) { this.zurueck = true; this.pierceHits = []; }
         if (this.zurueck) {
             const a = Math.atan2(this.alt.y - this.y, this.alt.x - this.x);
             const sp = 360;
@@ -951,19 +950,22 @@ class BambooBoomerang extends Projectile {
         }
         const nx = this.x + this.vx * dt, ny = this.y + this.vy * dt;
         if (world && world.isWall(nx, ny)) {
-            if (!this.zurueck) this.zurueck = true;                // an der Wand dreht er um
+            if (!this.zurueck) { this.zurueck = true; this.pierceHits = []; }   // an der Wand dreht er um
             else this.tot = true;
         } else {
             this.x = nx; this.y = ny;
         }
         if (this.age > this.dauer + 2.4) this.tot = true;
+        this.markiere();
     }
-    draw(ctx, camera) {
-        // die Gegner auf dem Hin- und Rückweg marieren (Treffer rechnet js/main.js aus)
+    // Merker fuer die Messskripte: welche Gegner hat dieser Bumerang schon gestreift
+    markiere() {
         for (const e of (Game.enemies || [])) {
             if (!e || e.dead) continue;
-            if ((this.pierceHits || []).indexOf(e) >= 0 && !e._bumerang) e._bumerang = 1;
+            if ((this.pierceHits || []).indexOf(e) >= 0) e._bumerang = 1;
         }
+    }
+    draw(ctx, camera) {
         const pos = camera.worldToScreen(this.x, this.y);
         const x = pos.x, y = pos.y, dreh = this.age * 22;
         Art.glow(ctx, x, y, 14, '#a8d95c', 0.45);
@@ -990,7 +992,7 @@ registerUpgrade({
         let cd = 2, stab = null;
         p.hooks.onUpdate.push(dt => {
             if (stab) {
-                stab.update(dt, c.welt);
+                // js/main.js aktualisiert jedes Geschoss in seiner eigenen Schleife - hier nur den Tod abholen
                 if (stab.dead) {
                     FX.burst(stab.x, stab.y, ['#a8d95c', '#eaffd0'], 7, 80, 0.4, { kind: 'spark' });
                     stab = null;
