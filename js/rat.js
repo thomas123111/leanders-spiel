@@ -554,13 +554,15 @@ class ArmorRat extends Enemy {
                 const sp = this._rushSpeed();
                 const ux = Math.cos(this.aimAng), uy = Math.sin(this.aimAng);
                 const from = this.laneFrom || { x: mx, y: my + 2 };
-                // Seitlichen Abtrieb (Stoss von Marks Hieben) ausgleichen: sie bleibt auf der Bahn.
-                const off = -(mx - from.x) * uy + (my + 2 - from.y) * ux;
-                if (Math.abs(off) > 0.25) { this.x += off * uy; this.y -= off * ux; }
                 // Der Ansturm endet spaetestens am Bahnende – auch bei langsamen Bildern.
                 const used = (mx - from.x) * ux + (my + 2 - from.y) * uy;
                 const step = Math.min(sp * dt, Math.max(0, sp * RAT_LUNGE_T - used));
                 const blocked = Kit915.rush(this, ux * step, uy * step, world);
+                // Seitlichen Abtrieb ausgleichen (Stoss von Marks Hieben, Schluppf an der Wand):
+                // die Spitze liegt auf der Bahn, bevor sie in diesem Bild treffen kann.
+                const cx = this.centerX(), cy = this.centerY();
+                const off = -(cx - from.x) * uy + (cy + 2 - from.y) * ux;
+                if (Math.abs(off) > 0.25) { this.x += off * uy; this.y -= off * ux; }
                 this.moving = true;
                 this.step += dt * 22;
                 const tip = this._tip(this.aimLen - 8);
