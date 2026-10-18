@@ -2051,7 +2051,9 @@ registerUpgrade({
             if (Math.random() < 0.55) {
                 // Glückskeks gefunden: Juwelen dazu (dasselbe Konto wie die Welt-Belohnungen)
                 const n = 3 + Math.floor(Math.random() * 6);
-                game.jewels = (game.jewels || 0) + n;
+                // derselbe Weg wie die Welt-Belohnungen: ueber die Konto-Buchhaltung der Engine
+                if (typeof game._grantJewels === 'function') game._grantJewels(n);
+                else game.jewels = (game.jewels || 0) + n;
                 if (typeof game.save === 'function') game.save();
                 p._keksFund = (p._keksFund || 0) + n;      // fuer die Messung
                 FX.text(p.centerX(), p.y - 12, '+' + n + ' 💎', '#ffd23f', 13, { life: 1.5 });
