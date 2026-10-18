@@ -9,9 +9,9 @@
 //   zwei Phasen.
 //   Gummi-Explosionen: mehrere grüne und rote Warnkreise liegen fest, dann platzen sie nacheinander und
 //     spritzen Gummi (ganz viele, in Phase 2 noch mehr).
-//   Einschleimen: auf Mark und die Freunde legt sich je ein Warfkreis, dann fliegt ein Gummiklex, platzt
+//   Einschleimen: auf Mark und die Freunde legt sich je ein Warnkreis, dann fliegt ein Gummiklex, platzt
 //     dort – wer drin steht, klebt drei Sekunden und läuft nur noch langsam (Zustand slime aus dem Gerüst).
-//     Der Klex zieht kein Leben ab, er klebt nur.
+//     Der Klex zieht kein Leben ab, er klebt nur – und er klebt nur, wer im angesagten Kreis stand.
 //   Fächer: eine breite Salve Gummibälle, angesagt mit roten Bahnen in jede Wurfrichtung.
 //   Phase 2 (halbe LP): schneller, mehr Explosionen, breiterer Fächer. Nach jedem zweiten großen Angriff
 //     wird er schwindelig (kreisende Sterne, kurz wehrlos), bei wenig Leben 2,4 s lang – Marks Zeit zum
@@ -40,6 +40,14 @@ const GUMBALL_CAP = 110;
 // Reichweite des Schleim-Klexes: muss zum Radius seines Warnkreises passen (Ansage = Treffer).
 const SLIME_R = 27;
 const BOOM_R = 31;
+// So lang ist die angesagte Fubbahn des Riesen – die Bälle vergehen genau dort (Ansage = Treffer).
+const FAN_LANE = 168;
+
+// Ein Ball lebt genau so lange, wie er für die angesagte Bahn braucht.
+function gummWeite(b, len) {
+    b.lifetime = (len + b.radius) / (Math.hypot(b.vx, b.vy) || 1);
+    return b;
+}
 
 // Eine Farbpalette pro Grundfarbe (hell/dunkel/Umriss), einmal ausgerechnet und behalten.
 const _candyPal = new Map();
@@ -141,6 +149,8 @@ const CandyArt = {
     room(world) {
         if (typeof Game === 'undefined' || !Game.bossActive || Game.bossDefeated ||
             typeof Game._bossRoomRect !== 'function') return null;
+        // drawUnder bekommt keine Welt mit: ohne Argument bleibt die aktuelle maßgeblich.
+        if (world && Game.world !== world) return null;
         return Game._bossRoomRect();
     },
 
@@ -353,15 +363,15 @@ const CandyArt = {
 // ── Gummiball (Geschoß von Gummibär und Riese) ──
 // ══════════════════════════════════════════
 
-// Durchscheinender Gummiball in der Farbe seines Werfers, wabbelt beim Fliegen. big = der große Ball des
-// Riesen (langsamer, 2 Schaden). Trifft Mark über die Engine, die Freunde über CandyArt.companionHit.
+// Durchscheinender Gummiball in der Farbe seines Werfers, wabbelt beim Fliegen. Trifft Mark über die
+// Engine, die Freunde über CandyArt.companionHit. Die Flugzeit setzt der Werfer auf gummWeite():
+// der Ball vergeht genau am Ende der angesagten Bahn.
 class GummyBall extends Projectile {
-    constructor(x, y, angle, speed, color, big) {
-        const sp = speed || (big ? 128 : randRange(162, 186));
-        super(x, y, Math.cos(angle) * sp, Math.sin(angle) * sp, big ? 2 : 1, 'enemy', big ? 170 : 95);
-        this.radius = big ? 9 : 6;
-        this.lifetime = big ? 3.4 : 2.5;
-        this.big = !!big;
+    constructor(x, y, angle, speed, color) {
+        const sp = speed || randRange(162, 186);
+        super(x, y, Math.cos(angle) * sp, Math.sin(angle) * sp, 1, 'enemy', 95);
+        this.radius = 6;
+        this.lifetime = 2.5;
         this.color = color || CandyArt.pickColor();
         this.pal = gummyPal(this.color);
         this.wob = Math.random() * 10;
@@ -423,12 +433,15 @@ class GummyBall extends Projectile {
 // Grüner Gummiklex: fliegt auf einen vorher angesagten Punkt, platzt dort und klebt alles im Kreis
 // drei Sekunden lang ein (Zustand slime aus dem Gerüst). Er zieht KEIN Leben ab. Der Kreis am Boden
 // stand schon, bevor er flog – wer da stand, ist zu Recht eingeklebt.
+// Eigener Flugeigner (owner 'lobber', wie in pumpkin.js und unicorn.js): die Engine prüft für ihn
+// keinen Treffer – sonst würde aus damage 0 über `proj.damage || 1` ein Schadenswurf, und zwar ohne
+// angesagten Kreis. Eingeklebt wird nur, wer im angesagten Kreis stand (Platsch beim Aufschlag).
 class GummyGlob extends Projectile {
     constructor(x, y, tx, ty) {
         const ang = Math.atan2(ty - y, tx - x);
         const d = Math.hypot(tx - x, ty - y);
         const sp = 190;
-        super(x, y, Math.cos(ang) * sp, Math.sin(ang) * sp, 0, 'enemy', 0);
+        super(x, y, Math.cos(ang) * sp, Math.sin(ang) * sp, 0, 'lobber', 0);
         this.radius = 8;
         this.flight = Math.max(0.12, d / sp);
         this.lifetime = this.flight + 0.6;
@@ -656,7 +669,8 @@ class GummyBear extends Enemy {
             return;
         }
         const a = this.aimAng;
-        list.push(new GummyBall(h.x + Math.cos(a) * 6, h.y + Math.sin(a) * 6, a, null, this.color));
+        // Angesagte Bahn = wirkliche Flugweite: der Ball vergeht am Ende der roten Bahn.
+        list.push(gummWeite(new GummyBall(h.x + Math.cos(a) * 6, h.y + Math.sin(a) * 6, a, null, this.color), this.aimLen));
         CandyArt.burst(h.x, h.y, [this.color, CandyCfg.sugar], 5, 92, 0.3, { kind: 'spark' });
     }
 
@@ -780,7 +794,7 @@ class BossGiantGummyBear extends Enemy {
         // Fächer
         this.fanA = 0;
         this.fanLock = false;
-        this.fanFriend = null;
+        this.fanFriendPt = null;
     }
 
     static room(world) { return CandyArt.room(world); }
@@ -898,7 +912,9 @@ class BossGiantGummyBear extends Enemy {
         const pts = [];
         const cand = CandyArt.targets(player);
         // Erst die Ziele selbst (Mark und die Freunde), dann Punkte um Mark herum – so trifft es niemanden
-        // zweimal, und die Kreise sind gut sichtbar verteilt.
+        // zweimal, und die Kreise sind gut sichtbar verteilt. Geprüft wird freier Boden wie im Gerüst
+        // (Welt 49/50: gorilla.js, snowman.js) – ein Kreis darf dabei an eine Wandkante reichen; wer
+        // hinter der Ecke steht, wird ebenfalls getroffen, weil der Kreis vorher deutlich sichtbar war.
         for (const t of cand) {
             if (pts.length >= n) break;
             if (CandyArt.free(world, t.x, t.y, BOOM_R * 0.6)) pts.push({ x: t.x, y: t.y });
@@ -939,8 +955,12 @@ class BossGiantGummyBear extends Enemy {
         const pts = [];
         if (player && !player.dead) pts.push({ x: player.x + player.w / 2, y: player.y + player.h / 2 });
         const freunde = CandyArt.companions();
-        for (let i = 0; i < freunde.length && pts.length < (this.phase === 2 ? 4 : 3); i++) {
-            const c = freunde[i];
+        // Phase 2 klebt jeder Freund, Phase 1 zwei – aber wechselnde, damit nie derselbe
+        // systematisch verschont bleibt (wer einmal dran war, ist beim nächsten Wurf zuerst dran).
+        const max = this.phase === 2 ? freunde.length : Math.min(2, freunde.length);
+        const start = this.bigHits % Math.max(1, freunde.length);
+        for (let i = 0; i < max; i++) {
+            const c = freunde[(start + i) % freunde.length];
             pts.push({ x: c.x + (c.w || 20) / 2, y: c.y + (c.h || 20) / 2 });
         }
         this.slimePts = pts;
@@ -962,9 +982,14 @@ class BossGiantGummyBear extends Enemy {
     // ── c) Fächer: breite Salve Gummibälle ──
     _startFan() {
         this.fanLock = false;
-        this.fanFriend = null;
+        this.fanFriendPt = null;
         const opts = CandyArt.companions();
-        if (opts.length && Math.random() < 0.7) this.fanFriend = opts[Math.floor(Math.random() * opts.length)];
+        if (opts.length && Math.random() < 0.7) {
+            const c = opts[Math.floor(Math.random() * opts.length)];
+            // Der Punkt wird hier festgehalten und in der Ansage gezeichnet: geschossen wird genau
+            // dorthin, nicht auf die Position, die der Freund beim Feuern schon hat.
+            this.fanFriendPt = { x: c.x + (c.w || 20) / 2, y: c.y + (c.h || 20) / 2 };
+        }
         this._set('fanWind', this.phase === 2 ? 0.62 : 0.8);
     }
 
@@ -976,14 +1001,16 @@ class BossGiantGummyBear extends Enemy {
         const step = this.phase === 2 ? 0.19 : 0.21;
         for (let i = 0; i < n; i++) {
             if (list.length > GUMBALL_CAP) break;
-            list.push(new GummyBall(m.x, m.y, this.fanA + (i - (n - 1) / 2) * step, randRange(154, 174), this.color));
+            const b = new GummyBall(m.x, m.y, this.fanA + (i - (n - 1) / 2) * step, randRange(154, 174), this.color);
+            list.push(gummWeite(b, FAN_LANE));
         }
         // Auf einen Freund zielt der Riese zusätzlich – auch der soll Gummibälle abbekommen.
-        const fr = this.fanFriend;
-        if (fr && !fr.dead && !(fr.koTimer > 0) && list.length <= GUMBALL_CAP) {
-            const a = Math.atan2(fr.y + fr.h / 2 - m.y, fr.x + fr.w / 2 - m.x);
-            list.push(new GummyBall(m.x, m.y, a, 182, this.color));
+        const pt = this.fanFriendPt;
+        if (pt && list.length <= GUMBALL_CAP) {
+            const d = Math.min(FAN_LANE, Math.hypot(pt.x - m.x, pt.y - m.y));
+            list.push(gummWeite(new GummyBall(m.x, m.y, Math.atan2(pt.y - m.y, pt.x - m.x), 182, this.color), d));
         }
+        this.fanFriendPt = null;
         CandyArt.burst(m.x, m.y, [this.color, this.pal.hi, CandyCfg.sugar], 14, 170, 0.42, { kind: 'spark' });
         CandyArt.shake(3.4, 0.16);
     }
@@ -1027,9 +1054,17 @@ class BossGiantGummyBear extends Enemy {
             const p = camera.worldToScreen(m.x, m.y);
             const n = this.phase === 2 ? 9 : 7;
             const step = this.phase === 2 ? 0.19 : 0.21;
-            // Angesagt wird genau die breite Salve, die gleich fliegt (Ansage = Treffer).
+            // Angesagt wird genau die breite Salve, die gleich fliegt (Ansage = Treffer) – und der
+            // Zusatzschuss auf den Freund wird ebenso gezeichnet, wie er später fliegt.
             for (let i = 0; i < n; i++) {
-                LateWorldArt.lane(ctx, p.x, p.y, this.fanA + (i - (n - 1) / 2) * step, 168, 15, k, CandyCfg.warn);
+                LateWorldArt.lane(ctx, p.x, p.y, this.fanA + (i - (n - 1) / 2) * step, FAN_LANE, 15, k, CandyCfg.warn);
+            }
+            const pt = this.fanFriendPt;
+            if (pt) {
+                const d = Math.min(FAN_LANE, Math.hypot(pt.x - m.x, pt.y - m.y));
+                if (d > 8) {
+                    LateWorldArt.lane(ctx, p.x, p.y, Math.atan2(pt.y - m.y, pt.x - m.x), d, 15, k, CandyCfg.warnHot);
+                }
             }
             return;
         }
