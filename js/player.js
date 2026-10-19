@@ -570,20 +570,35 @@ class Player {
         return P;
     }
 
+    // Groesse von Mark (Extra-Modi, js/modes.js): 1 = normal. Wirkt auf Trefferflaeche UND Figur;
+    // die Fuesse bleiben auf dem Boden, damit Mark nicht über oder in der Erde steht.
+    setSize(scale) {
+        const s = clamp(+scale || 1, 0.4, 3);
+        if (this.baseW === undefined) { this.baseW = this.w; this.baseH = this.h; }
+        const cx = this.x + this.w / 2;
+        const foot = this.y + this.h;
+        this.sizeScale = s;
+        this.w = this.baseW * s;
+        this.h = this.baseH * s;
+        this.x = cx - this.w / 2;
+        this.y = foot - this.h;
+    }
+
     // Stehend/laufend: Wippen, Stauchen und Strecken um den Fußpunkt; Ausweichrolle als Salto.
     _drawFigure(ctx, camera, P, t) {
         const cx = P.cx;
         const cy = P.cy;
-        const footY = cy + 14;
+        const s = this.sizeScale || 1;   // 1 = normale Groesse (alles bleibt wie bisher)
+        const footY = cy + 14 * s;
         ctx.save();
         if (P.roll) {
             ctx.translate(cx, cy - 2 - P.lift);
             ctx.rotate(P.roll);
-            ctx.scale(0.9, 0.9);
+            ctx.scale(0.9 * s, 0.9 * s);
             ctx.translate(-cx, -(cy - 2));
         } else {
             ctx.translate(cx, footY - P.lift);
-            ctx.scale(P.sx, P.sy);
+            ctx.scale(P.sx * s, P.sy * s);
             ctx.translate(-cx, -footY);
         }
         this._drawMark(ctx, camera, P, t, cx, cy);

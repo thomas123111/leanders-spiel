@@ -116,6 +116,10 @@ const Game = {
     worldRewardClaims: {},
     rewardValues: {},
     activeMode: null,
+    // Bestleistung je Extra-Modus ({ 'zeitrennen': 83.4 }); alte Spielstaende haben einfach keine
+    modeRecords: {},
+    // true, wenn ein Modus die naechste Welt seitenverkehrt haben will (js/modes.js)
+    levelMirror: false,
 
     settings: { sound: true, music: true, vibration: true, aimAssist: true, difficulty: 'normal' },
 
@@ -361,19 +365,20 @@ const Game = {
         if (['TITLE', 'WORLD_SELECT', 'SHOP', 'EXTRA_MENU'].includes(state)) Music.play('menu');
         else if (state === 'BOSS_INTRO' || (state === 'PLAYING' && this.bossActive && !this.bossDefeated)) Music.play('boss');
         else if (state === 'PLAYING' && this.world) Music.playForWorld(this.world.theme);
-        else if (state === 'WORLD_CLEAR' || state === 'GAME_OVER' || state === 'WIN') Music.stop();
+        else if (state === 'WORLD_CLEAR' || state === 'GAME_OVER' || state === 'WIN' || state === 'MODE_RESULT') Music.stop();
     },
 
     // ── Menüs ──
     openWorldSelect() {
         Sound.resume();
-        this.activeMode = null;
+        this.clearMode();
         this.setState('WORLD_SELECT');
         this.save();
     },
 
     openExtraMode() {
         Sound.resume();
+        this.clearMode();
         this.setState('EXTRA_MENU');
     },
 
@@ -381,12 +386,18 @@ const Game = {
         this.setState('SHOP');
     },
 
+    // Laufenden Extra-Modus aufgeben (Menü verlassen, normale Welt starten, Startseite)
+    clearMode() {
+        this.activeMode = null;
+        if (typeof Modes !== 'undefined') Modes.zuruecksetzen();
+    },
+
     returnToTitle() {
         if (this.currentWorld === 0 && (this.state === 'PLAYING' || this.state === 'WORLD_CLEAR')) {
             this.trainingCompleted = true;
             this.maxWorldUnlocked = Math.max(1, this.maxWorldUnlocked);
         }
-        this.activeMode = null;
+        this.clearMode();
         this.paused = false;
         this.unlockRoundUpgrade();
         this._resultDelay = 0;
@@ -432,6 +443,7 @@ const Game = {
                 vineBind: this.unlockedVineBind,
                 poisonBlooms: this.unlockedPoisonBlooms,
                 coconutTube: this.unlockedCoconutTube,
+                modeRecords: this.modeRecords,
                 upgrades: this.activeUpgrades,
                 boughtUps: this.boughtUpgrades,
                 star: this.shopRandomStarActive ? {
@@ -494,6 +506,14 @@ const Game = {
                 this.unlockedVineBind = !!data.vineBind;
                 this.unlockedPoisonBlooms = !!data.poisonBlooms;
                 this.unlockedCoconutTube = !!data.coconutTube;
+                // Rekorde der Extra-Modi: nur echte Zahlen, alte Spielstaende haben gar keine
+                this.modeRecords = {};
+                if (data.modeRecords && typeof data.modeRecords === 'object') {
+                    for (const k in data.modeRecords) {
+                        const v = +data.modeRecords[k];
+                        if (Number.isFinite(v) && v > 0) this.modeRecords[k] = Math.round(v * 10) / 10;
+                    }
+                }
                 // Gewählte Extras (Knopf „Waffen“): je Figur höchstens eins, unbekannte Einträge fallen weg.
                 // Alter Spielstand (bis 9.6.0) kannte genau EIN gewähltes Extra in `data.upgrade` - es wird
                 // seiner Figur zugeordnet und bleibt so erhalten (Leanders Regel, 18.10.2026).
@@ -830,6 +850,8 @@ const Game = {
     // ── Welt starten ──
     startWorld(worldNum) {
         worldNum = clamp(worldNum | 0, 0, LAST_WORLD);
+        // Ein Extra-Modus gehört nur zu der Welt, die er selbst gestartet hat (js/modes.js)
+        if (typeof Modes !== 'undefined' && !Modes.keepNextWorldStart) this.clearMode();
         Sound.resume();
         this.currentWorld = worldNum;
         this.trainingMode = worldNum === 0;
@@ -865,6 +887,11 @@ const Game = {
         this.world.theme = worldInfo(worldNum).theme;
         this.world.worldNum = worldNum;
         this.world.load(LEVELS[worldNum]);
+        // Spiegelmodus: Kacheln und Startpunkte seitenverkehrt, bevor Spieler, Bodenfelder und Gegner gesetzt werden
+        if (this.levelMirror && typeof Modes !== 'undefined') {
+            Modes.spiegleWelt(this.world);
+            this.levelMirror = false;
+        }
 
         this.player = new Player(this.world.spawnPoint.x, this.world.spawnPoint.y);
         // Vom Start aus erreichbare Kacheln (für sichere Landeplätze, z. B. nach dem Auto)
@@ -1213,6 +1240,9 @@ const Game = {
     _onBossDefeated() {
         this.bossDefeated = true;
         Music.stop();
+        // Ein Modus mit eigenem onWorldClear uebernimmt den Boss-Sieg: Welt-Belohnung und
+        // Freischaltungen bleiben ihm verwehrt, er zahlt selbst aus (js/modes.js).
+        if (this.activeMode && typeof Modes !== 'undefined' && Modes.bossBesiegt()) return;
         // Boss-Ton, Vibration und Wackeln kamen schon zu Beginn des Stillstands
 
         this.maxWorldUnlocked = Math.min(LAST_WORLD, Math.max(this.maxWorldUnlocked, this.currentWorld + 1));
@@ -1401,6 +1431,12 @@ const Game = {
             Input.postUpdate();
             return;
         }
+        if (this.state === 'MODE_RESULT') {
+            // Ergebnisseite eines Extra-Modus: die Welt läuft nicht weiter, die Knöpfe kommen aus js/modes.js
+            this._updateAmbientOnly(dt);
+            Input.postUpdate();
+            return;
+        }
         if (this.state === 'WORLD_CLEAR' || this.state === 'WIN') {
             if (settled && Input.keyPressed('Enter')) this._advanceToNextWorld();
             this._updateAmbientOnly(dt);
@@ -1478,6 +1514,8 @@ const Game = {
             if (this.player.hooks) dispatchHooks(this.player, 'onUpdate', [dt]);
             if (this.roundHooks) dispatchHooks(null, 'onUpdate', [dt]);
         }
+        // Extra-Modus (js/modes.js): Uhr, Wellen und der update-Haken des Modus
+        if (this.activeMode && typeof Modes !== 'undefined') Modes.takt(dt);
         if (this.player.autoActive) this._crashWalls();
         if (this.player.dodging && !this._wasDodging) {
             FX.burst(this.player.x + this.player.w / 2, this.player.y + this.player.h - 2, 'rgba(230,240,255,0.9)', 6, 60, 0.4, { kind: 'smoke', size: 4 });
@@ -1506,7 +1544,8 @@ const Game = {
             Sound.gameOver();
             this.vibrate(300);
             this.save();
-            this.setState('GAME_OVER');
+            // Ein Modus mit eigenem onPlayerDeath zeigt seine eigene Ergebnis-Seite
+            if (!(this.activeMode && typeof Modes !== 'undefined' && Modes.spielerGestorben())) this.setState('GAME_OVER');
             Input.postUpdate();
             return;
         }
@@ -2401,10 +2440,17 @@ const Game = {
         FX.drawVignette(ctx, this.viewW, this.viewH, (this.world.palette && this.world.palette.vignette) || 0.42);
         if (this.player.hp <= 4 && !this.player.dead) FX.drawVignette(ctx, this.viewW, this.viewH, 0.25 + Math.sin(Art.time * 6) * 0.08);
         FX.drawScreenFlash(ctx, this.viewW, this.viewH);
+        // Dunkelheit eines Extra-Modus (Lichtkreis um Mark), noch in Koordinaten der Spielansicht
+        if (this.activeMode && typeof Modes !== 'undefined' &&
+            (this.state === 'PLAYING' || this.state === 'BOSS_INTRO')) Modes.zeichneDunkelheit(ctx, camera);
 
         // HUD in CSS-Pixel-Koordinaten
         ctx.setTransform(this.hudScale, 0, 0, this.hudScale, 0, 0);
-        if (this.state === 'PLAYING' || this.state === 'BOSS_INTRO') HUD.draw(ctx, this);
+        if (this.state === 'PLAYING' || this.state === 'BOSS_INTRO') {
+            HUD.draw(ctx, this);
+            // Der Modus malt seine eigene Anzeige über das übliche HUD
+            if (typeof Modes !== 'undefined') Modes.zeichneHud(ctx);
+        }
 
         if (this.fadeAlpha > 0) {
             ctx.setTransform(1, 0, 0, 1, 0, 0);

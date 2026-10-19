@@ -787,14 +787,23 @@ const UI = {
     },
 
     // ── Extra ──
+    // Eine Karte je eingetragenem Extra-Modus (js/modes.js), dazu die Frosty-Burger-Karte.
+    // Die drei alten Karten sind weg: sie haben nur eine normale Welt gestartet, das war
+    // kein eigener Modus. Neue Modi kommen von allein als Karte dazu.
     renderExtra() {
         const el = this.screens.extra;
-        const max = Math.max(1, Game.maxWorldUnlocked || 1);
-        const modes = [
-            { id: 'ultra', ico: '⚔️', c: '#ff5d7b', t: 'Ultra-Kampf', p: 'Direkt in deine schwerste freie Welt!', w: Math.min(max, LAST_WORLD) },
-            { id: 'parkour', ico: '🔥', c: '#69d26a', t: 'Sumpf-Parkour', p: 'Feuer-Fallen, Seen und schmale Brücken.', w: Math.min(max, 20) },
-            { id: 'jewels', ico: '💎', c: '#6db8ff', t: 'Juwelenjagd', p: 'Sammel-Abenteuer in den Schatten-Sümpfen.', w: Math.min(max, 19) },
-        ];
+        const farben = ['#ff5d7b', '#69d26a', '#6db8ff', '#ffd23f', '#b26bff', '#4cc9f0', '#ff9f1c', '#ff6ec7'];
+        const modis = (typeof Modes !== 'undefined' ? Modes.liste() : []);
+        const karten = modis.map((m, i) => {
+            const frei = Modes.istFrei(m);
+            const rekord = Modes.rekordText(m);
+            const fuss = rekord ? `<span class="owned">${rekord}</span>`
+                : `<span class="where">${frei ? 'Noch kein Rekord' : m.hinweis}</span>`;
+            return `<div class="card" style="--a:${farben[i % farben.length]}">
+                <div class="head"><span class="ico">${m.emoji}</span><div><h3>${m.name}</h3><p>${m.text}</p></div></div>
+                <div class="foot">${fuss}
+                <button class="btn small" data-act="mode" data-id="${m.id}"${frei ? '' : ' disabled'}>Los!</button></div></div>`;
+        }).join('');
         el.innerHTML = `
             <div class="page-head">
                 <button class="btn small gray" data-act="title">◀ Zurück</button>
@@ -802,14 +811,11 @@ const UI = {
                 ${this._chips()}
             </div>
             <div class="page-body"><div class="cards">
-                ${modes.map(m => `<div class="card" style="--a:${m.c}">
-                    <div class="head"><span class="ico">${m.ico}</span><div><h3>${m.t}</h3><p>${m.p}</p></div></div>
-                    <div class="foot"><span class="owned" style="color:#ffe38a">Welt ${m.w}: ${worldInfo(m.w).name}</span>
-                    <button class="btn small" data-act="world" data-n="${m.w}">Los!</button></div></div>`).join('')}
+                ${karten}
                 <div class="card" style="--a:#4cc9f0">
                     <div class="head"><span class="ico">🐧</span><div><h3>Frosty Burger</h3><p>Minispiel: Hilf dem Pinguin-Koch in der Antarktis-Küche!</p></div></div>
                     <div class="foot"><button class="btn small blue" data-act="frosty">Kochen!</button></div></div>
-                <div class="card wide" style="--a:#7b4dff"><p>Hier kommen bald eigene Spezial-Modi dazu. Bis dahin starten sie eine passende Welt.</p></div>
+                ${modis.length ? '' : '<div class="card wide" style="--a:#7b4dff"><p>Noch ist kein Modus eingetragen. Spätere Aufträge tragen ihre Modi in js/modes-a.js bis js/modes-d.js ein – ohne diese Datei anzufassen.</p></div>'}
             </div></div>`;
         this.show('extra');
     },
@@ -939,13 +945,19 @@ const UI = {
             case 'closesettings': this.renderTitle(); break;
             case 'spin': g.titleSpin = 1; Sound.dodge(); break;
             case 'world': g.maybeFullscreen(); g.startWorld(+btn.dataset.n); break;
+            case 'mode': g.maybeFullscreen(); Modes.start(btn.dataset.id); break;
             case 'random': {
                 const max = Math.max(1, g.maxWorldUnlocked || 1);
                 g.startWorld(1 + Math.floor(Math.random() * max));
                 break;
             }
             case 'resume': g.pause(false); break;
-            case 'restart': g.paused = false; g.startWorld(g.currentWorld); break;
+            case 'restart':
+                g.paused = false;
+                // Im laufenden Modus startet der Knopf den Modus neu, nicht die Welt darunter
+                if (g.activeMode && typeof Modes !== 'undefined') Modes.start(g.activeMode.id);
+                else g.startWorld(g.currentWorld);
+                break;
             case 'next': g._advanceToNextWorld(); break;
             case 'difficulty': {
                 const v = btn.dataset.v;
