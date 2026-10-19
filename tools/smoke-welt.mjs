@@ -227,6 +227,13 @@ const z = vm.runInContext(`(function () {
     try {
         Game.startWorld(51);
         Game.player.iFrames = 1e9;
+        // Beute im Messlauf ausschalten: Mark läuft hier für die Tempo- und Schlafproben durch die Gegend und
+        // öffnet dabei beim Berühren eine Truhe (js/main.js:1772). Nach 1,5 s sammelt js/loot.js:50 deren
+        // Inhalt EIN – bei 20 % Würfelglück ein Tempo-Blitz, der Marks Tempo auf 150 % hebt. Die Schleimprobe
+        // misst dann 45 statt 30 und meldet „Schleim: Tempo false“, obwohl das Schleimern in Ordnung ist.
+        // Der Gegenfall bleibt aus, das Öffnen der Truhe selbst (und alles andere) unverändert.
+        for (const c of Game.chests) c.itemCollected = true;
+        Game.player.powerUps = {};
         bild(4);
         const p = Game.player;
         Input.update = () => {};   // Eingabe eingefroren: nichts läuft und nichts greift an
@@ -339,6 +346,11 @@ const z = vm.runInContext(`(function () {
                 durch(0.5);
                 const schleim = Math.hypot(p.x - ax, p.y - ay);
                 const tempo = p.speed;
+                // Wache: wäre doch ein Power-up dazugekommen, stimmt die Messung nicht – dann hier mit dem
+                // wahren Grund abbrechen und nicht als „Schleim: Tempo false“, das das Schleimern anklagt.
+                if (Object.keys(p.powerUps).length) {
+                    throw new Error('Schleimprobe durch fremdes Power-up gestört: ' + Object.keys(p.powerUps).join('+'));
+                }
                 p.slimeTimer = 0; p.slimeGuard = 0;
                 const bx = p.x, by = p.y;
                 durch(0.5);
