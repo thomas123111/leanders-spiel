@@ -479,7 +479,7 @@ registerMode({
     id: 'geisterjagd',
     name: 'Geisterjagd',
     emoji: '👻',
-    text: 'Leg eine Falle aus und locke einen Geist hinein - eine Falle faengt genau einen.',
+    text: 'Leg eine Falle aus und locke einen Geist hinein - eine Falle fängt genau einen.',
     frei: g => g.maxWorldUnlocked >= 5,
     hinweis: 'Erst Welt 5 schaffen.',
     wertung: 'punkte',
@@ -487,7 +487,7 @@ registerMode({
         Modes.arena({ welt: 9, breite: 42, hoehe: 24, herzen: 6, dunkelheit: 0.5, zeitlimit: 120 });
         ModiD.jagd = { fallen: [], gefangen: 0, nachlegen: 0, nachschub: 1.4 };
         D4Geister(3);
-        ModiD.meldung('E drueckt: Falle auslegen 🪤', '#ffe38a');
+        ModiD.meldung('E drückt: Falle auslegen 🪤', '#ffe38a');
     },
     update(dt) {
         const j = ModiD.jagd, g = Game, p = g.player;
@@ -534,7 +534,7 @@ registerMode({
                 ModiD.einfangen(e);
                 if (typeof FX !== 'undefined') {
                     FX.burst(f.x, f.y, ['#ffffff', e.color || '#b26bff', '#ffe38a'], 14, 150, 0.6, { kind: 'star' });
-                    FX.text(f.x, f.y - 26, 'gefaengt!', '#c9ffb0', 13);
+                    FX.text(f.x, f.y - 26, 'gefangen!', '#c9ffb0', 13);
                 }
                 Sound.powerUp();
                 ModiD.meldung('Ein Geist im Netz! 👻 ' + j.gefangen, '#c9ffb0');
@@ -547,7 +547,7 @@ registerMode({
         ModiD.jagd = null;
         return Modes.finish({ text: 'Mark kann nicht mehr jagen.', punkte: j ? j.gefangen : 0 });
     },
-    onWorldClear(g) { return Modes.finish({ text: 'Kein Geist mehr uebrig.' }); },
+    onWorldClear(g) { return Modes.finish({ text: 'Kein Geist mehr übrig.' }); },
     drawHud(ctx) {
         const j = ModiD.jagd;
         Modes.hudStatus(ctx, j ? ['👻 ' + j.gefangen, '🪤 ' + j.fallen.length + '/3',
@@ -661,9 +661,9 @@ const D4MegaBosse = [
     { name: 'Boss-Schleim', K: () => BossSlime },
     { name: 'Boss-Ritterfledermaus', K: () => BossKnightBat },
     { name: 'Riesenpilz', K: () => BossMushroomGiant },
-    { name: 'Muecken-Boss', K: () => BossMosquito },
+    { name: 'Mücken-Boss', K: () => BossMosquito },
     { name: 'Schneeeule', K: () => BossSnowEagle },
-    { name: 'Feuerphoenix', K: () => BossFirePhoenix },
+    { name: 'Feuer-Phönix', K: () => BossFirePhoenix },
     { name: 'Schattenmeister', K: () => BossShadowMaster },
     { name: 'Skelettreiter', K: () => BossSkeletonRider },
     { name: 'Hydra', K: () => BossHydra },
@@ -714,7 +714,7 @@ registerMode({
         const nr = ModiD.wuerfel(D4MegaBosse.length) - 1;
         D4MegaRuf(nr);
         if (Game.player) Game.player.hasAuto = false;
-        ModiD.meldung('E drueckt: anderer Boss 👹', '#ffd0d0');
+        ModiD.meldung('E drückt: anderer Boss 👹', '#ffd0d0');
     },
     update(dt) {
         const m = ModiD.mega, p = Game.player;
@@ -738,7 +738,7 @@ registerMode({
     id: 'upgrade-chaos',
     name: 'Upgrade-Chaos',
     emoji: '🎲',
-    text: 'Jede Runde bekommt jede Figur ein zufaelliges Extra - auch eins, das du gar nicht hast.',
+    text: 'Jede Runde bekommt jede Figur ein zufälliges Extra - auch eins, das du gar nicht hast.',
     frei: g => g.maxWorldUnlocked >= 8,
     hinweis: 'Erst Welt 8 schaffen.',
     wertung: 'punkte',
@@ -749,7 +749,7 @@ registerMode({
         const liste = D4Chaos.verteilen(welt);
         ModiD.chaos = { getroffen: 0, liste, welt };
         Modes.starteWelt({ welt, herzen: 6 });
-        ModiD.meldung('Chaos-Extras sind nur fuer diese Runde geliehen 🎲', '#e2c8ff');
+        ModiD.meldung('Chaos-Extras sind nur für diese Runde geliehen 🎲', '#e2c8ff');
     },
     update(dt) {
         const c = ModiD.chaos;
@@ -788,7 +788,7 @@ registerMode({
     id: 'schneeballschlacht',
     name: 'Schneeballschlacht',
     emoji: '⛄',
-    text: 'Alle werfen nur Schneebaelle - Mark, seine Freunde und die Schneemaenner.',
+    text: 'Alle werfen nur Schneebälle: Mark, seine Freunde und die Schneemänner.',
     frei: g => g.maxWorldUnlocked >= 4,
     hinweis: 'Erst Welt 4 schaffen.',
     wertung: 'punkte',
@@ -800,7 +800,7 @@ registerMode({
         p.rangedWeapon = ModiD.schnee.werfer;
         p.hasAuto = false;
         Modes.dauerwellen({ gegner: [Snowman], pro: 2, interval: 5, maxLeben: 9 });
-        ModiD.meldung('Schneebaelle fliegen! ❄️', '#c9f2ff');
+        ModiD.meldung('Schneebälle fliegen! ❄️', '#c9f2ff');
     },
     update(dt) {
         const s = ModiD.schnee, g = Game, p = g.player;

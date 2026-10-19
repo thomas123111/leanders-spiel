@@ -423,7 +423,7 @@
             zustand.bossName = info.boss || info.name;
             zustand.weltName = info.name;
             Modes.arena({ welt: zustand.welt, herzen: 6, breite: 42, hoehe: 24, thema: info.theme });
-            if (!superboss(g)) throw new Error('Superboss nicht moeglich');
+            if (!superboss(g)) throw new Error('Superboss nicht möglich');
         },
 
         // Der Wochen-Boss ist eine ehrliche Sache: wer verliert, bekommt keine Zeit

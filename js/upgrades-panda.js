@@ -253,7 +253,7 @@ class BambooPole {
 }
 
 registerUpgrade({
-    id: 'panda02', figur: 'panda', name: 'Bambus-Fontaene', emoji: '⛲',
+    id: 'panda02', figur: 'panda', name: 'Bambus-Fontäne', emoji: '⛲',
     text: 'Bambusstangen schießen aus dem Boden und schleudern Gegner hoch in die Luft.',
     where: 'im Shop kaufen',
     istFrei: () => false,               // erst kaufbar, dann frei - sonst waere das Extra von Anfang an an

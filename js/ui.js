@@ -259,9 +259,8 @@ const UI = {
     },
 
     // ── Shop ──
-    // Eine einzige Reihe Karten, mit dem Finger nach links und rechts gewischt (Wunsch von Leander,
-    // 12.10.2026) - Vorbild ist die waagerechte Weltenauswahl (.world-strip). Die Seite scrollt nicht mehr
-    // nach unten; zu hohe Karten Inhalte laufen innen. css: .cards.hstrip in css/game.css.
+    // Karten im Raster, die Seite scrollt nach unten (Leander 19.10.2026: „beim Shop soll es doch runtergehen“,
+    // nimmt die waagerechte Reihe vom 12.10. zurück). Abschnitte als Überschriften über die ganze Breite.
     renderShop() {
         const el = this.screens.shop;
         const g = Game;
@@ -329,7 +328,7 @@ const UI = {
                 <h2>Shop</h2>
                 ${this._chips()}
             </div>
-            <div class="page-body hstrip-body"><div class="cards hstrip">
+            <div class="page-body shop-body"><div class="cards">
                 <div class="card" style="--a:#3ddc97">
                     <div class="head"><span class="ico">🎁</span><div><h3>Tagesbelohnung</h3>
                     <p>${dailyDone ? 'Heute schon geholt. Morgen gibt es die nächste!' : 'Einmal am Tag gratis: Münzen, Upgrade oder ein Böser Stern!'}</p></div></div>
@@ -360,21 +359,14 @@ const UI = {
             </div></div>`;
         this.show('shop');
         this._exchange = exchange;
-        this._shopStrip(el.querySelector('.cards'));
+        this._shopKeepScroll(el.querySelector('.shop-body'));
     },
 
-    // Waagerechte Shop-Reihe: beim Neuzeichnen (nach jedem Kauf) bleibt die Stelle stehen, an der man
-    // stand. Auf dem Computer dreht das Mausrad die Reihe seitwärts; die Karten selbst scrollen nicht,
-    // deshalb gibt es hier keine Verzweigung.
-    _shopStrip(strip) {
-        if (!strip) return;
-        strip.scrollLeft = this._shopScroll || 0;
-        strip.addEventListener('scroll', () => { this._shopScroll = strip.scrollLeft; }, { passive: true });
-        strip.addEventListener('wheel', e => {
-            if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
-            e.preventDefault();
-            strip.scrollLeft += e.deltaY;
-        }, { passive: false });
+    // Beim Neuzeichnen (nach jedem Kauf) bleibt die Seite an der Stelle, an der man war.
+    _shopKeepScroll(body) {
+        if (!body) return;
+        body.scrollTop = this._shopScroll || 0;
+        body.addEventListener('scroll', () => { this._shopScroll = body.scrollTop; }, { passive: true });
     },
 
     // ── Böse Sterne: ganzer Bildschirm und kein einziger Knopf (Wunsch von Leander) ──

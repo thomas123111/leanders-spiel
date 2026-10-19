@@ -246,8 +246,8 @@
         onPlayerDeath() {
             const z = zustand();
             const n = z && z.marathon ? z.marathon.besiegt : 0;
-            return Modes.finish({ text: n ? n + ' Boss' + (n === 1 ? '' : 'e') + ' geschafft. Beim naechsten Mal mehr!'
-                : 'Der erste Boss war zu stark. Staerker werfen!' });
+            return Modes.finish({ text: n ? n + ' Boss' + (n === 1 ? '' : 'e') + ' geschafft. Beim nächsten Mal mehr!'
+                : 'Der erste Boss war zu stark. Stärker werfen!' });
         },
         belohnung({ punkte }) { return clamp(50 + Math.round(punkte / 100) * 45, 50, 500); },
         drawHud(ctx) { Modes.hudStatus(ctx); },
@@ -256,7 +256,7 @@
     // ══════════════ 2: Ueberleben ══════════════
     registerMode({
         id: 'ueberleben',
-        name: 'Ueberleben',
+        name: 'Überleben',
         emoji: '🛡️',
         text: 'Gegnerwellen in einer Arena, jede Welle ist stärker.',
         frei: g => weltMax(g) >= 5,

@@ -236,42 +236,6 @@ button { font-family: inherit; color: inherit; border: 0; background: none; curs
 .exchange { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
 .section-title { grid-column: 1 / -1; font-size: 15px; font-weight: 900; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 4px; }
 
-/* ── Shop waagerecht: eine Reihe Karten, mit dem Finger nach links und rechts wischen ──
-   Wunsch von Leander (12.10.2026), angelehnt an .world-strip oben. Nur der Shop trägt .hstrip -
-   die Extra-Seite bleibt beim bisherigen Raster, das nach unten scrollt.
-   Flex (nicht Raster), weil die Abschnitts-Titel sonst eine ganze Karten-Spalte besetzen.
-   Die Karten bekommen bewusst KEIN eigenes touch-action: pan-y ∩ pan-x des Bandes wäre leer,
-   das waagerechte Wischen wäre über den Karten tot (gemessen 12.10.2026 mit echtem Touch-Wisch). */
-.page-body.hstrip-body { overflow: hidden; touch-action: pan-x; }
-.cards.hstrip {
-    display: flex; align-items: stretch; flex-wrap: nowrap;
-    gap: 12px; height: 100%; padding: 2px 2px 12px;
-    overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity;
-    touch-action: pan-x; overscroll-behavior: contain;
-    scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
-}
-.cards.hstrip::-webkit-scrollbar { height: 6px; }
-.cards.hstrip::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); border-radius: 99px; }
-.cards.hstrip::-webkit-scrollbar-track { background: transparent; }
-/* Passt eine Karte doch nicht in die Höhe, wird ihr Inhalt abgeschnitten - kein eigenes Scrollen in der
-   Karte: eine Karte mit overflow-y:auto ist ein Scroll-Behälter und schluckt den waagerechten Wisch
-   (gemessen 12.10.2026: auto = keine Bewegung, clip = Reihe wandert 310 px). */
-.cards.hstrip > .card {
-    flex: 0 0 clamp(230px, 34vw, 320px);
-    scroll-snap-align: start; height: 100%; min-height: 0;
-    overflow: clip;
-}
-.cards.hstrip > .card.wide { flex-basis: clamp(260px, 40vw, 360px); }
-.cards.hstrip > .card.wide .exchange { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-/* Die Abschnitts-Titel stehen senkrecht zwischen den Karten und kosten nur ihre schmale Breite */
-.cards.hstrip > .section-title {
-    flex: 0 0 26px; grid-column: auto; margin: 0;
-    display: flex; align-items: center; justify-content: center;
-    writing-mode: vertical-rl; white-space: nowrap; opacity: 0.9;
-    border-left: 2px dashed rgba(255, 255, 255, 0.25);
-    border-left: 2px dashed color-mix(in srgb, var(--muted) 45%, transparent);
-}
-
 /* ── Böse Sterne ── */
 #scr-star {
     --c: #4fd46a;
@@ -381,8 +345,5 @@ button { font-family: inherit; color: inherit; border: 0; background: none; curs
     .card { padding: 12px; }
     .card h3 { font-size: 16px; }
     .card p { font-size: 12px; }
-    .cards.hstrip { gap: 10px; }
-    .cards.hstrip > .card { flex-basis: clamp(215px, 38vw, 300px); }
-    .cards.hstrip > .card.wide { flex-basis: clamp(240px, 42vw, 330px); }
     .dialog { padding: 14px 16px 16px; gap: 10px; }
 }
