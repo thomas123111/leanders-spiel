@@ -1,0 +1,41 @@
+/* ── Glücksrad: alles unter #scr-rad oder .rad- (nichts Fremdes wird umgestylt) ── */
+#scr-rad {
+    flex-direction: column; align-items: center; justify-content: center; gap: min(1.5vh, 10px);
+    overflow: hidden;
+    background: radial-gradient(92% 96% at 50% 44%, #ffb84d, #a8324a 62%, #2a0f4a 100%);
+}
+/* Kopf wie der Seltenheitsname bei Box und Stern */
+#scr-rad .rad-head {
+    font-size: clamp(22px, 7.4vh, 44px); font-weight: 900; line-height: 1; letter-spacing: 0.04em;
+    text-transform: uppercase; color: #ffffff; text-shadow: 0 3px 0 var(--ink); text-align: center;
+    padding: 6px 22px 8px; border-radius: 999px; background: rgba(42, 15, 74, 0.55);
+    border: 4px solid #ffd23f; box-shadow: 0 0 22px rgba(255, 210, 63, 0.65), 0 4px 0 rgba(0, 0, 0, 0.35);
+}
+#scr-rad .rad-back { position: absolute; left: calc(14px + var(--safe-l)); top: calc(10px + var(--safe-t)); }
+/* Das Rad füllt die Mitte: quadratische Leinwand, damit es auch quer (740×360) ohne Scrollen passt */
+#scr-rad .rad-wheel { position: relative; width: min(48vh, 50vw); aspect-ratio: 1; flex: 0 0 auto; }
+#scr-rad .rad-wheel canvas { width: 100%; height: 100%; display: block; }
+#scr-rad .rad-msg { font-size: 15px; font-weight: 800; color: #fff1d6; text-align: center; max-width: 92vw; }
+#scr-rad .rad-msg.small { font-size: 13px; opacity: 0.85; }
+#scr-rad .rad-go { min-height: 54px; font-size: 21px; padding: 0 30px; }
+/* Auf der Upgrade-Seite führt Tippen irgendwo weiter (kein eigener Knopf) */
+#scr-rad .rad-tap { position: absolute; inset: 0; z-index: 2; background: transparent; }
+/* Gewonnenes Extra: sein Bild und sein Name (dasselbe Symbol wie auf der Shop-Karte) */
+#scr-rad .rad-prize { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+#scr-rad .rad-prize span {
+    font-size: clamp(54px, 19vh, 112px); line-height: 1; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+    animation: rarity-up 0.5s cubic-bezier(.2, 1.4, .4, 1);
+}
+#scr-rad .rad-prize b { font-size: clamp(21px, 6.6vh, 34px); font-weight: 900; line-height: 1.1; text-shadow: 0 3px 0 var(--ink); }
+#scr-rad .rad-prize p { font-size: 14px; font-weight: 700; color: #ffe9c9; max-width: min(66vw, 420px); }
+#scr-rad .rad-prize .rad-sub { font-size: 12px; opacity: 0.8; }
+/* Quer auf dem Handy: Kopf, Rad und Knopf kleiner, damit nichts scrollt */
+@media (orientation: landscape) and (max-height: 430px) {
+    #scr-rad { gap: min(1vh, 6px); }
+    #scr-rad .rad-head { font-size: clamp(17px, 6.4vh, 26px); padding: 4px 16px 6px; border-width: 3px; }
+    #scr-rad .rad-wheel { width: min(54vh, 40vw); }
+    #scr-rad .rad-msg { font-size: 13px; }
+    #scr-rad .rad-go { min-height: 42px; font-size: 17px; padding: 0 22px; }
+    #scr-rad .rad-prize span { font-size: clamp(38px, 21vh, 76px); }
+    #scr-rad .rad-prize p { font-size: 12px; max-width: 74vw; }
+}

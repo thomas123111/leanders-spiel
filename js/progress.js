@@ -32,6 +32,30 @@ const BOX_TRIES = 5;
 // Chance je Versuch, eine Stufe aufzusteigen (je aktueller Stufe)
 const BOX_UPGRADE_CHANCES = [0.45, 0.3, 0.2, 0.12];
 
+// Glücksrad (Wunsch von Leander, 18./19.10.2026): 15 gleich große Felder, jedes Feld genau EINE Belohnung,
+// alle Felder gleich wahrscheinlich. Verteilung: 3 Münzen, 3 Powerpunkte, 3 Upgrades, 2 Juwelen,
+// 2 Glücksboxen, 2 Böse Sterne. icon = Bild auf dem Feld (malt js/ui-rad.js), n = Zahl der Belohnung;
+// beim Feld „box“ ist n die Seltenheit der Truhe (0 = Typisch, 1 = Groß).
+const RAD_FIELDS = [
+    { kind: 'coins', n: 150, icon: 'coin', label: '150 Münzen' },
+    { kind: 'pp', n: 40, icon: 'pp', label: '40 Powerpunkte' },
+    { kind: 'upgrade', icon: 'upgrade', label: '1 Upgrade' },
+    { kind: 'coins', n: 250, icon: 'coin', label: '250 Münzen' },
+    { kind: 'stars', n: 1, icon: 'star', label: '1 Böser Stern' },
+    { kind: 'box', n: 0, icon: 'box', label: 'Glücksbox' },
+    { kind: 'pp', n: 60, icon: 'pp', label: '60 Powerpunkte' },
+    { kind: 'jewels', n: 15, icon: 'gem', label: '15 Juwelen' },
+    { kind: 'upgrade', icon: 'upgrade', label: '1 Upgrade' },
+    { kind: 'coins', n: 400, icon: 'coin', label: '400 Münzen' },
+    { kind: 'box', n: 1, icon: 'box', label: 'Große Glücksbox' },
+    { kind: 'stars', n: 1, icon: 'star', label: '1 Böser Stern' },
+    { kind: 'pp', n: 100, icon: 'pp', label: '100 Powerpunkte' },
+    { kind: 'jewels', n: 30, icon: 'gem', label: '30 Juwelen' },
+    { kind: 'upgrade', icon: 'upgrade', label: '1 Upgrade' },
+];
+const RAD_SPIN_COST = 50;          // Juwelen je Drehung, sobald die Gratis-Drehung der Woche weg ist
+const RAD_FALLBACK_JEWELS = 30;    // Upgrade-Feld, obwohl man alle hat: Juwelen treten an seine Stelle
+
 // Quests: laufen immer im Hintergrund mit (Lebenszeit-Zähler). Jede Quest hat Stufen [Ziel, Erfahrung];
 // nach der letzten geht sie mit größeren Zielen weiter. „Besiege 500 Gegner = 50 EP“ wünscht sich Leander.
 const QUESTS = [
@@ -123,6 +147,7 @@ const Progress = {
     box: null,                  // gerade geöffnete Box: { tier, tries, done }
     dailyQ: null,               // Tagesquests: { date, list: [{ id, stat, icon, target, xp, base }], claimed: [ids] }
     round: null,                // Zähler der laufenden Runde
+    rad: { week: '' },          // Glücksrad: Kalenderwoche der letzten Drehung (leer = noch nie gedreht)
 
     // ── Speichern ──
     load() {
@@ -140,6 +165,9 @@ const Progress = {
                 this.boxes = Array.isArray(d.boxes) ? d.boxes.map(t => clamp(t | 0, 0, BOX_RARITIES.length - 1)) : [];
                 this.box = d.box && typeof d.box === 'object' ? d.box : null;
                 if (d.dailyQ && Array.isArray(d.dailyQ.list)) this.dailyQ = d.dailyQ;
+                // alter Spielstand ohne das Rad: leere Woche = die erste Drehung ist gratis
+                this.rad = d.rad && typeof d.rad === 'object' && typeof d.rad.week === 'string'
+                    ? { week: d.rad.week } : { week: '' };
             }
         } catch (e) { /* kaputter Stand: neu beginnen */ }
         this._ensureDaily();
@@ -150,7 +178,7 @@ const Progress = {
             localStorage.setItem(PROGRESS_KEY, JSON.stringify({
                 pp: this.pp, levels: this.levels, xp: this.xp, pathClaimed: this.pathClaimed,
                 questStep: this.questStep, stats: this.stats, daily: this.daily, boxes: this.boxes, box: this.box,
-                dailyQ: this.dailyQ,
+                dailyQ: this.dailyQ, rad: this.rad,
             }));
         } catch (e) { /* privater Modus */ }
     },
@@ -164,6 +192,10 @@ const Progress = {
         if (r.pp) this.pp += r.pp;
         if (r.stars) Game.boseStarUses = (Game.boseStarUses || 0) + r.stars;
         if (r.box !== undefined && r.box !== null) this.boxes.push(clamp(r.box | 0, 0, BOX_RARITIES.length - 1));
+        if (r.upgrade && typeof upgradeKnown === 'function' && upgradeKnown(r.upgrade) && Game.boughtUpgrades) {
+            // Ein vom Glücksrad gewonnenes Extra: derselbe Merker wie ein Kauf im Shop (js/upgrades.js)
+            Game.boughtUpgrades[r.upgrade] = true;
+        }
         if (r.xp) this.xp += r.xp;
         this.save();
         Game.save();
@@ -458,5 +490,54 @@ const Progress = {
         this.addStat('boxes', 1);
         this.save();
         return { tier, items };
+    },
+
+    // ── Glücksrad (Wunsch von Leander, 18./19.10.2026) ──
+    // Genau EINE Drehung pro Kalenderwoche ist gratis (die Woche steht im Spielstand), jede weitere kostet
+    // RAD_SPIN_COST Juwelen. Zu finden im Shop als Karte „Glücksrad“ (js/ui-rad.js).
+    // Kalenderwoche nach ISO 8601 als Schlüssel „JJJJ-W01“ … (die Woche, nicht der Tag zählt).
+    radWeekKey(d) {
+        const t = d || new Date();
+        const day = new Date(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()));
+        const wd = day.getUTCDay() || 7;                       // Montag = 1 … Sonntag = 7
+        day.setUTCDate(day.getUTCDate() + 4 - wd);             // auf den Donnerstag dieser Woche stellen
+        const first = new Date(Date.UTC(day.getUTCFullYear(), 0, 1));
+        const week = 1 + Math.round(((day.getTime() - first.getTime()) / 86400000 - 3) / 7);
+        return day.getUTCFullYear() + '-W' + (week < 10 ? '0' : '') + week;
+    },
+    radFree() { return this.rad.week !== this.radWeekKey(); },
+    radCost() { return RAD_SPIN_COST; },
+    radCanSpin() {
+        return this.radFree() || (typeof Game !== 'undefined' && (Game.jewels | 0) >= RAD_SPIN_COST);
+    },
+    // Gleichmäßig eins der 15 Felder – jedes mit der Chance 1/15.
+    radDraw() { return Math.floor(Math.random() * RAD_FIELDS.length); },
+    // Die Belohnung eines Feldes als Gutschrift-Objekt (für grant()) mit kurzem Anzeigetext.
+    // Das Upgrade-Feld nimmt ein zufälliges Extra, das noch fehlt und kaufbar wäre (ohne welt-Feld);
+    // fehlt keines, geben die Felder Juwelen her.
+    radReward(f) {
+        if (f.kind === 'coins') return { coins: f.n, label: f.label };
+        if (f.kind === 'pp') return { pp: f.n, label: f.label };
+        if (f.kind === 'jewels') return { jewels: f.n, label: f.label };
+        if (f.kind === 'stars') return { stars: f.n, label: f.label };
+        if (f.kind === 'box') return { box: f.n, label: f.label };
+        const pool = typeof upgradesToBuy === 'function' ? upgradesToBuy(Game) : [];
+        if (pool.length) {
+            const u = pool[Math.floor(Math.random() * pool.length)];
+            return { upgrade: u.id, emoji: u.emoji, name: u.name, text: u.text, label: u.name };
+        }
+        return { jewels: RAD_FALLBACK_JEWELS, label: RAD_FALLBACK_JEWELS + ' Juwelen' };
+    },
+    // Drehen: bezahlt (oder zählt die Wochen-Drehung), zieht ein Feld und schreibt die Belohnung gut.
+    // Liefert null, wenn die Woche schon gedreht ist und die Juwelen nicht reichen – dann dreht das Rad auch nicht.
+    radSpin() {
+        const free = this.radFree();
+        if (!free && !Game._spendJewels(RAD_SPIN_COST)) return null;
+        const index = this.radDraw();
+        const reward = this.radReward(RAD_FIELDS[index]);
+        if (free) this.rad.week = this.radWeekKey();
+        this.grant(reward);
+        this.save();
+        return { index, field: RAD_FIELDS[index], reward, free };
     },
 };
