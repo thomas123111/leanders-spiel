@@ -31,6 +31,7 @@ const RadUI = {
 
     // ── Shop-Karte (wie die „Glücksboxen“-Karte) ──
     shopCards() {
+        if (!this._ready()) return '';         // alte gespeicherte progress.js: Karte bleibt weg
         const free = Progress.radFree();
         const note = free
             ? `Diese Woche ist eine Drehung gratis – danach 💎 ${RAD_SPIN_COST} je Drehung.`
@@ -68,11 +69,20 @@ const RadUI = {
     },
 
     // ── Rad-Bildschirm: ganzer Bildschirm, oben der Pfeil, unten der Knopf „Drehen!“ ──
+    // Die Regeln wohnen in progress.js. Ist dort das Rad noch nicht enthalten (eine alte Fassung der
+    // Datei kommt aus dem Offline-Speicher), darf nichts davon aufgerufen werden – sonst bleibt der
+    // ganze Shop leer. Dann zeigt sich das Rad einfach erst, wenn die neue Datei ausgeliefert ist.
+    _ready() { return typeof Progress !== 'undefined' && typeof Progress.radSpin === 'function'; },
+
     render() {
+        if (!this._ready()) return;
         const el = UI.screens.rad;
         if (this._prize) { this._renderPrize(); return; }
+        this._sparks = [];                 // Funkenregen des letzten Besuchs ist vorbei
+        const busy = !!(this._spin || this._busy);
         el.innerHTML = `
-            <button class="btn small gray rad-back" data-act="radback" aria-label="Zurück zum Shop">◀ Zurück</button>
+            <button class="btn small gray rad-back" data-act="radback" aria-label="Zurück zum Shop"
+                    ${busy ? 'disabled' : ''}>◀ Zurück</button>
             <div class="rad-head">Glücksrad</div>
             <div class="rad-wheel"><canvas></canvas></div>
             <div class="rad-msg">${this._msg()}</div>
@@ -141,8 +151,11 @@ const RadUI = {
     // Eine Belohnung, genau wie Leander es will: Berg ohne Zähler, Truhe und Stern öffnen sich,
     // ein gewonnenes Extra zeigt eine Seite mit Bild und Namen.
     _showReward(s) {
+        const gone = Game.state !== 'SHOP' || UI.current !== 'rad';
         this._busy = false;
         this._win = -1;
+        this._spin = null;
+        if (gone) return;      // Spieler ist inzwischen weg: die Belohnung ist gutgeschrieben und im Shop sichtbar
         const r = s.reward;
         const back = () => UI.renderShop();
         if (r.upgrade) {
@@ -150,8 +163,19 @@ const RadUI = {
             this.render();
             return;
         }
-        if (r.box !== undefined && r.box !== null && typeof BoxUI !== 'undefined' && BoxUI.openNow(r.box, back)) return;
-        if (r.stars && typeof UI.openBadStarNow === 'function' && UI.openBadStarNow(false, back)) return;
+        // Truhe und Stern öffnen nur, wenn nicht gerade eine andere läuft – die gewonnene liegt dann im Shop bereit
+        if (r.box !== undefined && r.box !== null) {
+            if (!Progress.box && typeof BoxUI !== 'undefined' && BoxUI.openNow(r.box, back)) return;
+            UI.flashMessage('Glücksbox gewonnen – sie liegt im Shop bereit');
+            UI.renderShop();
+            return;
+        }
+        if (r.stars) {
+            if (!Game.shopRandomStarActive && typeof UI.openBadStarNow === 'function' && UI.openBadStarNow(false, back)) return;
+            UI.flashMessage('Böser Stern gewonnen – er liegt im Shop bereit');
+            UI.renderShop();
+            return;
+        }
         if (typeof BoxUI !== 'undefined' && BoxUI.showRewards([r], back, { head: 'Glücksrad' })) return;
         UI.flashMessage(Progress.rewardText(r) || 'Belohnung!');
         UI.renderShop();
@@ -261,8 +285,9 @@ const RadUI = {
             ctx.strokeStyle = 'rgba(24,10,44,0.6)';
             ctx.lineWidth = 1.8;
             ctx.stroke();
-            if (this._win === i) {
-                // das Feld unter dem Pfeil pulsiert hell, bis die Belohnung erscheint
+            if (this._win === i && !this._spin) {
+                // das Feld unter dem Pfeil pulsiert hell – erst wenn das Rad steht, sonst wäre der
+                // Gewinn schon während der Fahrt zu sehen
                 ctx.fillStyle = `rgba(255,255,255,${(0.35 + 0.3 * Math.sin(t * 9)).toFixed(3)})`;
                 ctx.fill();
             }

@@ -506,7 +506,6 @@ const Progress = {
         return day.getUTCFullYear() + '-W' + (week < 10 ? '0' : '') + week;
     },
     radFree() { return this.rad.week !== this.radWeekKey(); },
-    radCost() { return RAD_SPIN_COST; },
     radCanSpin() {
         return this.radFree() || (typeof Game !== 'undefined' && (Game.jewels | 0) >= RAD_SPIN_COST);
     },
@@ -536,8 +535,7 @@ const Progress = {
         const index = this.radDraw();
         const reward = this.radReward(RAD_FIELDS[index]);
         if (free) this.rad.week = this.radWeekKey();
-        this.grant(reward);
-        this.save();
+        this.grant(reward);            // grant() speichert den Spielstand
         return { index, field: RAD_FIELDS[index], reward, free };
     },
 };
