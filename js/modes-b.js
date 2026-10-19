@@ -23,7 +23,7 @@ const ModiB = {
     // nicht hinein. Das wäre ein unfairer Kampf statt eines spaßigen Modi.
     groesse(faktor) {
         for (const e of Game.enemies) {
-            if (!e || e.isBoss || e._mbGroesse === faktor) continue;
+            if (!e || e.dead || e.isBoss || e._mbGroesse === faktor) continue;
             const mitte = e.x + e.w / 2;
             const fuss = e.y + e.h;
             e._mbGroesse = faktor;
@@ -59,7 +59,8 @@ const ModiB = {
 
     lichtkegel(vw, vh, farbe, staerke, winkel) {
         const stufe = Math.round(winkel / (Math.PI / 12));
-        const schluessel = Math.round(vw) + 'x' + Math.round(vh) + 'x' + stufe;
+        const schluessel = Math.round(vw) + 'x' + Math.round(vh) + 'x' + farbe + 'x'
+            + Math.round(staerke * 100) + 'x' + stufe;
         const fertig = ModiB.taschen[schluessel];
         if (fertig) return fertig;
         let n = 0;
@@ -509,7 +510,13 @@ UI.register({
             const Figur = f ? f.klasse() : null;
             if (!Figur) return true;
             UI.show(null);
-            ModiB.freundeRunde(f, Figur);
+            try {
+                ModiB.freundeRunde(f, Figur);
+            } catch (fehler) {
+                // Wenn die Halle nicht stehen kann: zurück zur Auswahl, kein leerer Bildschirm
+                Game.clearMode();
+                UI.show('extra');
+            }
             return true;
         }
         if (act === 'modibzurueck') {
