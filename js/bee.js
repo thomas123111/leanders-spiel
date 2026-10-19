@@ -67,6 +67,9 @@ const C_BEE_QUEEN = {
 const STINGER_CAP = 44;
 // Höchstens so viele Honigpfützen zugleich auf dem Boden
 const HONEY_MAX = 5;
+// Länge einer angesagten Stachelbahn. Ein Stachel fliegt genau so weit und nicht weiter –
+// was als orangefarbener Streifen am Boden steht, ist die Strecke, die er wirklich nimmt.
+const SALVO_LANE = 210;
 
 const BeeArt = {
     // Schaden an Mark über die Engine (Wackeln, Ton, roter Rand); ohne Engine direkt.
@@ -114,7 +117,8 @@ const BeeArt = {
 
     // Innenraum des Boss-Raums (nur im echten Bosskampf), sonst null.
     room(world) {
-        if (typeof Game === 'undefined' || !Game.bossActive || typeof Game._bossRoomRect !== 'function') return null;
+        if (typeof Game === 'undefined' || !Game.bossActive || Game.world !== world ||
+            typeof Game._bossRoomRect !== 'function') return null;
         return Game._bossRoomRect();
     },
 
@@ -674,7 +678,12 @@ class Bee extends Enemy {
                 break;
             case 'back':
                 this._retreat(dt, world, dist, dx, dy);
-                if (this.stateT <= 0) this._set('hover', 0);
+                if (this.stateT <= 0) {
+                    // Pause nach jedem Stich: sonst sticht sie unaufhörlich weiter (Ansage an
+                    // sich stimmt zwar, aber für ein Kind wäre das Timing zu hart).
+                    this.cool = randRange(0.9, 1.8);
+                    this._set('hover', 0);
+                }
                 break;
             default: this._hover(dt, world, player, dist, dx, dy);
         }
@@ -706,7 +715,7 @@ class Bee extends Enemy {
         this.aim = near ? { x: near.t.x, y: near.t.y } : { x: this.centerX() + this.face * 26, y: this.centerY() };
         if (Math.abs(this.aim.x - this.centerX()) > 3) this.face = this.aim.x > this.centerX() ? 1 : -1;
         this.stingHit = [];
-        this._set('stingWind', this.gold ? 0.42 : 0.5);
+        this._set('stingWind', 0.5);        // Leander: eine halbe Sekunde Ansage – für beide gleich
     }
 
     // Der Anflug: sie fliegt in den Kreis hinein, dessen Ansage gerade abgelaufen ist
@@ -747,9 +756,12 @@ class Bee extends Enemy {
             const p = camera.worldToScreen(this.aim.x, this.aim.y);
             LateWorldArt.warn(ctx, p.x, p.y, this._R(), st === 'sting' ? 1 : this._k(), BeeCfg.warn);
             if (st === 'stingWind') {
-                // die Pfeilspitzen zeigen, aus welcher Richtung der Stich kommt
+                // die Pfeilspitzen zeigen, aus welcher Richtung der Stich kommt.
+                // Richtung immer in WELT-Koordinaten (Ziel und Biene), sonst mischt sich der
+                // Kamera-Versatz hinein und die Pfeile zeigen daneben (Hausmuster: scorpion.js).
                 const s = camera.worldToScreen(this.centerX(), this.centerY() - 6);
-                LateWorldArt.chevrons(ctx, s.x, s.y, Math.atan2(this.aim.y - s.y, this.aim.x - s.x), this._k(), BeeCfg.pollen);
+                const wx = this.centerX(), wy = this.centerY() - 6;
+                LateWorldArt.chevrons(ctx, s.x, s.y, Math.atan2(this.aim.y - wy, this.aim.x - wx), this._k(), BeeCfg.pollen);
             }
         }
     }
@@ -813,7 +825,7 @@ class Bee extends Enemy {
 // Riesige Biene mit Königinnenkrone, 148 LP, bleibt im Boss-Raum (Königinnenkammer). Ablauf Phase 1:
 //   Drohen → Stachelsalve (angesagte Bahnen) → Honigpfützen (angesagte Kreise) → Bienenschwarm
 //   (angesagte Waben) → Verschnaufpause …
-//   Die Salve zieht Leben, der Schwarm beißt, der Honig macht langsam – er zieht kein Leben ab.
+//   Die Salve zieht Leben, der Schwarm sticht, der Honig macht langsam – er zieht kein Leben ab.
 // Phase 2 (halbe LP): schneller, die Salve wird größer und kommt zweimal, mehr Honig, mehr Bienen.
 //   Bei wenig Leben wird sie nach großen Angriffen schwindelig (Sterne, kurz wehrlos) – Marks Zeit.
 class BossBeeQueen extends Enemy {
@@ -822,9 +834,8 @@ class BossBeeQueen extends Enemy {
         this.hp = 148;
         this.maxHp = 148;
         this.speed = 34;
-        this.damage = 2;
         this.isBoss = true;
-        this.contactDamage = false;      // Schaden macht nur, was angesagt ist
+        this.contactDamage = false;      // kein Berührungsschaden – Schaden kommt nur aus angesagten Angriffen
         this.phasesThroughWalls = false;
         this.flying = true;
         this.shadow = { rx: 40, ry: 12, dy: 46, alpha: 0.26 };
@@ -936,6 +947,12 @@ class BossBeeQueen extends Enemy {
             case 'salvoWind':
                 this._aimSalvo(player, mx, my, px, py);
                 if (this.stateT <= 0) {
+                    if (!this.fanLock) {
+                        // Weit und breit kein Ziel: der Angriff bleibt aus, statt blind zu stechen
+                        this.cool = this.phase === 2 ? 0.4 : 0.8;
+                        this._set('walk', 0);
+                        break;
+                    }
                     this.fanWaves = this.phase === 2 ? 2 : 1;
                     this.fanT = 0;
                     this._set('salvoFire', this.phase === 2 ? 0.92 : 0.38);
@@ -1012,20 +1029,18 @@ class BossBeeQueen extends Enemy {
         this._set('salvoWind', this.phase === 2 ? 0.72 : 0.94);
     }
 
-    // Zielpunkt und Bahnen werden in der Ansage sichtbar und danach nicht mehr umgeworfen
+    // Zielpunkt und Bahnen werden in der Ansage sichtbar und danach nicht mehr umgeworfen.
+    // Beide Wellen stehen von der ersten Ansage-Sekunde an fest und werden beide gezeichnet –
+    // die zweite Bahn ist also sichtbar, ehe der allererste Stachel fliegt.
     _aimSalvo(player, mx, my, px, py) {
-        if (!this.fanLock) {
-            const near = BeeArt.nearTarget(player, mx, my, 460);
-            if (near) {
-                const m = this._muzzle();
-                this.fanA = Math.atan2(near.t.y - m.y, near.t.x - m.x);
-                if (Math.abs(Math.cos(this.fanA)) > 0.2) this.face = Math.cos(this.fanA) > 0 ? 1 : -1;
-            }
-            if (this.stateT <= this.stateDur * 0.35) {
-                this.fanA2 = this._fanA2(player, px, py);
-                this.fanLock = true;
-            }
-        }
+        if (this.fanLock) return;
+        const near = BeeArt.nearTarget(player, mx, my, 460);
+        if (!near) return;                       // noch kein Ziel: Ansage wartet, bis eins da ist
+        const m = this._muzzle();
+        this.fanA = Math.atan2(near.t.y - m.y, near.t.x - m.x);
+        if (Math.abs(Math.cos(this.fanA)) > 0.2) this.face = Math.cos(this.fanA) > 0 ? 1 : -1;
+        this.fanA2 = this._fanA2(player, px, py);
+        this.fanLock = true;
     }
 
     // Richtung der zweiten Welle (Phase 2): steht schon fest, bevor der erste Stachel fliegt
@@ -1064,7 +1079,12 @@ class BossBeeQueen extends Enemy {
         for (let i = 0; i < n; i++) {
             if (list.length > STINGER_CAP) break;
             const a = this.fanA + (i - (n - 1) / 2) * step;
-            list.push(new Stinger(m.x + Math.cos(a) * 10, m.y + Math.sin(a) * 10, a, randRange(168, 190)));
+            const sp = randRange(168, 190);
+            const st = new Stinger(m.x + Math.cos(a) * 10, m.y + Math.sin(a) * 10, a, sp);
+            // Er fliegt genau bis zum Ende der angesagten Bahn und löst sich dort in Pollen auf –
+            // niemand wird jenseits des orangefarbenen Streifens getroffen.
+            st.lifetime = SALVO_LANE / sp;
+            list.push(st);
         }
     }
 
@@ -1075,10 +1095,13 @@ class BossBeeQueen extends Enemy {
         const n = this._swarmN() + 2;            // zwei Waben mehr als Bienen: man sieht, was kommen kann
         const room = BeeArt.room(world);
         const spots = [];
+        const richtung = player ? Math.atan2(player.y + player.h / 2 - my, player.x + player.w / 2 - mx) : 0;
         for (let i = 0; i < n; i++) {
             for (let versuch = 0; versuch < 8; versuch++) {
-                const a = (i / n) * TAU + (player ? Math.atan2(player.y + player.h / 2 - my, player.x + player.w / 2 - mx) : 0) * 0.2;
-                const d = 52 + (i % 3) * 20;
+                // jeder Versuch rückt die Wabe ein Stück weiter: in einer engen Ecke weicht sie aus,
+                // statt achtmal denselben Punkt in der Wand zu versuchen
+                const a = (i / n) * TAU + richtung * 0.2 + versuch * 0.26;
+                const d = 52 + ((i + versuch) % 3) * 20;
                 let x = mx + Math.cos(a) * d, y = my + Math.sin(a) * d * 0.85;
                 if (room) {
                     x = clamp(x, room.x + 16, room.x + room.w - 16);
@@ -1104,6 +1127,8 @@ class BossBeeQueen extends Enemy {
             if (i >= want || this.minions.length >= this._swarmMax()) break;
             const m = new Bee(s.x, s.y);
             m.isKeyGhost = false;
+            m.contactDamage = false;                // Schaden kommt nur aus dem angesagten Stich –
+                                                    // ein Rempler darf einen Freund nie umhauen
             m._engaged = true;                    // frisch geschlüpft: erst fliegen, dann stechen
             m.cool = randRange(0.5, 1.1);
             m.x = s.x - m.w / 2;
@@ -1187,13 +1212,16 @@ class BossBeeQueen extends Enemy {
             const step = 0.19;
             // Genau die Bahnen, die gleich fliegen (Ansage = Treffer)
             for (let i = 0; i < n; i++) {
-                LateWorldArt.lane(ctx, p.x, p.y, this.fanA + (i - (n - 1) / 2) * step, 210, 15,
+                LateWorldArt.lane(ctx, p.x, p.y, this.fanA + (i - (n - 1) / 2) * step, SALVO_LANE, 15,
                     st === 'salvoFire' ? 1 : k, BeeCfg.warn);
             }
-            if (st === 'salvoFire' && this.fanWaves > 0 && this.fanA2 !== null && this.fanA2 !== this.fanA) {
-                // die noch kommende zweite Welle steht schon sichtbar in der Landschaft
+            // Phase 2 schießt zweimal: die zweite Bahn steht von der ersten Ansage-Sekunde an
+            // sichtbar da und erlischt erst, wenn die zweite Welle geflogen ist.
+            const zweite = this.fanA2 !== null && Math.abs(this.fanA2 - this.fanA) > 0.02 &&
+                (st === 'salvoFire' ? this.fanWaves > 0 : this.phase === 2);
+            if (zweite) {
                 for (let i = 0; i < n; i++) {
-                    LateWorldArt.lane(ctx, p.x, p.y, this.fanA2 + (i - (n - 1) / 2) * step, 210, 15, 0.75, BeeCfg.warn);
+                    LateWorldArt.lane(ctx, p.x, p.y, this.fanA2 + (i - (n - 1) / 2) * step, SALVO_LANE, 15, 0.75, BeeCfg.warn);
                 }
             }
             if (st === 'salvoWind') Art.ring(ctx, p.x, p.y, 20 + 12 * k, BeeCfg.pollen, 2.4, 0.3 + 0.3 * k);

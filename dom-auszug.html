@@ -1,0 +1,133 @@
+<html lang="de" style="--ui-zoom: 1.250;"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#140b2a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Mark">
+    <meta name="description" content="Mark und die geklauten Erfindungen – ein Abenteuer durch 57 Welten voller Geister, Roboter, Zombies, Drachen, Hexen, Puddings, Spaghetti, Bienen, Affen und Bossen.">
+    <title>Mark und die geklauten Erfindungen</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <link rel="stylesheet" href="css/game.css?v=9.7.0">
+    <link rel="stylesheet" href="css/box.css?v=9.7.0">
+    <link rel="stylesheet" href="css/end.css?v=9.7.0">
+    <link rel="stylesheet" href="css/progress.css?v=9.7.0">
+    <link rel="stylesheet" href="css/waffen.css?v=9.7.0">
+    <link rel="stylesheet" href="css/rad.css?v=9.7.0">
+</head>
+<body>
+    <canvas id="game" width="800" height="500" style="width: 800px; height: 500px; touch-action: none;"></canvas>
+    <div id="ui"><section class="screen" id="scr-title">
+            <div class="wallet"><div class="chips">
+            <span class="chip coin"><i>🪙</i><b>0</b></span>
+            <span class="chip gem"><i>💎</i><b>0</b></span>
+            <span class="chip pp"><i><span class="pp-orb"></span></i><b>0</b></span>
+            
+            
+        </div></div>
+            <div class="topbar">
+                <button class="icon-btn" data-act="fullscreen" aria-label="Vollbild">⛶</button>
+                <button class="icon-btn" data-act="settings" aria-label="Einstellungen">⚙️</button>
+            </div>
+            <div class="hero" aria-label="Figuren: zur Seite wischen"><div class="tap-hint">◀ wischen ▶</div></div>
+            <div class="menu">
+                <div class="logo"><span class="l1">Mark</span><span class="l2">und die geklauten Erfindungen</span></div>
+                <p class="story"><b>Mark:</b> Mark ist Baseballspieler und Geisterjäger. Seit er bestohlen wurde, hat er sich verwandelt … Findet es selbst heraus!</p>
+                
+                <button class="btn big pulse" data-act="play">▶ SPIELEN</button>
+                <div class="menu-row">
+                    <button class="btn blue" data-act="shop">🛒 Shop</button>
+                    <button class="btn green" data-act="training">🎯 Training</button>
+                    <button class="btn purple" data-act="extra">✨ Extra</button>
+                    <button class="btn pink" data-act="waffen">🗡️ Waffen</button>
+                </div>
+            </div>
+            <div class="title-ext"><div class="pg-side">
+            <span class="pg-side-item">
+            <button class="pg-round" data-act="quests" aria-label="Quests">📜</button>
+            <span class="pg-rlab">Quests</span></span>
+            <span class="pg-side-item">
+            <button class="pg-round" data-act="path" aria-label="Power-Pfad">🛤️</button>
+            <span class="pg-rlab">Power-Pfad</span></span>
+            <span class="pg-side-item">
+            <button class="pg-round" data-act="power" aria-label="Upgrades">⚡</button>
+            <span class="pg-rlab">Upgrades</span></span>
+        </div></div></section><section class="screen page" id="scr-worlds"></section><section class="screen page" id="scr-shop"></section><section class="screen" id="scr-star"></section><section class="screen page" id="scr-extra"></section><section class="screen overlay" id="scr-pause"></section><section class="screen overlay" id="scr-result"></section><section class="screen overlay" id="scr-settings"></section><section class="screen" id="scr-box"></section><section class="screen" id="scr-rad"></section><section class="screen overlay" id="scr-end"></section><section class="screen page" id="scr-quests"></section><section class="screen page" id="scr-path"></section><section class="screen page" id="scr-power"></section><section class="screen page" id="scr-waffen"></section></div>
+    <div id="rotate">
+        <div class="phone"></div>
+        <b>Bitte dreh dein Handy!</b>
+        <span>Mark kämpft am besten quer.</span>
+    </div>
+    
+
+    <script src="js/utils.js?v=9.7.0"></script>
+    <script src="js/art.js?v=9.7.0"></script>
+    <script src="js/fx.js?v=9.7.0"></script>
+    <script src="js/data.js?v=9.7.0"></script>
+    <script src="js/sound.js?v=9.7.0"></script>
+    <script src="js/music.js?v=9.7.0"></script>
+    <script src="js/input.js?v=9.7.0"></script>
+    <script src="js/camera.js?v=9.7.0"></script>
+    <script src="js/world.js?v=9.7.0"></script>
+    <script src="js/weapons.js?v=9.7.0"></script>
+    <script src="js/loot.js?v=9.7.0"></script>
+    <script src="js/entities.js?v=9.7.0"></script>
+    <script src="js/entities2.js?v=9.7.0"></script>
+    <script src="js/pandafreund.js?v=9.7.0"></script>
+    <script src="js/zombie.js?v=9.7.0"></script>
+    <script src="js/butterfly.js?v=9.7.0"></script>
+    <script src="js/dragon.js?v=9.7.0"></script>
+    <script src="js/werewolf.js?v=9.7.0"></script>
+    <script src="js/angel.js?v=9.7.0"></script>
+    <script src="js/mummy.js?v=9.7.0"></script>
+    <script src="js/firepig.js?v=9.7.0"></script>
+    <script src="js/thunder.js?v=9.7.0"></script>
+    <script src="js/witch.js?v=9.7.0"></script>
+    <script src="js/bunny.js?v=9.7.0"></script>
+    <script src="js/devil.js?v=9.7.0"></script>
+    <script src="js/alien.js?v=9.7.0"></script>
+    <script src="js/spider.js?v=9.7.0"></script>
+    <script src="js/toad.js?v=9.7.0"></script>
+    <script src="js/dwarf.js?v=9.7.0"></script>
+    <script src="js/treemonster.js?v=9.7.0"></script>
+    <script src="js/golem.js?v=9.7.0"></script>
+    <script src="js/pumpkin.js?v=9.7.0"></script>
+    <script src="js/crab.js?v=9.7.0"></script>
+    <script src="js/eagle.js?v=9.7.0"></script>
+    <script src="js/fox.js?v=9.7.0"></script>
+    <script src="js/porcupine.js?v=9.7.0"></script>
+    <script src="js/gorilla.js?v=9.7.0"></script>
+    <script src="js/peacock.js?v=9.7.0"></script>
+    <script src="js/clown.js?v=9.7.0"></script>
+    <script src="js/panda.js?v=9.7.0"></script>
+    <script src="js/unicorn.js?v=9.7.0"></script>
+    <script src="js/vampire.js?v=9.7.0"></script>
+    <script src="js/snowman.js?v=9.7.0"></script>
+    <script src="js/candy.js?v=9.7.0"></script>
+    <script src="js/rat.js?v=9.7.0"></script>
+    <script src="js/scorpion.js?v=9.7.0"></script>
+    <script src="js/pudding.js?v=9.7.0"></script>
+    <script src="js/noodle.js?v=9.7.0"></script>
+    <script src="js/bee.js?v=9.7.0"></script>
+    <script src="js/monkey.js?v=9.7.0"></script>
+    <script src="js/player.js?v=9.7.0"></script>
+    <script src="js/hud.js?v=9.7.0"></script>
+    <script src="js/progress.js?v=9.7.0"></script>
+    <script src="js/ui.js?v=9.7.0"></script>
+    <script src="js/ui-box.js?v=9.7.0"></script>
+    <script src="js/ui-rad.js?v=9.7.0"></script>
+    <script src="js/ui-end.js?v=9.7.0"></script>
+    <script src="js/ui-progress.js?v=9.7.0"></script>
+    <script src="js/ui-waffen.js?v=9.7.0"></script>
+    <script src="js/main.js?v=9.7.0"></script>
+    <script src="js/upgrades.js?v=9.7.0"></script>
+    <script src="js/upgrades-mark.js?v=9.7.0"></script>
+    <script src="js/upgrades-juri.js?v=9.7.0"></script>
+    <script src="js/upgrades-croc.js?v=9.7.0"></script>
+    <script src="js/upgrades-panda.js?v=9.7.0"></script>
+
+
+<div style="position: fixed; left: 0px; top: 0px; visibility: hidden; pointer-events: none; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);"></div></body></html>
