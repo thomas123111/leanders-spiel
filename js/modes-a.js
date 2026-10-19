@@ -36,8 +36,11 @@
         return run.modiA;
     }
 
+    // `hat` haelt nichts von einer Klassen-Pruefung ab, die der Aufrufer schon ausgewertet hat
+    // (ein fehlender Name wirft frueher) - es haelt nur Nicht-Klassen aus der Liste, damit eine
+    // Stufe nie mit einem Wert gefuellt ist, den Modes.welle nicht bauen kann.
     // Gegner in sechs Stufen (wie worldInfo die Welten): spaete Stufen sind die kraeftigeren
-    // Figuren aus den hinteren Welten. Fehlt eine Klasse, faellt die Stufe auf Geister zurueck.
+    // Figuren aus den hinteren Welten. Ohne gueltige Klasse faellt alles auf Geister zurueck.
     function gegnerStufen() {
         const stufen = [
             [hat(Ghost), hat(Slime), hat(GiantBat)],
@@ -73,8 +76,25 @@
         return n;
     }
 
+    // Zusatz-Truhen nur auf freie Felder, die Mark auch erreichen kann (Game._reach ist die
+    // Reichweiten-Karte der Engine, dieselbe wie fuer den Schluessel). Die Engine selbst prueft
+    // beim Truhen-Setzen nur den Abstand zum Start - eine Truhe auf einer unerreichbaren Plattform
+    // waere ein Such-Ziel, das kein Kind finden kann.
+    function truhenLegen(bis) {
+        const g = Game, w = g.world;
+        if (!w || !Array.isArray(g._floorTiles)) return;
+        for (let i = g._floorTiles.length - 1; i >= 0 && g.chests.length < bis; i--) {
+            const f = g._floorTiles[i];
+            const feld = Math.floor(f.y / TILE_SIZE) * w.width + Math.floor(f.x / TILE_SIZE);
+            if (g._reach && !g._reach[feld]) continue;
+            g._floorTiles.splice(i, 1);           // das Feld ist jetzt eine Truhe, kein Gegnerfeld
+            g.chests.push(new Chest(f.x - 12, f.y - 10));
+        }
+    }
+
     // Bosse in der Reihenfolge der Welten - dieselbe Zuordnung wie _spawnBoss in js/main.js.
-    // Laesst sich die Klasse nicht laden (andere Paket-Reihenfolge), bleibt Geist uebrig.
+    // (Die Tabelle in main.js ist eine lokale Konstante in dieser Funktion und von aussen nicht
+    // zu lesen; eine eigene Liste ist hier der einzige Weg, ohne main.js anzufassen.)
     function alleBosse() {
         const liste = [
             BossGhost, BossGhostChick, BossSlime, BossKnightBat, BossMushroomGiant,
@@ -100,25 +120,27 @@
         return alleBosse().slice(0, clamp(bisWelt, 1, LAST_WORLD));
     }
 
-    function bossName(weltNr) {
-        const info = worldInfo(clamp(weltNr, 1, LAST_WORLD));
-        return (info && info.boss) || 'ein Boss';
-    }
-
     // ── die Welt-Auswahl fuer Modi, die eine Welt brauchen ──
     // Eigener Bildschirm (von ui.js nicht angefasst), aufgerufen aus Modes.start: der Modus ist
     // dann angelegt, aber die Welt laeuft noch nicht - die Uhr eines Rennens beginnt erst mit ihr.
     const WAHL_SCHIRM = 'modiawahl';
     const WAHL_MODI = Object.create(null);
-    let wahlOffen = '';
+
+    // Welcher Modus gerade eine Welt sucht, steht am Lauf (run.modiA.wahl) und nicht in einer
+    // Modul-Variable: wirft das Geruest den Lauf weg (Abbruch, Flucht ins Menue), ist auch die
+    // Auswahl weg - ein Klick auf eine Welt-Karte kann dann keinen Modus mehr starten, der
+    // laengst vorbei ist.
+    function wahlId() {
+        const z = zustand();
+        return z && z.wahl ? z.wahl : '';
+    }
 
     function bestzeitKey(id, weltNr) { return id + '@' + weltNr; }
     function Bestzeit(id, weltNr) { return Modes.rekord(bestzeitKey(id, weltNr)); }
     function merkeBestzeit(id, weltNr, zeit) {
         const alt = Bestzeit(id, weltNr);
         if (alt !== null && alt <= zeit) return false;
-        Game.modeRecords = Game.modeRecords || {};
-        Game.modeRecords[bestzeitKey(id, weltNr)] = Math.round(zeit * 10) / 10;
+        Modes.setRekord(bestzeitKey(id, weltNr), zeit);   // schreibt auch in den Spielstand
         return true;
     }
 
@@ -126,7 +148,8 @@
         const el = UI.screens && UI.screens[WAHL_SCHIRM];
         const eintrag = WAHL_MODI[id];
         if (!el || !eintrag) return false;
-        wahlOffen = id;
+        const z = zustand();
+        if (z) z.wahl = id;
         const max = eintrag.bekannteWelten ? weltBekannt(Game) : weltMax(Game);
         const farben = ['#ff5d7b', '#69d26a', '#6db8ff', '#ffd23f', '#b26bff', '#4cc9f0'];
         let karten = '';
@@ -144,6 +167,10 @@
             <button class="btn small gray" data-act="modiawahlzurueck">◀ Zurück</button>
             <h2>${Modes.sicher(eintrag.emoji)} ${Modes.sicher(eintrag.frage)}</h2>${UI._chips()}</div>
             <div class="page-body"><div class="cards">${karten}</div></div>`;
+        // Der Stand bleibt ein Menue-Stand (kein Rennen, keine Ergebnis-Seite): so bleiben
+        // Tasten und Flucht-Weg sich genau so verhalten wie im Extra-Menue. UI.onState zeigt
+        // dabei das Extra-Menue - die Auswahl kommt erst danach, sonst ueberdeckt sie sich selbst.
+        Game.setState('EXTRA_MENU');
         UI.show(WAHL_SCHIRM);
         return true;
     }
@@ -151,17 +178,15 @@
     UI.register({
         screens: { [WAHL_SCHIRM]: 'page' },
         onClick(act, btn) {
+            const id = wahlId();
             if (act === 'modiawahl') {
-                const eintrag = WAHL_MODI[wahlOffen];
+                const eintrag = WAHL_MODI[id];
                 const nr = +btn.dataset.n;
                 if (!eintrag || !(nr >= 1)) return true;
-                const id = wahlOffen;
-                wahlOffen = '';
                 eintrag.aufWelt(clamp(nr, 1, LAST_WORLD));
                 return true;
             }
             if (act === 'modiawahlzurueck') {
-                wahlOffen = '';
                 Game.openExtraMode();       // nimmt den Modus (clearMode), die Karte bleibt wie sie war
                 return true;
             }
@@ -199,11 +224,16 @@
         wertung: 'punkte',                   // 100 Punkte je besiegttem Boss
         start(g) {
             const z = zustand();
-            z.marathon = { besiegt: 0, anzahl: 0 };
-            Modes.arena({ welt: halleWelt(g), herzen: 5, breite: 42, hoehe: 24 });
-            const reihe = bossBis(weltBekannt(g));
-            z.marathon.anzahl = reihe.length;
-            Modes.bossReihe(reihe);
+            z.marathon = { besiegt: 0 };
+            // Halle und Boss-Reihe müssen stehen - ohne sie ist der Modus nicht spielbar, und
+            // das Geruest nimmt ihn sauber zurueck (Modus-Start fehlgeschlagen), statt eine
+            // leere Halle ohne Boss laufen zu lassen.
+            if (!Modes.arena({ welt: halleWelt(g), herzen: 5, breite: 42, hoehe: 24 })) {
+                throw new Error('Boss-Marathon: Halle nicht gebaut');
+            }
+            if (!Modes.bossReihe(bossBis(weltBekannt(g)))) {
+                throw new Error('Boss-Marathon: keine Bosse bekannt');
+            }
         },
         onWorldClear() {
             const z = zustand();
@@ -338,18 +368,23 @@
             t.laeuft = false;
             return Modes.finish({ text: 'Der Turm ist geschafft – 50 Stockwerke!' });
         }
-        t.etage++;
+        const nr = t.etage + 1;
+        // Neue Halle zuerst: bleibt sie aus, war es die letzte Etage - sonst zaele ein Stockwerk,
+        // das es nie gab, und die Halle ohne Gegner ist in zwei Sekunden "geschafft".
+        if (!Modes.arena({
+            welt: halleWelt(g, nr), herzen: 5,
+            breite: 30 + (nr % 5) * 3, hoehe: 20 + (nr % 4) * 2,
+        })) {
+            return Modes.finish({ text: 'Der Turm macht gleich wieder auf.' });
+        }
+        t.etage = nr;
         t.laeuft = true;
         Modes.punkte(1);                                    // Punkte = Stockwerk (der Rekord)
-        Modes.arena({
-            welt: halleWelt(g, t.etage), herzen: 5,
-            breite: 30 + (t.etage % 5) * 3, hoehe: 20 + (t.etage % 4) * 2,
-        });
         welleScharf({
-            gegner: gegnerFuer(t.etage),
-            anzahl: Math.min(18, 3 + Math.round(t.etage * 0.5)),
+            gegner: gegnerFuer(nr),
+            anzahl: Math.min(18, 3 + Math.round(nr * 0.5)),
             abstand: 230,
-        }, t.etage);
+        }, nr);
         HUD.toast('Stockwerk ' + t.etage + ' von ' + TURM_ETAGEN, '#ffe38a', 1.8);
         return true;
     }
@@ -399,6 +434,8 @@
 
     // ══════════════ 5: Ein Herz ══════════════
     const HERZ_ID = 'ein-herz';
+    // Doppelte Belohnung: zweimal das, was ein Modus-Lauf in dieser Welt wert ist.
+    function herzBelohnung(nr) { return clamp((60 + clamp(nr || 1, 1, LAST_WORLD) * 10) * 2, 50, 500); }
     WAHL_MODI[HERZ_ID] = {
         emoji: '❤️',
         frage: 'Welche Welt schaffst du mit nur einem Herz?',
@@ -426,14 +463,19 @@
         onWorldClear() {
             const z = zustand();
             const nr = z && z.herz ? z.herz.welt : 1;
-            // Doppelte Belohnung: zweimal das, was ein Modus-Lauf in dieser Welt wert ist.
             return Modes.finish({
                 text: 'Ein Herz, ein Sieg – das ist doppelte Belohnung wert!',
-                muenzen: clamp((60 + nr * 10) * 2, 50, 500),
+                muenzen: herzBelohnung(nr),
             });
         },
         onPlayerDeath() {
             return ohneErgebnis('Das eine Herz ist weg – der nächste Lauf klappt bestimmt.');
+        },
+        // Faellt der Weg über onWorldClear je weg (etwa weil der Boss-Sieg woanders endete),
+        // nimmt das Geruest diese Formel - ohne sie griffe die Geruest-Formel und zahlte 25.
+        belohnung() {
+            const z = zustand();
+            return herzBelohnung(z && z.herz ? z.herz.welt : 1);
         },
         drawHud(ctx) {
             const z = zustand();
@@ -459,11 +501,7 @@
             z.suche.welt = nr;
             Modes.starteWelt({ welt: nr, zeitlimit: SUCHE_ZEIT });
             // Eine Welt hat sechs bis elf Truhen – für eine echte Suche kommen welche dazu.
-            let gelegt = 0;
-            while (Game.chests.length < 14 && gelegt < 12 && typeof Game._spawnChestAt === 'function') {
-                Game.chests.push(Game._spawnChestAt());
-                gelegt++;
-            }
+            truhenLegen(14);
             z.suche.total = Game.chests.length;
         },
     };
@@ -503,7 +541,9 @@
             const n = z && z.suche ? z.suche.offen : 0;
             return Modes.finish({ text: n ? n + ' Truhen gefunden.' : 'Keine Truhe erwischt.' });
         },
-        belohnung({ punkte }) { return clamp(40 + punkte * 22, 50, 500); },
+        // Die Truhen der Welt werfen wie sonst auch Munzen ab - die Modus-Belohnung bleibt
+        // deshalb bewusst unter der Obergrenze der anderen Modi (14 Truhen = 226).
+        belohnung({ punkte }) { return clamp(30 + punkte * 14, 50, 350); },
         drawHud(ctx) {
             const z = zustand();
             const s = z && z.suche;
