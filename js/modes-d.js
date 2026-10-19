@@ -374,7 +374,7 @@ function D4Laufgegner(abschnitt) {
 }
 
 // Der Schwung des Schneemannes landet ohne Schaden: der Kreis, der Schaden und das Beben
-// stecken alle in _swipeHit (js/snowman.js:613), die Aushol-Bewegung laeuft weiter.
+// stecken alle in _swipeHit (js/snowman.js:616), die Aushol-Bewegung laeuft weiter.
 const D4KeinHieb = function () { };
 
 // Geister fuer die Geisterjagd: sie steigen in der Naehe von Mark aus dem Boden
