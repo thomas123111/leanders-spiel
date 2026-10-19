@@ -330,11 +330,20 @@ function D4Bahn(abschnitt) {
     level[7][breite - 3] = TILE_BOSS_SPAWN;
     const mauern = Math.min(5, 2 + Math.floor(abschnitt / 2));
     const lueckeBreite = Math.max(2, 4 - Math.floor(abschnitt / 5));
-    let lueckeOben = 4 + ModiD.wuerfel(4);
+    const obenMax = 12 - lueckeBreite + 1;         // die Luecke bleibt in den freien Reihen 2..12
+    const freieReihe = () => 2 + ModiD.wuerfel(obenMax - 1);
+    // Die Mauer geht ueber alle freien Reihen: eine Zeile, die in JEDEM Abschnitt offen
+    // bleibt, waere die kostenlose Abkuerzung durch den ganzen Lauf. Die ersten beiden
+    // Luecken liegen deshalb auseinander, als Paar sind sie in keiner Zeile offen.
+    const erste = freieReihe();
+    let zweite = freieReihe();
+    for (let versuch = 0; versuch < 40 && Math.abs(zweite - erste) < lueckeBreite; versuch++) zweite = freieReihe();
+    let lueckeOben = erste;
     for (let i = 0; i < mauern; i++) {
         const spalte = 11 + i * 7;
-        lueckeOben = clamp(lueckeOben + ModiD.wuerfel(3) - 2, 3, 8);
-        for (let y = 3; y <= 11; y++) {
+        if (i === 1) lueckeOben = zweite;
+        else if (i > 1) lueckeOben = clamp(lueckeOben + ModiD.wuerfel(5) - 2, 2, obenMax);
+        for (let y = 2; y <= 12; y++) {
             if (y >= lueckeOben && y < lueckeOben + lueckeBreite) continue;
             level[y][spalte] = TILE_WALL;
         }
@@ -364,6 +373,10 @@ function D4Laufgegner(abschnitt) {
     return anzahl;
 }
 
+// Der Schwung des Schneemannes landet ohne Schaden: der Kreis, der Schaden und das Beben
+// stecken alle in _swipeHit (js/snowman.js:613), die Aushol-Bewegung laeuft weiter.
+const D4KeinHieb = function () { };
+
 // Geister fuer die Geisterjagd: sie steigen in der Naehe von Mark aus dem Boden
 // (190 bis 330 px), damit das Kind sie sieht und ihnen eine Falle stellen kann.
 function D4Geister(anzahl) {
@@ -383,6 +396,17 @@ function D4Geister(anzahl) {
         n++;
     }
     return n;
+}
+
+// Der "Zurueck"-Knopf und die Weltkarte geben den Modus ohne jeden Ende-Haken auf
+// (js/main.js:392 und js/main.js:854 rufen Modes.zuruecksetzen). Auch dann muss die
+// geliehene Extra-Ueberlagerung zurueck zum Spiel.
+if (typeof Modes !== 'undefined' && typeof Modes.zuruecksetzen === 'function') {
+    const D4Zuruecksetzen = Modes.zuruecksetzen;
+    Modes.zuruecksetzen = function () {
+        D4Chaos.aufraeumen();
+        return D4Zuruecksetzen.call(this);
+    };
 }
 
 // ══════════════════════════════════ 1) Autorennen ══════════════════════════════════
@@ -415,7 +439,7 @@ registerMode({
             p.activateAuto();
         }
         // Der Wagen darf in einer Arena keinen Schritt fahren: main.js haelt das Auto aus dem
-        // Boss-Bereich, und in der Arena ist die ganze Halle der Boss-Bereich (js/modes.js:341).
+        // Boss-Bereich, und in der Arena ist die ganze Halle der Boss-Bereich (js/modes.js:351).
         // Also faehrt der Modus den Wagen selbst - Optik und doppeltes Tempo bleiben beim Auto.
         const fahrt = Input.direction;
         if (p.autoActive && (fahrt.x !== 0 || fahrt.y !== 0)) {
@@ -790,11 +814,16 @@ registerMode({
             e.d4schnee = true;
             e.contactDamage = false;
             e.damage = 0;
+            // Der Armschwung zieht seinen Schaden aus eigener Rechnung (js/snowman.js:615:
+            // SnowmanArt.areaHit(..., 2, ...)) - weder contactDamage noch damage begrenzen ihn.
+            // Hier bleibt die Aushol-Bewegung, nur der Schlag ins Leere.
+            e._swipeHit = D4KeinHieb;
         }
         // Freunde: eigene Waffe aus, dafuer Schneebaelle
         for (const c of g.companions) {
             if (!c || c.dead || c.koTimer > 0) continue;
             if (typeof c.damage === 'number') c.damage = 0;
+            if (typeof c.attackTimer === 'number' && c.attackTimer < 900) c.attackTimer = 900;
             if (typeof c.shootTimer === 'number' && c.shootTimer < 900) c.shootTimer = 900;
             if (typeof c.spitTimer === 'number' && c.spitTimer < 900) c.spitTimer = 900;
             let t = c.d4wurf;
