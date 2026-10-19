@@ -118,7 +118,7 @@ const PuddingArt = {
 
     // Innenraum des Boss-Raums (nur im echten Bosskampf), sonst null.
     room(world) {
-        if (typeof Game === 'undefined' || !Game.bossActive || typeof Game._bossRoomRect !== 'function') return null;
+        if (typeof Game === 'undefined' || Game.world !== world || !Game.bossActive || typeof Game._bossRoomRect !== 'function') return null;
         return Game._bossRoomRect();
     },
 
@@ -395,8 +395,8 @@ class PuddingMonster extends Enemy {
                     if (this.stateT <= this.stateDur * 0.35) this.aimLock = true;   // Bahnen stehen jetzt fest
                 }
                 if (this.stateT <= 0) {
-                    this._throw(projectiles);
                     this.throwLeft = this.aims.length - 1;
+                    this._throw(projectiles);
                     this._set('throw', 0.24);
                 }
                 break;
@@ -469,7 +469,7 @@ class PuddingMonster extends Enemy {
     _throw(projectiles) {
         const list = projectiles || (typeof Game !== 'undefined' ? Game.projectiles : null);
         const m = this._mouth();
-        const idx = this.aims.length - 1 - this.throwLeft;
+        const idx = this.throwLeft;
         const a = this.aims[clamp(idx, 0, this.aims.length - 1)] || 0;
         if (!list || list.length > PUDDING_CAP) {
             PuddingArt.burst(m.x, m.y, [this.pal.base, PuddingCfg.cream], 4, 70, 0.3, { kind: 'dot', gravity: 160 });
