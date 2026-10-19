@@ -32,13 +32,16 @@
             '-' + String(d.getDate()).padStart(2, '0');
     }
 
-    // Die laufende Kalenderwoche (Donnerstags-Regel, wie die Nummer auch ohne Rechner zaehlt).
+    // Die laufende Kalenderwoche nach ISO 8601: gezaehlt wird von der Woche mit dem 4. Januar,
+    // und der Donnerstag entscheidet, zu welcher Woche ein Tag gehoert.
+    function donnerstagEinerWoche(von) {
+        return new Date(von.getFullYear(), von.getMonth(), von.getDate() + 3 - ((von.getDay() + 6) % 7));
+    }
     function dieseWoche() {
-        const d = new Date();
-        const donnerstag = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 3 - ((d.getDay() + 6) % 7));
-        const anfang = new Date(donnerstag.getFullYear(), 0, 1);
-        const versatz = (anfang.getDay() + 6) % 7;
-        const woche = 1 + Math.round((((donnerstag - anfang) / 86400000) - 3 + versatz) / 7);
+        const donnerstag = donnerstagEinerWoche(new Date());
+        // Der 4. Januar steckt immer in Woche 1; sein Donnerstag ist der Anker des Jahres.
+        const anker = donnerstagEinerWoche(new Date(donnerstag.getFullYear(), 0, 4));
+        const woche = 1 + Math.round(((donnerstag - anker) / 86400000) / 7);
         return donnerstag.getFullYear() + '-W' + String(woche).padStart(2, '0');
     }
 
@@ -345,7 +348,6 @@
             zustand.tag = tag;
             zustand.welt = weltAusSaat(g, tag);
             zustand.regel = TAGES_REGELN[zahltag % TAGES_REGELN.length];
-            zustand.lohnSchluessel = tag;
             zustand.besuch = 0;
             const opts = Object.assign({ herzen: 4 }, zustand.regel.opts || {});
             const besuch = !!opts.besuch;
