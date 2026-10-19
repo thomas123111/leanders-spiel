@@ -70,7 +70,7 @@ const MonkeyKit = {
         }
     },
 
-    // Treffbare Begleiter (Juri und das Krokodil – nicht die Schlange auf Marks Schulter)
+    // Treffbare Begleiter (Juri, das Krokodil und der Panda – nicht die Schlange auf Marks Schulter)
     friends() {
         const out = [];
         const list = typeof Game !== 'undefined' && Game.companions ? Game.companions : [];
@@ -154,6 +154,30 @@ const MonkeyKit = {
         if (!r) return;
         e.x = clamp(e.x, r.x + 2, Math.max(r.x + 2, r.x + r.w - e.w - 2));
         e.y = clamp(e.y, r.y + 2, Math.max(r.y + 2, r.y + r.h - e.h - 2));
+    },
+
+    // Jeden Brocken, der gerade senkrecht vom Himmel faellt, am Boden ankündigen.
+    // Laeuft ueber die Geschosse selbst - deshalb pausiert der Schatten nie frueher als die Nuss
+    // und es gibt keinen Teller ohne Nuss. main.js ruft drawUnder der Gegner unbeschnitten auf.
+    fallingShadows(ctx, camera) {
+        if (typeof Game === 'undefined' || !Game.projectiles) return;
+        for (const p of Game.projectiles) {
+            if (!p.monkeyWorld || p.dead || !p.straight) continue;
+            const q = camera.worldToScreen(p.tx, p.ty);
+            MonkeyKit.groundMark(ctx, q.x, q.y, p.zone, clamp(p.age / p.flight, 0, 1));
+        }
+    },
+
+    // Schatten am Boden unter einer fallenden Nuss: dunkle Scheibe + Warnring, wachsend mit k.
+    groundMark(ctx, x, y, r, k) {
+        const prev = ctx.globalAlpha;
+        const sr = r * (0.7 + k * 1.5);
+        ctx.fillStyle = 'rgba(28,18,6,0.34)';
+        ctx.beginPath();
+        ctx.ellipse(x, y, sr, sr * 0.42, 0, 0, TAU);
+        ctx.fill();
+        LateWorldArt.warn(ctx, x, y, r, clamp(k * 1.25, 0, 1), MonkeyCfg.warn);
+        ctx.globalAlpha = prev;
     },
 
     free(world, x, y, r) {
@@ -409,13 +433,17 @@ class MonkeyCoconut extends Projectile {
         const g = camera.worldToScreen(this.x, this.y);
         const foot = camera.worldToScreen(this.tx, this.ty);
         const k = clamp(this.age / this.flight, 0, 1);
-        // Schatten am Boden: vorher da, wächst mit der fallenden Nuss (Leanders Regel)
-        const sr = this.radius * (0.7 + k * 1.5);
+        // Schatten am Boden: vorher da, wächst mit der fallenden Nuss (Leanders Regel).
+        // Beim senkrechten Hagel malt ihn der Boss selbst (drawUnder) – die Engine
+        // ueberspringt sonst das ganze Geschoss, solange die Nuss noch oberhalb liegt.
         const a0 = ctx.globalAlpha;
-        ctx.fillStyle = 'rgba(28,18,6,0.34)';
-        ctx.beginPath();
-        ctx.ellipse(foot.x, foot.y, sr, sr * 0.42, 0, 0, TAU);
-        ctx.fill();
+        if (!this.straight) {
+            const sr = this.radius * (0.7 + k * 1.5);
+            ctx.fillStyle = 'rgba(28,18,6,0.34)';
+            ctx.beginPath();
+            ctx.ellipse(foot.x, foot.y, sr, sr * 0.42, 0, 0, TAU);
+            ctx.fill();
+        }
         ctx.globalAlpha = a0 * clamp(this.lifetime / 0.18, 0, 1);
         const y = g.y - this.lift;
         Art.glow(ctx, g.x, y, this.radius * 2, MonkeyCfg.cocoMid, 0.25);
@@ -440,7 +468,7 @@ class Monkey extends Enemy {
         this.contactDamage = false;         // nur die Kokosnüsse tun weh
         this.phasesThroughWalls = false;
         this.flying = false;
-        this.detectionRange = 250;
+        this.detectionRange = 330;
         this.fxColor = MonkeyCfg.furMid;
         this.seed = Math.random() * 10;
         this.face = Math.random() < 0.5 ? 1 : -1;
@@ -827,10 +855,14 @@ class BossGiantMonkey extends Enemy {
         this._set('pant', this.cool + 0.35);
     }
 
-    // Ansage: Warnkreise der Explosionen (unter allen Figuren, bevor die Nüsse fliegen)
+    // Ansage: Boden-Schatten der fallenden Nuesse und Warnkreise der Explosionen
+    // (unter allen Figuren und – anders als die Geschosse – unabhaengig vom Bildschirmrand)
     drawUnder(ctx, camera) {
-        if (this.dead) return;
         const st = this.state;
+        // Schatten am Boden zu jeder Nuss, die gerade von oben faellt. Laeuft auch nach dem
+        // Tod des Bosses weiter, damit die Vorwarnung im letzten Hagel nicht abbrisst.
+        MonkeyKit.fallingShadows(ctx, camera);
+        if (this.dead) return;
         if (st === 'boomWind') {
             const room = MonkeyKit.room();
             ctx.save();
