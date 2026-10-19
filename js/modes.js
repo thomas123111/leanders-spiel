@@ -21,6 +21,11 @@
 //       drawHud(ctx) { Modes.hudStatus(ctx); },  // eigene Anzeige (ohne Haken zeigt Modes Zeit und Punkte)
 //   });
 //
+// Was ein Modus NICHT tut (bewusst, damit kein Modus das Spiel unterlaeuft):
+//   - er schaltet keine Welt frei und kassiert keine Welt-Belohnung (main.js haelt das fest)
+//   - er zaehlt nicht auf Tagesaufgaben und Fortschrittszaehler (Progress bleibt zu)
+// Er zahlt nur seine eigenen Muinzen aus und fuehrt seinen eigenen Rekord im Spielstand.
+//
 // Die Bausteine nehmen jedem Modus die Routine ab:
 //   Modes.starteWelt({ welt, herzen, tempo, groesse, dunkelheit, spiegel, zeitlimit })
 //   Modes.arena({ welt, breite, hoehe, ... })     große Halle aus einem einzigen Raum
@@ -35,12 +40,23 @@
 const MODES = [];
 const MODE_BY_ID = Object.create(null);
 
-// Fehler im Modus-Code: zählen und melden (derselbe Weg wie beim Upgrade-Gerüst), nie einfrieren.
+// Fehler im Modus-Code: melden, aber nie einfrieren. Eigener Zaehler und eigener Name -
+// ein Modus-Problem ist kein Upgrade-Problem, die Konsole soll das hergeben koennen.
+let modeErrorCount = 0;
+const modeMeldeBudget = { haken: 5 };
 function modeProblem(where, e) {
-    if (typeof hookProblem === 'function') hookProblem(where, e);
-    else if (typeof console !== 'undefined' && console.error) {
+    modeErrorCount++;
+    if (typeof console !== 'undefined' && console.error && modeMeldeBudget.haken > 0) {
+        modeMeldeBudget.haken--;
         console.error('Modus ' + where + ':', e && e.message ? e.message : e);
     }
+}
+
+// Text aus einer Modus-Datei fuer die Oberflaeche: spitze Klammern und & sind dort Text,
+// nie Layout - sonst zerlegt ein Modus-Text das Menue.
+function modusText(t) {
+    return String(t === undefined || t === null ? '' : t)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // ── Anmelden: ein Modus aus seiner eigenen Datei ──
@@ -88,6 +104,7 @@ const Modes = {
     run: null,               // läuft gerade ein Modus? (Zeit, Punkte, Wellen, Bosse, Dunkelheit)
     keepNextWorldStart: false, // true, während ein Modus die Welt selbst startet (sonst wäre der Modus aus)
     lastReward: 0,           // Münzen der letzten Ergebnis-Seite (für den Berg davor)
+    lastModeId: '',          // welcher Modus die Ergebnis-Seite zeigt (für „Nochmal“)
 
     liste() { return MODES; },
 
@@ -115,6 +132,9 @@ const Modes = {
         const r = s - m * 60;
         return m > 0 ? m + ':' + (r < 10 ? '0' : '') + r.toFixed(1) : r.toFixed(1) + ' s';
     },
+
+    // Hilft auch js/ui.js beim Bauen der Karten
+    sicher(t) { return modusText(t); },
 
     rekordText(m) {
         const r = Modes.rekord(m.id);
@@ -144,7 +164,9 @@ const Modes = {
         catch (e) {
             modeProblem('start ' + m.id, e);
             HUD.toast('Dieser Modus geht gerade nicht.', '#ffd0d0', 2.6);
+            // Der halbfertige Aufbau (Herzen, Tempo, Groesse) darf nicht im Spiel bleiben
             Modes.zuruecksetzen();
+            Game.returnToTitle();
             return false;
         }
         return true;
@@ -156,11 +178,6 @@ const Modes = {
         Modes.keepNextWorldStart = false;
         Game.levelMirror = false;
         if (Game.activeMode) Game.activeMode = null;
-    },
-
-    // Von main.js in startWorld aufgerufen, solange kein Modus die Welt selbst gestartet hat
-    worldStartOhneModus() {
-        if (!Modes.keepNextWorldStart) Modes.zuruecksetzen();
     },
 
     // ── Takt für Takt (von main.js während des Spielens) ──
@@ -245,6 +262,10 @@ const Modes = {
         w.spawnPoint.x = w.pixelWidth - w.spawnPoint.x;
         w.bossSpawn.x = w.pixelWidth - w.bossSpawn.x;
         for (const d of w.bossDoorTiles) d.x = w.width - 1 - d.x;
+        // Der Boss-Raum liegt in der unveraenderten Welt unten rechts (main.js) und muss
+        // gespiegelt werden, sonst zieht main.js Boss und Mark in die falsche Ecke.
+        const raum = Game._bossRoomRect();
+        if (raum) w.bossRoomRect = { x: w.pixelWidth - (raum.x + raum.w), y: raum.y, w: raum.w, h: raum.h };
         if (typeof w.invalidateCache === 'function') w.invalidateCache();
     },
 
@@ -325,6 +346,9 @@ const Modes = {
             x: TILE_SIZE, y: TILE_SIZE,
             w: w.pixelWidth - 2 * TILE_SIZE, h: w.pixelHeight - 2 * TILE_SIZE,
         };
+        // main.js haelt Boss und Mark im Boss-Raum - in der Arena ist das die ganze Halle,
+        // sonst würde Mark jeden Frame in die untere rechte Ecke zurueckgezogen.
+        w.bossRoomRect = { x: run.arena.x, y: run.arena.y, w: run.arena.w, h: run.arena.h };
         return true;
     },
 
@@ -360,9 +384,14 @@ const Modes = {
             modeProblem('dauerwellen (kein Modus)', new Error('ohne Modes.start'));
             return false;
         }
+        const klassen = (Array.isArray(o.gegner) ? o.gegner : [o.gegner]).filter(k => typeof k === 'function');
+        if (!klassen.length) {
+            modeProblem('dauerwellen (kein Gegner)', new Error('gegner fehlt'));
+            return false;
+        }
         const erster = Number.isFinite(+o.erster) && +o.erster >= 0 ? +o.erster : 2;
         run.wellen = {
-            gegner: o.gegner,
+            gegner: klassen,
             pro: Math.max(1, Math.round(+o.pro || 3)),
             interval: Math.max(0.5, +o.interval || 8),
             timer: erster,
@@ -493,7 +522,13 @@ const Modes = {
     spielerGestorben() {
         const run = Modes.run;
         if (!run || typeof run.mode.onPlayerDeath !== 'function') return false;
-        try { return run.mode.onPlayerDeath(Game) !== false; }
+        try {
+            const uebernommen = run.mode.onPlayerDeath(Game) !== false;
+            // Uebernommen heisst: der Modus hat die Runde beendet. Tut er es nicht, wuerde
+            // main.js den Tod jeden Takt erneut melden - also beendet ihn hier das Geruest.
+            if (uebernommen && Game.state !== 'MODE_RESULT') Modes.finish({ text: 'Runde vorbei.' });
+            return uebernommen;
+        }
         catch (e) { modeProblem('onPlayerDeath ' + run.mode.id, e); return false; }
     },
 
@@ -530,7 +565,8 @@ const Modes = {
         const zeitModus = m.wertung === 'zeit';
         const wert = zeitModus ? zeit : punkte;
         const alt = Modes.rekord(m.id);
-        const neu = alt === null || (zeitModus ? wert < alt : wert > alt);
+        // null wird im Spielstand nicht gehalten (main.js verwirft 0) - also auch nicht versprechen
+        const neu = wert > 0 && (alt === null || (zeitModus ? wert < alt : wert > alt));
         if (neu) Modes.setRekord(m.id, wert);
         let munzen = Number.isFinite(+i.muenzen) ? +i.muenzen : Modes.belohnung(run, punkte, zeit);
         munzen = Math.max(0, Math.round(munzen));
@@ -542,6 +578,7 @@ const Modes = {
             text: typeof i.text === 'string' ? i.text : (zeitModus ? 'Durchgespielt.' : 'Runde vorbei.'),
             punkte, zeit, alt, neu, munzen,
         };
+        Modes.lastModeId = m.id;      // zuruecksetzen nimmt den Modus, die Seite braucht ihn noch
         Modes.zuruecksetzen();
         Modes.zeigeErgebnis(bild);
         return true;
@@ -553,8 +590,8 @@ const Modes = {
         const zeitText = b.wertung === 'zeit' ? 'Zeit ' + Modes.zeitText(b.zeit) : b.punkte + ' Punkte';
         const altText = b.wertung === 'zeit' ? 'Bestzeit ' + Modes.zeitText(b.alt) : 'Rekord ' + b.alt + ' Punkte';
         el.innerHTML = `<div class="dialog">
-            <h2>${b.emoji} ${b.name}</h2>
-            <div class="sub">${b.text}</div>
+            <h2>${b.emoji} ${modusText(b.name)}</h2>
+            <div class="sub">${modusText(b.text)}</div>
             <div class="reward-box">
                 <span class="big">${b.wertung === 'zeit' ? '⏱️' : '🎯'}</span><span>${zeitText}</span>
                 ${b.alt !== null ? `<span>🏅 ${altText}</span>` : ''}
@@ -579,19 +616,35 @@ const Modes = {
     _danach(aktion) {
         const munzen = Modes.lastReward || 0;
         Modes.lastReward = 0;
+        const weiter = () => {
+            UI.show(null);
+            // Klappt das Weiterkommen nicht (Modus inzwischen gesperrt), nicht im Nichts stehen
+            if (!aktion()) Game.openExtraMode();
+        };
         if (munzen > 0 && typeof BoxUI !== 'undefined' &&
-            BoxUI.showRewards([{ coins: munzen }], () => { UI.show(null); aktion(); }, { head: 'Modus-Belohnung' })) {
+            BoxUI.showRewards([{ coins: munzen }], weiter, { head: 'Modus-Belohnung' })) {
             return true;
         }
-        aktion();
+        weiter();
         return true;
+    },
+
+    // Von den Knöpfen auf der Ergebnis-Seite und von Enter/Escape in main.js
+    neuStarten() {
+        const run = Modes.run;
+        const id = run ? run.mode.id : (Game.activeMode ? Game.activeMode.id : Modes.lastModeId);
+        return Modes._danach(() => (id ? Modes.start(id) : false));
+    },
+
+    insMenue() {
+        return Modes._danach(() => { Game.openExtraMode(); return true; });
     },
 
     ext: {
         screens: { mode: 'overlay' },
         onClick(act, btn) {
-            if (act === 'moderetry') return Modes._danach(() => Modes.start(btn.dataset.id));
-            if (act === 'modemenu') return Modes._danach(() => Game.openExtraMode());
+            if (act === 'moderetry') return Modes.neuStarten();
+            if (act === 'modemenu') return Modes.insMenue();
             return false;
         },
     },

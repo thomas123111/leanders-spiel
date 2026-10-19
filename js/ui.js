@@ -797,10 +797,11 @@ const UI = {
         const karten = modis.map((m, i) => {
             const frei = Modes.istFrei(m);
             const rekord = Modes.rekordText(m);
-            const fuss = rekord ? `<span class="owned">${rekord}</span>`
-                : `<span class="where">${frei ? 'Noch kein Rekord' : m.hinweis}</span>`;
+            const fuss = rekord ? `<span class="owned">${Modes.sicher(rekord)}</span>`
+                : `<span class="where">${frei ? 'Noch kein Rekord' : Modes.sicher(m.hinweis)}</span>`;
+            const x = (t) => Modes.sicher(t);
             return `<div class="card" style="--a:${farben[i % farben.length]}">
-                <div class="head"><span class="ico">${m.emoji}</span><div><h3>${m.name}</h3><p>${m.text}</p></div></div>
+                <div class="head"><span class="ico">${x(m.emoji)}</span><div><h3>${x(m.name)}</h3><p>${x(m.text)}</p></div></div>
                 <div class="foot">${fuss}
                 <button class="btn small" data-act="mode" data-id="${m.id}"${frei ? '' : ' disabled'}>Los!</button></div></div>`;
         }).join('');

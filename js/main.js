@@ -1051,6 +1051,10 @@ const Game = {
 
     _isBossRoomTile(tx, ty) {
         if (!this.world) return false;
+        const r = this._bossRoomTiles();
+        if (this.world.bossRoomRect && r) {
+            return tx >= r.x0 && tx <= r.x1 && ty >= r.y0 && ty <= r.y1;
+        }
         return tx >= this.world.width - 13 &&
             tx <= this.world.width - 3 &&
             ty >= this.world.height - 11 &&
@@ -1060,15 +1064,34 @@ const Game = {
     // Boss-Bereich samt Wandring (Kachelkoordinaten)
     _isBossBlockTile(tx, ty) {
         if (!this.world) return false;
+        const r = this._bossRoomTiles();
+        if (this.world.bossRoomRect && r) {
+            return tx >= r.x0 - 1 && tx <= r.x1 + 1 && ty >= r.y0 - 1 && ty <= r.y1 + 1;
+        }
         return tx >= this.world.width - 14 && tx <= this.world.width - 2 &&
             ty >= this.world.height - 12 && ty <= this.world.height - 2;
     },
 
-    // Innenraum des Boss-Raums in Welt-Einheiten
+    // Innenraum des Boss-Raums in Welt-Einheiten. Eine normale Welt hat ihn unten rechts.
+    // Ein Extra-Modus kann ihn umlegen (Spiegelwelt) oder auf seine Halle setzen (Arena):
+    // dann steht das Maß an world.bossRoomRect (js/modes.js), weil sonst Boss und Mark
+    // jeden Frame in die falsche Ecke gezogen werden.
     _bossRoomRect() {
         const w = this.world.width;
         const h = this.world.height;
+        if (this.world.bossRoomRect) return this.world.bossRoomRect;
         return { x: (w - 13) * TILE_SIZE, y: (h - 11) * TILE_SIZE, w: 11 * TILE_SIZE, h: 9 * TILE_SIZE };
+    },
+
+    // derselbe Raum in Kachelzahlen (für Gegner Spawn-Ausnahme und Zielsuche)
+    _bossRoomTiles() {
+        if (!this.world) return null;
+        const r = this._bossRoomRect();
+        if (!r) return null;
+        return {
+            x0: Math.floor(r.x / TILE_SIZE), x1: Math.ceil((r.x + r.w) / TILE_SIZE) - 1,
+            y0: Math.floor(r.y / TILE_SIZE), y1: Math.ceil((r.y + r.h) / TILE_SIZE) - 1,
+        };
     },
 
     _spawnAt(EnemyClass, minDist) {
@@ -1240,9 +1263,13 @@ const Game = {
     _onBossDefeated() {
         this.bossDefeated = true;
         Music.stop();
-        // Ein Modus mit eigenem onWorldClear uebernimmt den Boss-Sieg: Welt-Belohnung und
-        // Freischaltungen bleiben ihm verwehrt, er zahlt selbst aus (js/modes.js).
-        if (this.activeMode && typeof Modes !== 'undefined' && Modes.bossBesiegt()) return;
+        // Bei einem laufenden Modus gibt es NIE eine Welt-Belohnung und NIE eine
+        // Freischaltung - sonst wäre ein Modus mit Tempo- und Herzernst ein billigerer
+        // Weg durchs Spiel. Hat er onWorldClear, übernimmt er; sonst endet die Runde.
+        if (this.activeMode && typeof Modes !== 'undefined') {
+            if (!Modes.bossBesiegt()) Modes.finish({ text: 'Runde geschafft.' });
+            return;
+        }
         // Boss-Ton, Vibration und Wackeln kamen schon zu Beginn des Stillstands
 
         this.maxWorldUnlocked = Math.min(LAST_WORLD, Math.max(this.maxWorldUnlocked, this.currentWorld + 1));
@@ -1427,12 +1454,18 @@ const Game = {
         // Ergebnis-Bildschirme: erst nach einer halben Sekunde auf Tasten reagieren
         const settled = performance.now() - (this._stateSince || 0) > 500;
         if (this.state === 'GAME_OVER') {
-            if (settled && Input.keyPressed('Enter')) this.startWorld(this.currentWorld);
+            // Enter startet, was gerade lief: einen Modus neu, sonst die nackte Welt
+            if (settled && Input.keyPressed('Enter')) {
+                if (this.activeMode && typeof Modes !== 'undefined') Modes.neuStarten();
+                else this.startWorld(this.currentWorld);
+            }
             Input.postUpdate();
             return;
         }
         if (this.state === 'MODE_RESULT') {
             // Ergebnisseite eines Extra-Modus: die Welt läuft nicht weiter, die Knöpfe kommen aus js/modes.js
+            if (settled && Input.keyPressed('Enter')) Modes.neuStarten();
+            else if (settled && Input.keyPressed('Escape')) Modes.insMenue();
             this._updateAmbientOnly(dt);
             Input.postUpdate();
             return;
