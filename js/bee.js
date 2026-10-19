@@ -698,6 +698,9 @@ class Bee extends Enemy {
             return;
         }
         this.cool -= dt;
+        // Ist Mark außer Hörweite, läuft die Pause nicht einfach aus: sonst wartet beim
+        // Wiedersehen ein Stich ohne die eine oder andere Sekunde Luft.
+        if (dist > 150 && this.cool < 0.4) this.cool = 0.4;
         let vx = 0, vy = 0;
         if (dist > 92) { vx = dx / dist; vy = dy / dist; }
         else if (dist < 42) { vx = -dx / dist; vy = -dy / dist; }
@@ -1082,8 +1085,9 @@ class BossBeeQueen extends Enemy {
             const sp = randRange(168, 190);
             const st = new Stinger(m.x + Math.cos(a) * 10, m.y + Math.sin(a) * 10, a, sp);
             // Er fliegt genau bis zum Ende der angesagten Bahn und löst sich dort in Pollen auf –
-            // niemand wird jenseits des orangefarbenen Streifens getroffen.
-            st.lifetime = SALVO_LANE / sp;
+            // niemand wird jenseits des orangefarbenen Streifens getroffen. Die 10 px Vorsatz
+            // (Start vor der Rohrmündung) werden abgezogen, damit er NICHT über die Bahn hinausfliegt.
+            st.lifetime = (SALVO_LANE - 10) / sp;
             list.push(st);
         }
     }
