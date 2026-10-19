@@ -26,7 +26,7 @@ selbst tippt, zieht oder klickt. Die Werte der Schwierigkeiten stehen in `DIFFIC
 
 - **Shop:** Die Karten stehen in **einer Reihe** und werden mit dem Finger nach links und rechts gewischt
   (am Computer dreht auch das Mausrad die Reihe) – nach unten scrollt der Shop nicht. Darin: Tagesbelohnung,
-  Böse Sterne, Goldene Krone, Glücksboxen, **Upgrades**, Sternen-Markt und Wechselstube.
+  Böse Sterne, Goldene Krone, Glücksboxen, **Upgrades**, **Glücksrad**, Sternen-Markt und Wechselstube.
 - **Upgrades kaufen:** Im Abschnitt „Upgrades“ steht eine Karte für jedes Extra, das noch fehlt. Bezahlt wird in
   Juwelen nach Figur – Mark 850, Juri 500, Schattenkrokodil 450, Panda 350 (`UPGRADE_PRICES` in `js/upgrades.js`).
   Gekaufte Extras bekommen einen eigenen Merker im Spielstand (`boughtUps`) und sind danach im Menü „Waffen“
@@ -35,6 +35,12 @@ selbst tippt, zieht oder klickt. Die Werte der Schwierigkeiten stehen in `DIFFIC
 - **Böse Sterne:** sechs Versuche – einer pro Seltenheit – und sechs Fragezeichen-Kreise. Die Chancen je Stufe
   bleiben 40/30/25/20/15 %, darum ist Ultralegendär etwa jeder 240. Stern. Alte Spielstände mit fünf übrigen
   Versuchen laden mit genau diesen fünf weiter.
+- **Glücksrad:** 15 gleich große Felder (dreimal Münzen, dreimal Powerpunkte, dreimal Upgrades, zweimal
+  Juwelen, zweimal Glücksboxen, zweimal Böse Sterne), oben ein fester Pfeil. Das Rad dreht schnell an und läuft
+  langsam aus; das Feld unter dem Pfeil ist die Belohnung und erscheint als Berg – ohne Zähler, der Zähler
+  bleibt den Glücksboxen. Gewonnene Upgrades sind danach wie ein Kauf im Menü „Waffen“ wählbar. Eine Drehung
+  pro Kalenderwoche ist gratis (die Woche steht im Spielstand, `rad.week`), jede weitere kostet 50 Juwelen
+  (`RAD_SPIN_COST` in `js/progress.js`).
 
 ## Technik
 
@@ -55,6 +61,7 @@ werden im Browser erzeugt (keine Bild- oder Tondateien).
 | `js/peacock.js` … `js/snowman.js` (6 Dateien) | Welt 45–50 (Pfauen, Clowns, Pandas, Einhörner, Vampire, Schneemänner und ihre Bosse) |
 | `js/candy.js`, `js/rat.js`, `js/scorpion.js` | Welt 51–53 (Gummibären, Ratten, Skorpione und ihre Bosse) – noch Platzhalter aus dem Gerüst |
 | `js/progress.js`, `js/ui-box.js`, `js/ui-end.js`, `js/ui-progress.js` | Powerpunkte, Quests, Power-Pfad, Tagesleiste, Glücksboxen, Endseite |
+| `js/ui-rad.js`, `css/rad.css` | Glücksrad: die Shop-Karte, der Rad-Bildschirm mit Pfeil, die Drehung und die Belohnung (Regeln und Felder in `js/progress.js`) |
 | `js/player.js`, `js/weapons.js`, `js/loot.js` | Mark, Waffen (Baseball-Werfer: Laserkugel, Knallball, Eisball), Truhen, Schlüssel, Münzen |
 | `js/upgrades.js`, `js/ui-waffen.js`, `css/waffen.css` | auswählbare Upgrades: die Liste, die Auswahl für eine Runde, der Kauf im Shop (Preise je Figur in `UPGRADE_PRICES`) und die Seite „Waffen“ |
 | `js/hud.js`, `js/ui.js`, `css/game.css` | Anzeige im Spiel und Menüs |
