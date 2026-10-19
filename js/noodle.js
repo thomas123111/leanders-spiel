@@ -171,6 +171,12 @@ const NoodleArt = {
         }
     },
 
+    // Ein Zielpunkt bleibt im Raum: kein Ansage-Kreis halb in der Wand.
+    roomPoint(room, x, y, pad) {
+        if (!room) return { x, y };
+        return { x: clamp(x, room.x + pad, room.x + room.w - pad), y: clamp(y, room.y + pad, room.y + room.h - pad) };
+    },
+
     // Soßenspritzer am Einschlagpunkt
     sauceFx(x, y, R) {
         this.burst(x, y, [NoodleCfg.sauce, NoodleCfg.sauceLight, '#ffffff'], 9, 120, 0.4, { kind: 'dot', gravity: 240 });
@@ -703,6 +709,7 @@ class BossGiantNoodle extends Enemy {
         this.spinAngle = 0;
         this.spinRate = 0;
         this.spinTick = 0;
+        this.spinR = 0;
         // Fleischbällchen
         this.lobPts = [];
         // Soßenpfützen
@@ -732,7 +739,8 @@ class BossGiantNoodle extends Enemy {
         this._slowed = [];
         this.puddles = [];
         // Marks Langsamkeit laeuft in der Engine noch kurz nach – die Soesse ist aber weg, also weg damit.
-        if (this._markSlowed && typeof Game !== 'undefined' && Game.player) {
+        if (this._markSlowed && typeof Game !== 'undefined' && Game.player
+            && Game.player.slowTimer <= NoodleCfg.slowSeconds + 0.001) {
             Game.player.slowTimer = 0;
             Game.player.slowFactor = 1;
         }
@@ -783,7 +791,7 @@ class BossGiantNoodle extends Enemy {
                 if (this.stateT <= 0) {
                     this.spinTick = 0;
                     this.hitOnce = [];
-                    this._set('spin', this.phase === 2 ? 1.9 : 2.3);
+                    this._set('spin', this.phase === 2 ? 2.9 : 2.3);
                 }
                 break;
             case 'spin': this._spin(dt, world, player, dist, dx, dy); break;
@@ -860,12 +868,13 @@ class BossGiantNoodle extends Enemy {
 
     // ── b) Nudelwirbel: der Riese dreht sich, alle Nudeln peitschen im Kreis ──
     _startSpin() {
+        this.spinR = this.phase === 2 ? 80 : 70;    // der angekündigte Kreis gilt für den ganzen Wirbel
         this.spinTick = 0;
         this.hitOnce = [];
         this._set('spinWind', this.phase === 2 ? 0.62 : 0.82);
     }
 
-    _spinRadius() { return this.phase === 2 ? 80 : 70; }
+    _spinRadius() { return this.spinR || (this.phase === 2 ? 80 : 70); }
 
     _spin(dt, world, player, dist, dx, dy) {
         this.spinRate = Math.min(this.phase === 2 ? 17 : 13, this.spinRate + 30 * dt);
@@ -904,12 +913,11 @@ class BossGiantNoodle extends Enemy {
         const n = this.phase === 2 ? 3 : 2;
         for (const o of tied) {
             if (pts.length >= n) break;
-            pts.push({ x: o.t.x, y: o.t.y });
+            pts.push(NoodleArt.roomPoint(room, o.t.x, o.t.y, 26));
         }
         while (pts.length < n) {
             const a = Math.random() * TAU, d = randRange(40, 90);
-            const x = this.centerX() + Math.cos(a) * d, y = this.centerY() + Math.sin(a) * d * 0.8;
-            pts.push(room ? { x: clamp(x, room.x + 30, room.x + room.w - 30), y: clamp(y, room.y + 30, room.y + room.h - 30) } : { x, y });
+            pts.push(NoodleArt.roomPoint(room, this.centerX() + Math.cos(a) * d, this.centerY() + Math.sin(a) * d * 0.8, 30));
         }
         this.lobPts = pts;
         this._set('lobWind', this.phase === 2 ? 0.58 : 0.72);
@@ -921,9 +929,11 @@ class BossGiantNoodle extends Enemy {
         NoodleArt.burst(mx, my, [NoodleCfg.meat, NoodleCfg.sauce, '#ffffff'], 10, 150, 0.4, { kind: 'spark' });
         NoodleArt.shake(3, 0.14);
         if (!list) { this._afterBig(); return; }
-        let flight = 0;
+        let flight = 0, eigene = 0;
+        for (const p of list) if (!p.dead && p instanceof Meatball) eigene++;
         for (const p of this.lobPts) {
-            if (list.length > MEATBALL_CAP) break;
+            if (eigene >= MEATBALL_CAP) break;
+            eigene++;
             const d = Math.hypot(p.x - mx, p.y - my);
             const f = clamp(d / 250, 0.26, 0.95);
             flight = Math.max(flight, f);
@@ -942,7 +952,7 @@ class BossGiantNoodle extends Enemy {
             .sort((a, b) => a.d - b.d);
         for (const o of tied) {
             if (pts.length >= n) break;
-            pts.push({ x: o.t.x, y: o.t.y });
+            pts.push(NoodleArt.roomPoint(room, o.t.x, o.t.y, 34));
         }
         let guard = 0;
         while (pts.length < n && guard++ < 30) {
@@ -1014,11 +1024,6 @@ class BossGiantNoodle extends Enemy {
         if (low) {
             this._set('dizzy', this.hp <= this.maxHp * 0.2 ? 2.2 : 1.7);
             NoodleArt.burst(this.centerX(), this.y + 6, ['#ffe35a', '#ffffff'], 12, 100, 0.5, { kind: 'star' });
-            return;
-        }
-        if (this.phase === 2 && this.seq % 3 === 0) {
-            this._set('dizzy', 1.3);
-            NoodleArt.burst(this.centerX(), this.y + 6, ['#ffe35a', '#ffffff'], 9, 90, 0.45, { kind: 'star' });
             return;
         }
         this.cool = this.phase === 2 ? 0.5 : 0.9;
