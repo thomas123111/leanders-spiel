@@ -258,9 +258,11 @@ const z = vm.runInContext(`(function () {
             45: 'unlockedLaserBalls', 46: 'unlockedBoomBall', 47: 'unlockedPandaFriend',
             48: 'unlockedIceBall', 49: 'unlockedShadowCloud', 50: 'unlockedIceHammer',
             51: 'unlockedStickyBall', 52: 'unlockedDoubleHammer', 53: 'unlockedPoisonSpit',
+            54: 'unlockedRubberHammer', 55: 'unlockedVineBind', 56: 'unlockedPoisonBlooms',
+            57: 'unlockedCoconutTube',
         };
         // Der Lauf setzt das freigeschaltete Maximum vorab hoch, deshalb kommt die Weltenliste von außen here.
-        const gespielt = [45, 46, 47, 48, 49, 50, 51, 52, 53].filter(w => (${JSON.stringify(worlds)}).includes(w));
+        const gespielt = [45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57].filter(w => (${JSON.stringify(worlds)}).includes(w));
         r.merker = gespielt.map(w => feld[w] + '=' + Game[feld[w]]).join(' ');
         r.merkerOk = gespielt.every(w => Game[feld[w]] === true);
 

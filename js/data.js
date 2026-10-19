@@ -56,6 +56,10 @@ const WORLDS = [
     { name: 'Süßigkeitenland', theme: 'candy', accent: '#ff5aa0', emoji: '🍬', boss: 'Riesen-Gummibär' },
     { name: 'Rattenkanal', theme: 'rat', accent: '#8a9a5a', emoji: '🐀', boss: 'Riesenratte' },
     { name: 'Skorpionwüste', theme: 'scorpion', accent: '#ff8c4a', emoji: '🦂', boss: 'Riesenskorpion' },
+    { name: 'Wackelpudding-See', theme: 'pudding', accent: '#ffb03a', emoji: '🍮', boss: 'Riesen-Puddingmonster' },
+    { name: 'Nudelland', theme: 'noodle', accent: '#ff5a4a', emoji: '🍝', boss: 'Riesen-Spaghetti-Monster' },
+    { name: 'Bienenstock', theme: 'bee', accent: '#ffc21f', emoji: '🐝', boss: 'Bienenkönigin' },
+    { name: 'Affeninsel', theme: 'monkey', accent: '#c98a4a', emoji: '🐒', boss: 'Riesenaffe' },
 ];
 
 const LAST_WORLD = WORLDS.length - 1;

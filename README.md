@@ -1,8 +1,8 @@
 # Mark und die geklauten Erfindungen
 
 Ein Action-Abenteuer für den Handy-Browser: Mark, Baseballspieler und Geisterjäger, holt sich in
-53 Welten seine geklauten Erfindungen zurück. Jede Welt hat einen Schlüssel-Träger und einen Boss.
-Die Welten 22 bis 53 hat sich Leander ausgedacht, von der „Zombie Academy“ bis zur „Skorpionwüste“.
+57 Welten seine geklauten Erfindungen zurück. Jede Welt hat einen Schlüssel-Träger und einen Boss.
+Die Welten 22 bis 57 hat sich Leander ausgedacht, von der „Zombie Academy“ bis zur „Affeninsel“.
 
 **Spielen:** https://thomas123111.github.io/leanders-spiel/
 Auf dem Handy quer halten. Über „Zum Startbildschirm hinzufügen“ wird es eine App (Vollbild, offline).
@@ -60,6 +60,7 @@ werden im Browser erzeugt (keine Bild- oder Tondateien).
 | `js/porcupine.js`, `js/gorilla.js` | Welt 43–44 (Stachelschwein, Gorilla und ihre Bosse) |
 | `js/peacock.js` … `js/snowman.js` (6 Dateien) | Welt 45–50 (Pfauen, Clowns, Pandas, Einhörner, Vampire, Schneemänner und ihre Bosse) |
 | `js/candy.js`, `js/rat.js`, `js/scorpion.js` | Welt 51–53 (Gummibären, Ratten, Skorpione und ihre Bosse) – noch Platzhalter aus dem Gerüst |
+| `js/pudding.js`, `js/noodle.js`, `js/bee.js`, `js/monkey.js` | Welt 54–57 (Puddingmonster, Spaghetti-Monster, Bienen, Affen und ihre Bosse) – noch Platzhalter aus dem Gerüst |
 | `js/progress.js`, `js/ui-box.js`, `js/ui-end.js`, `js/ui-progress.js` | Powerpunkte, Quests, Power-Pfad, Tagesleiste, Glücksboxen, Endseite |
 | `js/ui-rad.js`, `css/rad.css` | Glücksrad: die Shop-Karte, der Rad-Bildschirm mit Pfeil, die Drehung und die Belohnung (Regeln und Felder in `js/progress.js`) |
 | `js/player.js`, `js/weapons.js`, `js/loot.js` | Mark, Waffen (Baseball-Werfer: Laserkugel, Knallball, Eisball), Truhen, Schlüssel, Münzen |
@@ -79,7 +80,7 @@ Dann http://127.0.0.1:8123/ öffnen.
 
 - `tools/galerie.html` zeigt alle Figuren in Ruhe, getroffen, mit wenig Leben und sterbend.
 - `node tools/smoke-welt.mjs 31 32` spielt Welten ohne Browser durch (Gegner, Boss, Phase 2, Sieg) und meldet jeden Fehler.
-  Ohne Zahlen prüft er alle 53 Welten, die Belohnungs-Merker der Welten 45–53 und danach die Zustände Gift,
+  Ohne Zahlen prüft er alle 57 Welten, die Belohnungs-Merker der Welten 45–57 und danach die Zustände Gift,
   Schlaf und Einschleimen (Gift zieht ein halbes Herz pro Sekunde ab und endet von selbst, Schlaf hält fest
   und lässt danach 1,5 s Schonzeit, Einschleimen klebt drei Sekunden fest – der Held läuft nur noch mit etwa
   20 % Tempo – und wirkt danach 1,5 s nicht noch einmal, die Freunde fallen in beiden Fällen nicht k.o.,

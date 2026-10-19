@@ -16,7 +16,8 @@ const LEVELS = [TUTORIAL_LEVEL, WORLD1_LEVEL, WORLD2_LEVEL, WORLD3_LEVEL, WORLD4
     WORLD37_LEVEL, WORLD38_LEVEL, WORLD39_LEVEL, WORLD40_LEVEL, WORLD41_LEVEL, WORLD42_LEVEL,
     WORLD43_LEVEL, WORLD44_LEVEL,
     WORLD45_LEVEL, WORLD46_LEVEL, WORLD47_LEVEL, WORLD48_LEVEL, WORLD49_LEVEL, WORLD50_LEVEL,
-    WORLD51_LEVEL, WORLD52_LEVEL, WORLD53_LEVEL];
+    WORLD51_LEVEL, WORLD52_LEVEL, WORLD53_LEVEL,
+    WORLD54_LEVEL, WORLD55_LEVEL, WORLD56_LEVEL, WORLD57_LEVEL];
 
 // Stärkere Bosse in allen Welten (Wunsch von Leander).
 // BOSS_TOUGHNESS: Bosse nehmen nur 1/1,5 des Schadens, halten also 1,5-mal so viel aus. Absichtlich nicht
@@ -95,6 +96,11 @@ const Game = {
     unlockedStickyBall: false,
     unlockedDoubleHammer: false,
     unlockedPoisonSpit: false,
+    // Belohnungen aus Welt 54-57: nur der Merker, die Wirkung sitzt am Upgrade in js/upgrades-*.js
+    unlockedRubberHammer: false,
+    unlockedVineBind: false,
+    unlockedPoisonBlooms: false,
+    unlockedCoconutTube: false,
     maxWorldUnlocked: 1,
     trainingCompleted: false,
     coins: 0,
@@ -422,6 +428,10 @@ const Game = {
                 stickyBall: this.unlockedStickyBall,
                 doubleHammer: this.unlockedDoubleHammer,
                 poisonSpit: this.unlockedPoisonSpit,
+                rubberHammer: this.unlockedRubberHammer,
+                vineBind: this.unlockedVineBind,
+                poisonBlooms: this.unlockedPoisonBlooms,
+                coconutTube: this.unlockedCoconutTube,
                 upgrades: this.activeUpgrades,
                 boughtUps: this.boughtUpgrades,
                 star: this.shopRandomStarActive ? {
@@ -479,6 +489,11 @@ const Game = {
                 this.unlockedStickyBall = !!data.stickyBall;
                 this.unlockedDoubleHammer = !!data.doubleHammer;
                 this.unlockedPoisonSpit = !!data.poisonSpit;
+                // Alte Spielstaende kennen die vier neuen Merker nicht: dann bleiben sie einfach aus
+                this.unlockedRubberHammer = !!data.rubberHammer;
+                this.unlockedVineBind = !!data.vineBind;
+                this.unlockedPoisonBlooms = !!data.poisonBlooms;
+                this.unlockedCoconutTube = !!data.coconutTube;
                 // Gewählte Extras (Knopf „Waffen“): je Figur höchstens eins, unbekannte Einträge fallen weg.
                 // Alter Spielstand (bis 9.6.0) kannte genau EIN gewähltes Extra in `data.upgrade` - es wird
                 // seiner Figur zugeordnet und bleibt so erhalten (Leanders Regel, 18.10.2026).
@@ -584,6 +599,11 @@ const Game = {
             51: { label: 'KLEBEBALL', coins: 0, jewels: 0, item: 'unlockedStickyBall' },
             52: { label: 'DOPPELHAMMER', coins: 0, jewels: 0, item: 'unlockedDoubleHammer' },
             53: { label: 'GIFTSPUCKE', coins: 0, jewels: 0, item: 'unlockedPoisonSpit' },
+            // Welt 54-57: Upgrades als Weltbelohnung - danach nicht mehr im Shop kaufbar
+            54: { label: 'GUMMIHAMMER', coins: 0, jewels: 0, item: 'unlockedRubberHammer' },
+            55: { label: 'RANKENFESSEL', coins: 0, jewels: 0, item: 'unlockedVineBind' },
+            56: { label: 'GIFTBLUETEN', coins: 0, jewels: 0, item: 'unlockedPoisonBlooms' },
+            57: { label: 'KOKOSNUSS-ROHR', coins: 0, jewels: 0, item: 'unlockedCoconutTube' },
         };
     },
 
@@ -1126,6 +1146,11 @@ const Game = {
             case 51: add(GummyBear, 20); keyCarrier(GummyBear); chests(10); break;
             case 52: add(ArmorRat, 21); keyCarrier(ArmorRat); chests(10); break;
             case 53: add(Scorpion, 22); keyCarrier(Scorpion); chests(11); break;
+            // Welt 54-57: Ideen von Leander (19.10.2026), Figuren noch Platzhalter
+            case 54: add(PuddingMonster, 20); keyCarrier(PuddingMonster); chests(10); break;
+            case 55: add(NoodleMonster, 21); keyCarrier(NoodleMonster); chests(10); break;
+            case 56: add(Bee, 22); keyCarrier(Bee); chests(10); break;
+            case 57: add(Monkey, 22); keyCarrier(Monkey); chests(11); break;
         }
         this._applyDifficulty(worldNum, diff);
     },
@@ -1169,6 +1194,7 @@ const Game = {
             45: BossGiantPeacock, 46: BossGiantClown, 47: BossGiantPanda, 48: BossGiantUnicorn,
             49: BossGiantVampire, 50: BossGiantSnowman,
             51: BossGiantGummyBear, 52: BossGiantRat, 53: BossGiantScorpion,
+            54: BossGiantPudding, 55: BossGiantNoodle, 56: BossBeeQueen, 57: BossGiantMonkey,
         };
         // Welt 11/12 bekommen eigene Boss-Varianten (Pixel-Roboter, Sternen-Ritter), falls vorhanden
         if (typeof BossPixelRobot !== 'undefined') bosses[11] = BossPixelRobot;
@@ -1220,6 +1246,10 @@ const Game = {
             51: ['unlockedStickyBall', 'Klebeball! 🍬'],
             52: ['unlockedDoubleHammer', 'Doppelhammer! 🔨'],
             53: ['unlockedPoisonSpit', 'Giftspucke! 🦂'],
+            54: ['unlockedRubberHammer', 'Gummihammer! 🪀'],
+            55: ['unlockedVineBind', 'Rankenfessel! 🌿'],
+            56: ['unlockedPoisonBlooms', 'Giftblüten! 🌸'],
+            57: ['unlockedCoconutTube', 'Kokosnuss-Rohr! 🥥'],
         };
         const u = unlocks[this.currentWorld];
         this.lastUnlockText = '';

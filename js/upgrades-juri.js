@@ -1678,10 +1678,11 @@ class JuriGummiHieb {
 }
 
 registerUpgrade({
-    id: 'juri24', figur: 'juri', name: 'Gummihammer', emoji: '🪀',
+    id: 'juri24', figur: 'juri', name: 'Gummihammer', emoji: '🪀', welt: 54,
     text: 'Juris Hammer springt nach einem Treffer von Gegner zu Gegner und trifft jeden.',
-    where: 'Im Shop kaufen',
-    istFrei: () => false,
+    where: 'Welt 54 schaffen',
+    // Weltbelohnung (nicht im Shop): wer ihn schon gekauft hat, behaelt ihn ueber boughtUpgrades frei
+    istFrei: g => !!g.unlockedRubberHammer,
     apply(c) {
         if (!c.juri) return;
         const juri = c.juri;

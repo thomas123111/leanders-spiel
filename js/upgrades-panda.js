@@ -577,10 +577,11 @@ class PandaFlower {
 }
 
 registerUpgrade({
-    id: 'panda06', figur: 'panda', name: 'Giftblüten', emoji: '🌸',
+    id: 'panda06', figur: 'panda', name: 'Giftblüten', emoji: '🌸', welt: 56,
     text: 'Er pflanzt Blumen, die Gegner in der Nähe langsam vergiften.',
-    where: 'im Shop kaufen',
-    istFrei: () => false,               // erst kaufbar, dann frei - sonst waere das Extra von Anfang an an
+    where: 'Welt 56 schaffen',
+    // Weltbelohnung (nicht im Shop): wer sie schon gekauft hat, behaelt sie ueber boughtUpgrades frei
+    istFrei: g => !!g.unlockedPoisonBlooms,
     apply(c) {
         const p = c.panda;
         if (!p) return;
@@ -757,10 +758,11 @@ registerUpgrade({
 
 // ── panda09: Rankenfessel ──
 registerUpgrade({
-    id: 'panda09', figur: 'panda', name: 'Rankenfessel', emoji: '🌿',
+    id: 'panda09', figur: 'panda', name: 'Rankenfessel', emoji: '🌿', welt: 55,
     text: 'Ranken kriechen aus dem Boden und halten Gegner ein paar Sekunden fest.',
-    where: 'im Shop kaufen',
-    istFrei: () => false,               // erst kaufbar, dann frei - sonst waere das Extra von Anfang an an
+    where: 'Welt 55 schaffen',
+    // Weltbelohnung (nicht im Shop): wer sie schon gekauft hat, behaelt sie ueber boughtUpgrades frei
+    istFrei: g => !!g.unlockedVineBind,
     apply(c) {
         const p = c.panda;
         if (!p) return;
@@ -2189,5 +2191,102 @@ registerUpgrade({
             Sound.powerUp();
         });
         if (Game.roundHooks) Game.roundHooks.onDrawWorld.push((ctx, camera) => { if (waeldchen) waeldchen.draw(ctx, camera); });
+    },
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// ── panda26: Kokosnuss-Rohr (Weltbelohnung Welt 57, Leander 19.10.2026) ──
+// Neue Idee, nicht aus der Liste der 100: der Panda schießt Kokosnüsse aus seinem
+// Bambusrohr. Als Weltbelohnung ausgezeichnet (`welt: 57`) - der Shop verkauft sie
+// nicht, frei wird sie über den Merker Game.unlockedCoconutTube (js/main.js).
+// ══════════════════════════════════════════════════════════════════════════
+const PANDA_KOKOS = { abstand: 2.1, reichweite: 300, schaden: 5, schub: 230, tempo: 330 };
+
+// Die fliegende Kokosnuss: rund, braun, dreht sich beim Fliegen. Schaden und der kurze
+// Schub sitzen am Geschoss selbst (knockback) - main.js reicht ihn an takeDamage weiter.
+class CoconutShot extends Projectile {
+    constructor(x, y, winkel) {
+        super(x, y, Math.cos(winkel) * PANDA_KOKOS.tempo, Math.sin(winkel) * PANDA_KOKOS.tempo,
+            PANDA_KOKOS.schaden, 'player', PANDA_KOKOS.schub);
+        this.radius = 7;
+        this.kokos = true;                  // daran erkennt die Probe die Kokosnuss
+        this.drehung = Math.random() * TAU;
+        this.seed = Math.random() * 10;
+    }
+    update(dt, welt) {
+        this.age += dt;
+        const nx = this.x + this.vx * dt, ny = this.y + this.vy * dt;
+        if (welt && welt.isWall(nx, ny)) {
+            FX.burst(this.x, this.y, ['#8a5a2a', '#c8904a', '#f4e2c0'], 7, 90, 0.35, { kind: 'spark' });
+            this.dead = true;
+            return;
+        }
+        this.x = nx; this.y = ny;
+        this.drehung += dt * 8;
+        if (this.age > 1.6) this.dead = true;
+    }
+    draw(ctx, camera) {
+        const p = camera.worldToScreen(this.x, this.y);
+        const r = 6.4 + Math.sin(this.seed) * 0.5;
+        Art.glow(ctx, p.x, p.y, 15, '#c8904a', 0.45);
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(this.drehung);
+        ctx.fillStyle = '#7a4a22';
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, TAU);
+        ctx.fill();
+        // helle Faserstreifen um die Schale
+        ctx.strokeStyle = '#a8703a';
+        ctx.lineWidth = 1.2;
+        for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.arc(0, 0, r - 1.2 - i * 1.5, 0.4 + i, 2.3 + i);
+            ctx.stroke();
+        }
+        // die drei dunklen Keimloche, die eine Kokosnuss aussehen
+        ctx.fillStyle = '#3a2410';
+        for (let i = 0; i < 3; i++) {
+            const a = (TAU * i) / 3 - 1.1;
+            ctx.beginPath();
+            ctx.arc(Math.cos(a) * r * 0.42, Math.sin(a) * r * 0.42 - r * 0.18, 1.15, 0, TAU);
+            ctx.fill();
+        }
+        ctx.restore();
+        Art.shine(ctx, p.x - r * 0.45, p.y - r * 0.5, 2.4, 1.5, -0.5, 0.7);
+    }
+}
+
+registerUpgrade({
+    id: 'panda26', figur: 'panda', name: 'Kokosnuss-Rohr', emoji: '🥥', welt: 57,
+    text: 'Er schießt runde Kokosnüsse aus seinem Bambusrohr: die schlagen Schaden ein und schubsen Gegner kurz weg.',
+    where: 'Welt 57 schaffen',
+    // Weltbelohnung (nicht im Shop): frei nur ueber den Merker aus Welt 57
+    istFrei: g => !!g.unlockedCoconutTube,
+    apply(c) {
+        const p = c.panda;
+        if (!p) return;
+        let cd = 1.2, nuesse = [];
+        p.hooks.onUpdate.push(dt => {
+            for (let i = nuesse.length - 1; i >= 0; i--) {
+                // main.js aktualisiert jedes Geschoss selbst - hier nur den Tod abholen
+                if (nuesse[i].dead) nuesse.splice(i, 1);
+            }
+            cd -= dt;
+            if (cd > 0 || !pandaKann(p)) return;
+            const z = pandaNextEnemy(p.centerX(), p.centerY(), PANDA_KOKOS.reichweite);
+            if (!z) return;
+            if (c.welt && typeof Juri !== 'undefined' &&
+                !Juri.lineClear(c.welt, p.centerX(), p.centerY(), z.centerX(), z.centerY())) return;
+            cd = PANDA_KOKOS.abstand;
+            const m = p.muzzle();
+            const nuss = new CoconutShot(m.x, m.y, Math.atan2(z.centerY() - m.y, z.centerX() - m.x));
+            Game.projectiles.push(nuss);
+            nuesse.push(nuss);
+            if (Game.roundHooks) Game.roundHooks.__kokos = nuesse;   // fuer die Messung erreichbar
+            p.puffTimer = 0.35;
+            FX.burst(m.x, m.y, ['#c8904a', '#f4e2c0'], 6, 90, 0.35, { kind: 'smoke', size: 3 });
+            Sound.shoot();
+        });
     },
 });

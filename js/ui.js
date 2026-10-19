@@ -252,6 +252,8 @@ const UI = {
             'BASEBALL-LASERKUGELN': 'Baseball-Laserkugeln', 'KNALLBALL': 'Knallball', 'PANDA-FREUND': 'Panda-Freund',
             'EISBALL': 'Eisball', 'SCHATTENWOLKE': 'Schattenwolke', 'EISHAMMER': 'Eishammer',
             'KLEBEBALL': 'Klebeball', 'DOPPELHAMMER': 'Doppelhammer', 'GIFTSPUCKE': 'Giftspucke',
+            'GUMMIHAMMER': 'Gummihammer', 'RANKENFESSEL': 'Rankenfessel', 'GIFTBLUETEN': 'Giftblüten',
+            'KOKOSNUSS-ROHR': 'Kokosnuss-Rohr',
         };
         return map[r.label] || r.label;
     },

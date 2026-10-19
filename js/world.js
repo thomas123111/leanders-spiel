@@ -750,6 +750,52 @@ const WORLD_THEMES = {
         deco: [['cactus', 1.4], ['shard', 1], ['bone', 0.8], ['crack', 1], ['pebble', 1], ['crater', 0.8]], rate: 0.28,
         win: 'fossil', glow: '#ffe0b0',
     },
+    // Welt 54: Wackelpudding-See – heller Biskuitboden mit Waffelufern, Wände aus Biskuitrollen,
+    // See aus rosa Götterspeise, Sahne als Büsche (Boss-Raum: riesige Puddingschüssel)
+    pudding: {
+        void: '#2a1206', vignette: 0.2, shade: '#3a1e0c', fs: 'sand', floor: ['#f2dcae', '#ead09c'],
+        ws: 'blocks', wall: '#e0b878', wallF: '#9a6a34', accent: '#ffb03a', tints: ['#f8e6c0', '#f0d8a8', '#fff0d0', '#e8cc96'],
+        deep: 0.34, deepCol: '#6a2440', arena: '#ffe6b8',
+        bush: ['#fff4e0', '#ffe9c8', '#ffd9a8'], bx: 'glow', bxc: ['#ffffff', '#ffd23f', '#ff9ad0'],
+        water: 'goo', wc: ['#e84a7a', '#ff7aa8', '#ffd6e8'], bone: '#f6e8d0', pad: '#ffb03a',
+        deco: [['ball', 1.4], ['gem', 1], ['splat', 0.8], ['cone', 0.8], ['pebble', 1], ['sparkle', 0.8]], rate: 0.32,
+        flowers: ['#ffffff', '#ffe14a', '#ff9ad0'], sk: 'balls', win: 'crystal', glow: '#ffe0b0',
+    },
+    // Welt 55: Nudelland – rot-weiß kariertes Tischtuch als Boden, gestapelte Lasagneplatten als Wände,
+    // Tomatensoße statt Wasser, Fleischbällchen und Käse als Deko (Boss-Raum: riesiger Teller)
+    noodle: {
+        void: '#3a0e08', vignette: 0.22, shade: '#5a1a10', fs: 'blotch', floor: ['#f6ece0', '#e08578'],
+        ws: 'bricks', wall: '#e0b878', wallF: '#96622c', accent: '#ff5a4a', tints: ['#faf0e4', '#f0dcc8', '#ffe8dc', '#e8ccb4'],
+        deep: 0.36, deepCol: '#7a1a10', arena: '#f8efe2',
+        bush: ['#3f7a3a', '#5fa04a', '#9fd07a'], bx: 'glow', bxc: ['#ffd23f', '#ffffff', '#ff8c4a'],
+        water: 'goo', wc: ['#c02a1a', '#e8503a', '#ff9a7a'], bone: '#f6ecd8', pad: '#ff5a4a',
+        deco: [['ball', 1.4], ['gem', 1.2], ['splat', 1], ['crack', 0.6], ['cone', 0.6], ['pebble', 0.8]], rate: 0.3,
+        flowers: ['#ffffff', '#ffe14a', '#ff6a4a'], sk: 'nest', win: 'plate', glow: '#ffd0b0',
+        eggs: [['#f6e0b0', '#e0a05a'], ['#ffd9a0', '#c8763a'], ['#fff0d0', '#e8b06a']],
+    },
+    // Welt 56: Bienenstock – goldener Honigboden, Wände aus Waben, Blumen an den Eingängen,
+    // stehender Honig statt Wasser (Boss-Raum: Königinnenkammer mit Honigthron)
+    bee: {
+        void: '#2a1a04', vignette: 0.24, shade: '#4a3008', fs: 'sand', floor: ['#f2c94c', '#e8bc3a'],
+        ws: 'bricks', wall: '#e0a028', wallF: '#8a5a10', accent: '#ffc21f', tints: ['#ffd968', '#f6cc4a', '#ffe89a', '#e8bc3a'],
+        deep: 0.36, deepCol: '#6a4408', arena: '#ffdf7a',
+        bush: ['#3f7a3a', '#5fa04a', '#9fd07a'], bx: 'glow', bxc: ['#ffd23f', '#ffffff', '#ff9f2e'],
+        water: 'goo', wc: ['#e8a020', '#ffc84a', '#fff0b0'], bone: '#f8ecc8', pad: '#ffc21f',
+        deco: [['flower', 1.4], ['daisy', 1], ['gem', 0.8], ['sparkle', 0.8], ['leaf', 0.8], ['cone', 0.6]], rate: 0.32,
+        flowers: ['#ff6a9a', '#ffd23f', '#ffffff', '#b07aff'], sk: 'bloom', win: 'crystal', glow: '#ffd86a',
+        petals: ['#ff6a9a', '#ffd23f', '#ffffff', '#b07aff', '#ff9f2e'],
+    },
+    // Welt 57: Affeninsel – heller Sandstrand, Felswände mit Lianen, türkisfarbenes Meer,
+    // Palmen und Dschungelgrün (Boss-Raum: Lichtung mit Palmblatt-Thron)
+    monkey: {
+        void: '#0a2a30', vignette: 0.2, shade: '#14514a', fs: 'sand', floor: ['#f6e6c0', '#eedcb0'],
+        ws: 'basalt', wall: '#b09a72', wallF: '#6a5a3c', accent: '#c98a4a', tints: ['#f8ecca', '#f0e0b6', '#fff8dc', '#e6d2a4'],
+        deep: 0.42, deepCol: '#0a4a5a', arena: '#f8ecd0',
+        bush: ['#1f6a3a', '#3fa054', '#8fd87a'], bx: 'reeds', bxc: ['#ffd23f', '#ffffff'],
+        water: 'water', wc: ['#1a8aa0', '#3fc8d8', '#c8fff4'], bone: '#f6ecd8', pad: '#c98a4a',
+        deco: [['jungle', 1.4], ['foliage', 1], ['rock', 0.8], ['pebble', 0.8], ['star', 0.6], ['splat', 0.6]], rate: 0.3,
+        flowers: ['#ffd23f', '#ff6a9a', '#ffffff'], sk: 'balls', win: 'firefly', glow: '#bff6e0',
+    },
 };
 
 // Welt 24: Die drei Elemente des Drachenvaters (und Gold dazwischen) liegen als Zonen über der Karte:
@@ -6426,3 +6472,10 @@ const WORLD50_LEVEL = createLateLevel(68, 60, 23, 5050, 6, 4, 5, 2);
 const WORLD51_LEVEL = createLateLevel(68, 60, 23, 5151, 5, 5, 4, 2);
 const WORLD52_LEVEL = createLateLevel(70, 60, 23, 5252, 7, 4, 4, 2);
 const WORLD53_LEVEL = createLateLevel(70, 62, 24, 5353, 4, 5, 4, 2);
+// Welten 54-57 (Gerüst): Karten wie bei 51-53. Welt 54 hat viele Götterspeise-Flächen, Welt 55 breite
+// Soßenflüsse, Welt 56 viele Beete, Welt 57 viele Felsen und einen Sprungpad mehr. Welt 57 ist die
+// letzte Welt – ihr Sieg beendet das Spiel (Ende WIN).
+const WORLD54_LEVEL = createLateLevel(70, 62, 24, 5454, 6, 5, 4, 2);
+const WORLD55_LEVEL = createLateLevel(70, 62, 24, 5555, 7, 4, 4, 2);
+const WORLD56_LEVEL = createLateLevel(70, 64, 24, 5656, 4, 6, 4, 2);
+const WORLD57_LEVEL = createLateLevel(72, 64, 25, 5757, 5, 5, 4, 3);
