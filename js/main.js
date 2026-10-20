@@ -1334,35 +1334,33 @@ const Game = {
     // Haelt einen Boss Bilder lang an, wenn seine Ansage (Vorwarnung) sonst keine
     // BOSS_TELL_MIN Sekunden echte Zeit zu sehen waere. Bei 3-mal Angriffstempo waere eine
     // kurze oder abgebrochene Vorwarnung nach 0,1 s weg - fuer Kinder zu schnell zum Ausweichen.
-    // Bosse mit angesetzter Zeit fuehren `stateT` meist als RUECKWAERTSzaehler (er steigt mit
-    // `stateDur` in `_set(...)` ein und laeuft in ihrem Update auf 0 herunter), zwei Klassen
-    // (js/butterfly.js, js/thunder.js) zaehlen ihn hoch. Aus dem letzten Bild wird die Lesart
-    // abgeleitet (Zaehler kleiner -> laeuft herunter, groesser -> laeuft hoch) und daraus die
-    // Restzeit des Bosses in dieser Ansage geholt. Ist sie bei ihrem Tempo kuerzer als der Weg
-    // zur Untergrenze, wird die Ansage angehalten - hoechstens bis BOSS_TELL_MIN erreicht ist.
-    // Bosse ohne angesetzte Zeit (die alten Welten 1-21) werden von Anfang an gehalten.
-    // Haengen kann kein Boss: der Halt laeuft nie laenger als BOSS_TELL_MIN echte Bilder.
+    // Massstab ist der eigene Zustandszaehler des Bosses: `stateT` steigt mit der angesetzten
+    // Zeit in `_set(...)` ein und laeuft in seinem Update auf 0 herunter (die beiden
+    // hochzaehlenden Ausnahmen js/butterfly.js und js/thunder.js fallen unter `stateT <= 0`
+    // nicht in diesen Zweig, bei ihnen reicht das Clamping aus `_tempoScale()`). Reicht diese
+    // Restzeit bei seinem Tempo - das durch das Clamping auf hoechstens
+    // `angesetzte Zeit / BOSS_TELL_MIN` eingebremst ist - bis zur Untergrenze, bleibt der Boss
+    // in Ruhe; sonst wird er angehalten, spaetestens jedoch nach BOSS_TELL_MIN echten Bildern,
+    // damit in einem Halt nichts haengen bleiben kann. Bosse ohne Zaehler (die alten Welten
+    // 1-21, eigene Timer-Klassen) werden bis zur Untergrenze gehalten.
     _g1TellHold(enemy, dt) {
         const zustand = String(enemy.state || enemy.mode || '');
-        if (!BOSS_TELL_STATE.test(zustand)) { enemy._g1TellZeit = 0; enemy._g1Rest = -1; return false; }
-        const eigene = typeof enemy.stateT === 'number' ? enemy.stateT : -1;
-        const angesetzte = typeof enemy.stateDur === 'number' ? enemy.stateDur : -1;
-        if (zustand !== enemy._g1TellZustand) {          // neue Ansage: alles von vorn
+        if (!BOSS_TELL_STATE.test(zustand)) { enemy._g1TellZeit = 0; return false; }
+        if (zustand !== enemy._g1TellZustand) {          // neue Ansage: von vorn zaehlen
             enemy._g1TellZustand = zustand;
             enemy._g1TellZeit = 0;
-            enemy._g1Rest = -1;
-        } else {
-            const vorher = typeof enemy._g1TellT === 'number' ? enemy._g1TellT : -1;
-            // herunterzaehlender Zaehler (Regel): Rest = Zaeher. Hochzaehlende Ausnahmen bleiben
-            // unbeobachtet (-1) - bei ihnen waere die Restzeit aus `stateDur` nicht sicher zu
-            // lesen, und ihr Clamping in `_tempoScale()` haelt die Untergrenze ohnehin ein.
-            if (eigene >= 0 && vorher >= 0 && eigene < vorher) enemy._g1Rest = eigene;
         }
-        enemy._g1TellT = eigene;
         enemy._g1TellZeit += dt;
         if (enemy._g1TellZeit >= BOSS_TELL_MIN) return false;   // lang genug sichtbar - vorbei
-        if (angesetzte > 0 && enemy._g1Rest >= 0 &&
-            enemy._g1Rest / (enemy._tempoEff || 1) >= BOSS_TELL_MIN - enemy._g1TellZeit) return false;
+        const rest = typeof enemy.stateT === 'number' ? enemy.stateT : -1;
+        if (rest > 0) {
+            // Tempo, mit dem der Boss gleich wirklich laeuft (`_tempoScale()` klemmt es bei
+            // Ansagen auf `angesetzte Zeit / BOSS_TELL_MIN` ein) - daraus die echten Sekunden,
+            // die der Boss in dieser Ansage noch vor sich hat
+            const angesetzte = typeof enemy.stateDur === 'number' && enemy.stateDur > 0 ? enemy.stateDur : 0;
+            const takt = Math.min(enemy.tempo || 1, angesetzte > 0 ? angesetzte / BOSS_TELL_MIN : Infinity);
+            if (rest / Math.max(0.05, takt) >= BOSS_TELL_MIN - enemy._g1TellZeit) return false;
+        }
         return true;
     },
 
