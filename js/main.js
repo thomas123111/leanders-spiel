@@ -44,8 +44,10 @@ const BOSS_TEMPO = BOSS_TEMPO_BASE * BOSS_HASTE;
 // Ruhe, damit Kinder ausweichen können: eine Ansage (Vorwarnung) dauert mindestens so viele
 // Sekunden echte Zeit, und eine Schwindel-Pause behält ihre alte Länge (Leander, 20.10.2026).
 const BOSS_TELL_MIN = 0.35;
-// Zustandsnamen, im Spiel eine Vorwarnung ankündigen (…Wind, …Aim, warn, crouch, charge, …)
-const BOSS_TELL_STATE = /wind|windup|aim|warn|threat|tell|crouch|coil|rear|hiss|charge|raise|hold/i;
+// Zustandsnamen, im Spiel eine Vorwarnung ankündigen (…Wind, …Aim, warn, crouch, charge, …).
+// Dazu die Zustände mit Warnkreis am Landeplatz: bomb (Riesenfuchs, js/fox.js), slam/rising
+// (js/entities.js:1043) und clap (js/entities.js:399) - der Kreis ist die Vorwarnung.
+const BOSS_TELL_STATE = /wind|windup|aim|warn|threat|tell|crouch|coil|rear|hiss|charge|raise|hold|bomb|slam|clap/i;
 // Zustände, in denen der Boss benommen ist und Mark frei zuschlagen kann
 const BOSS_DIZZY_STATE = /dizzy|stun|dazed|stagger/i;
 // Der Wochen-Boss bleibt eine Stufe über den normalen Bossen: auf deren neue Werte nochmal
@@ -1335,25 +1337,35 @@ const Game = {
     // BOSS_TELL_MIN Sekunden echte Zeit zu sehen waere. Bei 3-mal Angriffstempo waere eine
     // kurze oder abgebrochene Vorwarnung nach 0,1 s weg - fuer Kinder zu schnell zum Ausweichen.
     // Massstab ist der eigene Zustandszaehler des Bosses: `stateT` steigt mit der angesetzten
-    // Zeit in `_set(...)` ein und laeuft in seinem Update auf 0 herunter (die beiden
-    // hochzaehlenden Ausnahmen js/butterfly.js und js/thunder.js fallen unter `stateT <= 0`
-    // nicht in diesen Zweig, bei ihnen reicht das Clamping aus `_tempoScale()`). Reicht diese
-    // Restzeit bei seinem Tempo - das durch das Clamping auf hoechstens
+    // Zeit in `_set(...)` ein und laeuft in seinem Update auf 0 herunter. Reicht diese Restzeit
+    // bei seinem Tempo - das durch das Clamping in `_tempoScale()` auf hoechstens
     // `angesetzte Zeit / BOSS_TELL_MIN` eingebremst ist - bis zur Untergrenze, bleibt der Boss
     // in Ruhe; sonst wird er angehalten, spaetestens jedoch nach BOSS_TELL_MIN echten Bildern,
-    // damit in einem Halt nichts haengen bleiben kann. Bosse ohne Zaehler (die alten Welten
-    // 1-21, eigene Timer-Klassen) werden bis zur Untergrenze gehalten.
+    // damit in einem Halt nichts haengen bleiben kann.
+    // Hochzaehlende Zaehler (js/butterfly.js im Zustand `rain`, js/thunder.js bei `salve` und
+    // `rings`) koennen nicht in diesen Zweig geraten: keiner dieser Zustandsnamen ist eine
+    // Ansage, kein Name passt zu `BOSS_TELL_STATE`. Reicht die abgelesene Restzeit nicht bis zur
+    // Untergrenze, oder fuehrt der Boss gar keinen Zustandszaehler (Riesenfuchs `aim` in Welt 42,
+    // Steinwoelf `windup` in Welt 15 - beide steuern ihre Ansage ueber einen eigenen Fortschritt),
+    // wird angehalten: hoechstens eine Untergrenze lang. Damit wird auch eine zu kurz angesetzte
+    // Ansage (der Ansturm des Clowns: 0,33 s) auf die Untergrenze gedehnt, statt sie durchzuwinken.
+    // Im Halt steht auch der Beruehrungsschaden des Bosses aus (main.js-Kontaktschaden nach dem
+    // `continue`): steht ein Kind im festgehaltenen Boss, bekommt es in dieser Zeit keinen
+    // Treffer - gewollt, die Ansage soll ausweichbar bleiben.
     _g1TellHold(enemy, dt) {
         const zustand = String(enemy.state || enemy.mode || '');
         if (!BOSS_TELL_STATE.test(zustand)) { enemy._g1TellZeit = 0; return false; }
-        if (zustand !== enemy._g1TellZustand) {          // neue Ansage: von vorn zaehlen
+        const zustandswechsler = zustand !== enemy._g1TellZustand;
+        if (zustandswechsler) {                             // neue Ansage: von vorn zaehlen
             enemy._g1TellZustand = zustand;
             enemy._g1TellZeit = 0;
+            enemy._g1TellZaehler = false;
         }
         enemy._g1TellZeit += dt;
         if (enemy._g1TellZeit >= BOSS_TELL_MIN) return false;   // lang genug sichtbar - vorbei
         const rest = typeof enemy.stateT === 'number' ? enemy.stateT : -1;
-        if (rest > 0) {
+        const lesbar = rest > 0;
+        if (lesbar) {
             // Tempo, mit dem der Boss gleich wirklich laeuft (`_tempoScale()` klemmt es bei
             // Ansagen auf `angesetzte Zeit / BOSS_TELL_MIN` ein) - daraus die echten Sekunden,
             // die der Boss in dieser Ansage noch vor sich hat
@@ -1364,11 +1376,18 @@ const Game = {
             // knapp an der Untergrenze (Welt 46: 0,33 s) sichtbar 0,30 s
             if (rest / Math.max(0.05, takt) >= BOSS_TELL_MIN - enemy._g1TellZeit - dt) return false;
         }
-        // Kein Zaehler lesbar (abgelaufener oder eigener Timer des Bosses): eine Ansage ist erst
-        // recht zu kurz, um sie durchwinken zu koennen. Weil in einem Halt nichts vorangeht - auch
-        // der Zaehler nicht -, wuerde ein neuer Halt nach der Freigabe endlos von vorn beginnen;
-        // deshalb je Ansage nur ein Halt, laengstens bis zur Untergrenze.
-        return !enemy._g1TellGehalten;
+        // Kein lesbarer Zaehler, oder die abgelesene Restzeit reicht bei seinem Tempo nicht bis
+        // zur Untergrenze: angehalten. Ein Halt nach einer *Zaehler*-Freigabe waere ein Hin und
+        // Her (der Halt friert genau den Zaehler ein, der die Freigabe gegeben hat) - so kurz
+        // nach der Freigabe ist die Restzeit aber gerade nicht lesbar. Darum gilt der Halt nur,
+        // solange es diese Freigabe nicht gab: die Lesbarkeit wird fuer die ganze Ansage
+        // festgehalten (`_g1TellZaehler`), weil ein Boss, der gar keinen Zustandszaehler fuehrt
+        // (Riesenfuchs `aim`, Steinwoelf `windup` in Welt 15), nie eine bekommen kann. Diese
+        // Bosse werden bis zur Untergrenze angehalten - laengstens eine Untergrenze lang, damit
+        // in einem Halt nichts haengen bleiben kann.
+        if (!zustandswechsler && typeof enemy.stateT === 'number') enemy._g1TellZaehler = true;
+        if (enemy._g1TellZaehler && !lesbar) return false;      // vom Zaehler freigegeben
+        return true;
     },
 
     _spawnBoss() {
