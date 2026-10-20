@@ -142,7 +142,21 @@ for (const n of worlds) {
             }
         };
         const origStep = Game.debugStep.bind(Game);
-        Game.debugStep = (n, ms, dr) => { for (let i = 0; i < n; i++) { origStep(1, ms, dr); wache('in Schritt ' + r.schritt); } };
+        // Der Testlaeufer weicht dem Gift aus. Die Welt-Pruefung macht Mark schon unverwundbar
+        // (iFrames), aber Gift kennt keinen Schutz: Ein Gift-Tropfen setzt 3 s Gift, und jeder
+        // Gift-Tick zieht 2 LP ab - auch dann, wenn Mark nur auf seiner Kreisbahn durch die
+        // Tropfen laeuft. Der Riesenskorpion (Welt 53) wirft den ganzen Kampf lang Tropfen,
+        // deshalb verlief der Laeufer dort sporadisch mit GAME_OVER, obwohl die Welt in Ordnung ist.
+        // Der Laeufer schuettelt deshalb vor jedem Bild jeden Tropfen ab, bevor er ziehen kann:
+        // Gift bleibt hoechstens ein Bild lang an, es entsteht kein einziger Gift-Schaden. Alle
+        // anderen Schadensquellen - und damit ein echter GAME_OVER - bleiben unveraendert wirksam.
+        // Die Zustands-Probe unten ruehrt das nicht an: sie zaehlt ihre Bilder selbst und misst
+        // Gift weiterhin echt (2 LP in gut 1 s, 6 LP in gut 3 s).
+        const giftAus = () => {
+            const p = Game.player;
+            if (p) { p.poisonTimer = 0; p.poisonTick = 0; }
+        };
+        Game.debugStep = (n, ms, dr) => { for (let i = 0; i < n; i++) { giftAus(); origStep(1, ms, dr); wache('in Schritt ' + r.schritt); } };
         try {
             Game.startWorld(n);
             r.gegner = Game.enemies.length;
