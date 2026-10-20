@@ -1359,9 +1359,16 @@ const Game = {
             // die der Boss in dieser Ansage noch vor sich hat
             const angesetzte = typeof enemy.stateDur === 'number' && enemy.stateDur > 0 ? enemy.stateDur : 0;
             const takt = Math.min(enemy.tempo || 1, angesetzte > 0 ? angesetzte / BOSS_TELL_MIN : Infinity);
-            if (rest / Math.max(0.05, takt) >= BOSS_TELL_MIN - enemy._g1TellZeit) return false;
+            // ein Bild Toleranz: der Zaehler des Bosses laeuft auf einem Bildrand ab, das Bild
+            // selbst wird nicht mehr mitgezaehlt - ohne die Toleranz waere eine angesetzte Zeit
+            // knapp an der Untergrenze (Welt 46: 0,33 s) sichtbar 0,30 s
+            if (rest / Math.max(0.05, takt) >= BOSS_TELL_MIN - enemy._g1TellZeit - dt) return false;
         }
-        return true;
+        // Kein Zaehler lesbar (abgelaufener oder eigener Timer des Bosses): eine Ansage ist erst
+        // recht zu kurz, um sie durchwinken zu koennen. Weil in einem Halt nichts vorangeht - auch
+        // der Zaehler nicht -, wuerde ein neuer Halt nach der Freigabe endlos von vorn beginnen;
+        // deshalb je Ansage nur ein Halt, laengstens bis zur Untergrenze.
+        return !enemy._g1TellGehalten;
     },
 
     _spawnBoss() {
