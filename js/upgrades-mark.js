@@ -711,7 +711,9 @@ const MarkExtras = (() => {
 (() => {
     const SAUG_KREIS = 150;   // px: ab hier greift der Sog
     const SAUG_ZUG = 430;     // px pro Sekunde Grundtempo des Sogs
-    const KLEIN_BEI = 12;     // Gegner mit so viel Leben oder weniger lässt der Sog greifen
+    // 18 statt 12: seit dem schwereren Gegner-Leben (FOE_HP 1,5 in js/main.js) hat jeder Gegner
+    // 1,5-mal so viele Herzen. 12 · 1,5 = 18, damit greift der Sog bei genau denselben Gegnern wie vorher.
+    const KLEIN_BEI = 18;     // Gegner mit so viel Leben oder weniger lässt der Sog greifen
     const BISS_KREIS = 34;    // px: ganz bei Mark packt der Sog zu
     const BISS_ZEIT = 0.25;   // Sekunden zwischen zwei Bissen
     const BISS_MENGE = 1.2;   // Leben, das ein Biss abzieht
@@ -1005,7 +1007,9 @@ MarkExtras.herz = herz;
                 if (!e) return;
                 let fallen = null;
                 if (e.isBoss) fallen = BOSS_HEILUNG;
-                else if ((e.maxHp || 0) >= 8 && Math.random() < CHANCE_TAFF) fallen = HEILUNG;
+                // 12 statt 8: dasselbe wie beim Sog - die Gegner haben seit dem schwereren Gegner-Leben
+                // (FOE_HP 1,5) 1,5-mal so viele Herzen, 8 · 1,5 = 12. Es gilt also wie vorher ab 8 Leben.
+                else if ((e.maxHp || 0) >= 12 && Math.random() < CHANCE_TAFF) fallen = HEILUNG;
                 else if (Math.random() < CHANCE) fallen = HEILUNG;
                 if (fallen === null) return;
                 const a = randRange(0, TAU);
