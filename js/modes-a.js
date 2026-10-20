@@ -358,6 +358,59 @@
     // ══════════════ 4: Der Turm ══════════════
     const TURM_ETAGEN = 50;
 
+    // Werte (Thomas, 20.10.2026): Stockwerk 1 mit mindestens 20 Gegnern, je Stockwerk 3 mehr -
+    // Stockwerk 10: 47, Stockwerk 30: 107, Stockwerk 50: 167. Alle Gegner laufen fünffach so
+    // schnell wie normal (TURM_TEMPO); das ersetzt das frühere stufenweise Tempo (max 1,7).
+    const turmAnzahl = nr => 17 + clamp(nr, 1, TURM_ETAGEN) * 3;
+    const TURM_TEMPO = 5;
+
+    // Bildrate gemessen (Chrome headless, 844x390 wie ein Handy quer, Stockwerk mit fünffach
+    // schnellen Gegner): 100 gleichzeitig = 60 Bilder/s, 140 = 48,8, 167 = 35,8 - unter der
+    // Marke von etwa 40. Deshalb kommt ein Stockwerk in Wellen: nie mehr als 60 gleichzeitig
+    // (60 Bilder/s, großer Puffer), die Gesamtzahl des Stockwerks bleibt - der Rest rückt nach,
+    // sobald die Hälfte der laufenden Welle gefallen ist.
+    const TURM_GLEICHZEITIG = 60;
+
+    // Fünffach Tempo heißt: js/main.js ruft enemy.update(dt * 5) auf, und dt ist bis 0,05 s
+    // groß - ein einzelner Bild darf den Gegner damit bis zu 25 px weit tragen, durch eine
+    // 32-px-Wand hindurch. Deshalb jeder Turm-Gegner in Teilschritte zerlegt: bei normaler
+    // Laufgeschwindigkeit kein Schritt über ~6 px, der Wandtest (baseUpdate/escapeFromWalls,
+    // moveWithCollision) wirkt in jedem Teilschritt. Ansturm-Schnellstarter (ArmorRat-Stoss,
+    // Werwolf-Sprung) bewegen sich in einem Teilschritt weiter - die 12-px-Unterteilung aus
+    // moveWithCollision und der wandbewusste Kit915.rush halten auch sie an der Wand auf.
+    // Läuft das Spiel mit 60 Bildern, bleibt es bei einem Aufruf pro Bild.
+    function turmTeilschritte(e) {
+        const original = e.update;
+        if (typeof original !== 'function' || original.turmTeilschritte) return;
+        function geteilt(dt, world, player, enemies, projectiles) {
+            let rest = dt, n = 0;
+            const hMax = 6 / Math.max(10, e.speed || 60);
+            while (rest > 1e-4 && n++ < 32) {
+                const h = Math.min(rest, hMax);
+                original.call(e, h, world, player, enemies, projectiles);
+                rest -= h;
+            }
+        }
+        geteilt.turmTeilschritte = true;
+        e.update = geteilt;
+    }
+
+    // Eine Welle des Stockwerks scharf machen: fünffach Tempo statt der stufenweisen
+    // Steigerung von welleScharf (Zähheit bleibt) und jede Bewegung in Teilschritten
+    // gegen das Wandrutschen.
+    function turmWelle(nr, anzahl) {
+        const g = Game;
+        const vorher = g.enemies.length;
+        const n = welleScharf({ gegner: gegnerFuer(nr), anzahl, abstand: 230 }, nr);
+        for (let i = vorher; i < g.enemies.length; i++) {
+            const e = g.enemies[i];
+            if (!e || e.isBoss) continue;
+            e.tempo = TURM_TEMPO;
+            turmTeilschritte(e);
+        }
+        return n;
+    }
+
     // Eine Etage ist ein eigener Raum: neue Halle, neues Aussehen, frische Herzen,
     // aber mehr und zähere Gegner als eine Etage tiefer.
     function turmEtage(g) {
@@ -380,11 +433,13 @@
         t.etage = nr;
         t.laeuft = true;
         Modes.punkte(1);                                    // Punkte = Stockwerk (der Rekord)
-        welleScharf({
-            gegner: gegnerFuer(nr),
-            anzahl: Math.min(18, 3 + Math.round(nr * 0.5)),
-            abstand: 230,
-        }, nr);
+        // Gesamtzahl in Wellen von höchstens TURM_GLEICHZEITIG aufteilen (bleibt gleich groß,
+        // nur nicht alles gleichzeitig): Stockwerk 50 = drei Wellen zu 56, 56, 55.
+        const gesamt = turmAnzahl(nr);
+        t.wellenGroesse = Math.ceil(gesamt / Math.ceil(gesamt / TURM_GLEICHZEITIG));
+        const n = turmWelle(nr, t.wellenGroesse);
+        t.rest = Math.max(0, gesamt - n);
+        t.wartet = 1.2;                                     // kurze Luft zwischen den Wellen
         HUD.toast('Stockwerk ' + t.etage + ' von ' + TURM_ETAGEN, '#ffe38a', 1.8);
         return true;
     }
@@ -393,13 +448,13 @@
         id: 'turm',
         name: 'Der Turm',
         emoji: '🏰',
-        text: '50 Stockwerke, jedes voller Gegner und etwas schwerer.',
+        text: '50 Stockwerke, jede Halle voller Gegner – und die rennen fünffach schnell.',
         frei: g => weltMax(g) >= 7,
         hinweis: 'Erst Welt 6 schaffen.',
         wertung: 'punkte',                   // Punkte = höchstes Stockwerk
         start(g) {
             const z = zustand();
-            z.turm = { etage: 0, laeuft: false, wartet: 0 };
+            z.turm = { etage: 0, laeuft: false, wartet: 0, rest: 0, wellenGroesse: 0 };
             turmEtage(g);
         },
         update(dt) {
@@ -408,6 +463,19 @@
             if (!t) return;
             if (t.laeuft) {
                 if (Modes.lebendeGegner() > 0) return;
+                if (t.rest > 0) {
+                    // Die Welle ist gefallen - nach kurzer Luft rückt die nächste nach,
+                    // bis das Stockwerk seine Gesamtzahl verloren hat.
+                    t.wartet -= dt;
+                    if (t.wartet <= 0) {
+                        const n = turmWelle(t.etage, Math.min(t.rest, t.wellenGroesse));
+                        t.rest = Math.max(0, t.rest - n);
+                        if (!n) t.rest = 0;                 // Pool leer: nie in der Endlosschleife stehn
+                        t.wartet = 1.2;
+                        if (t.rest > 0) HUD.toast('Die nächste Welle!', '#ffb27a', 1.4);
+                    }
+                    return;
+                }
                 t.laeuft = false;
                 t.wartet = 2.2;              // Luft holen, dann geht es eine Etage höher
             }
@@ -425,9 +493,10 @@
         belohnung({ punkte }) { return clamp(40 + punkte * 9, 50, 490); },
         drawHud(ctx) {
             const z = zustand();
+            const t = z && z.turm;
             Modes.hudStatus(ctx, [
-                '🏰 Stockwerk ' + (z && z.turm ? z.turm.etage : 0) + '/' + TURM_ETAGEN,
-                '👹 ' + Modes.lebendeGegner() + ' Gegner',
+                '🏰 Stockwerk ' + (t ? t.etage : 0) + '/' + TURM_ETAGEN,
+                '👹 ' + Modes.lebendeGegner() + ' Gegner' + (t && t.rest > 0 ? ' (+' + t.rest + ')' : ''),
             ]);
         },
     });
