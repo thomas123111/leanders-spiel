@@ -34,11 +34,12 @@ const FOE_TEMPO = 1.3;
 // dass der Boss mehr aushält. Bosse, deren Phase 2 an einer festen Lebenszahl hing, prüfen jetzt den
 // Anteil ihrer Lebenspunkte (Liste in der ERGEBNIS-Datei zum Auftrag).
 // BOSS_TEMPO lässt die Zeit für Bosse schneller laufen (Laufen, Angriffe, Pausen), Geschosse fliegen normal:
-// BOSS_TEMPO_BASE war das Tempo vorher, BOSS_HASTE ist der Wunsch „Angriffe 1,5-mal so oft“.
+// BOSS_TEMPO_BASE war das Tempo vorher, BOSS_HASTE ist der Wunsch „Angriffe koennen beim Boss x3 sein“
+// (Thomas, 20.10.2026) - dreimal so schnell wie in 9.8.1, das Doppelte des Zwischenstands von 1,5.
 const BOSS_HP = 3.2;
 const BOSS_TOUGHNESS = 2.1;             // 1,5 (vorher) mal 1,4
 const BOSS_TEMPO_BASE = 1.15;           // das Tempo von vor dieser Änderung
-const BOSS_HASTE = 1.5;                 // Angriffstempo 1,5-mal
+const BOSS_HASTE = 3.0;                 // Angriffstempo 3-mal (Vorwarnungen bleiben >= BOSS_TELL_MIN)
 const BOSS_TEMPO = BOSS_TEMPO_BASE * BOSS_HASTE;
 // Ruhe, damit Kinder ausweichen können: eine Ansage (Vorwarnung) dauert mindestens so viele
 // Sekunden echte Zeit, und eine Schwindel-Pause behält ihre alte Länge (Leander, 20.10.2026).
@@ -1330,6 +1331,31 @@ const Game = {
         return tempo;
     },
 
+    // Haelt einen Boss Bilder lang an, wenn seine Ansage (Vorwarnung) sonst keine
+    // BOSS_TELL_MIN Sekunden echte Zeit zu sehen waere. Bei 3-mal Angriffstempo waere eine
+    // kurze oder abgebrochene Vorwarnung nach 0,1 s weg - fuer Kinder zu schnell zum Ausweichen.
+    // Bosse mit angesetzter Zeit (`stateDur`, die Welten ab 22) werden nur angehalten, wenn ihr
+    // eigener Zustandszaehler weniger Restzeit hat, als die Ansage bis zur Untergrenze braucht;
+    // Bosse ohne angesetzte Zeit (die alten Welten 1-21) werden von Anfang an gehalten.
+    // Der Halt endet spaetestens mit BOSS_TELL_MIN - ein Boss kann darin nicht haengen bleiben.
+    _g1TellHold(enemy, dt) {
+        const zustand = String(enemy.state || enemy.mode || '');
+        if (!BOSS_TELL_STATE.test(zustand)) { enemy._g1TellZeit = 0; return false; }
+        if (zustand !== enemy._g1TellZustand) {
+            enemy._g1TellZustand = zustand;
+            enemy._g1TellZeit = 0;
+        }
+        enemy._g1TellZeit += dt;
+        if (enemy._g1TellZeit >= BOSS_TELL_MIN) return false;   // lang genug sichtbar - vorbei
+        const angesetzte = typeof enemy.stateDur === 'number' ? enemy.stateDur : 0;
+        if (angesetzte > 0) {
+            const eigene = typeof enemy.stateT === 'number' ? enemy.stateT : 0;
+            // Restzeit des Bosses in dieser Ansage gegen die Restzeit der Untergrenze rechnen
+            if (angesetzte - eigene > (BOSS_TELL_MIN - enemy._g1TellZeit) * (enemy._tempoEff || 1)) return false;
+        }
+        return true;
+    },
+
     _spawnBoss() {
         this.bossActive = true;
         this.bossIntroTime = 0;
@@ -1361,7 +1387,7 @@ const Game = {
         if (this.currentWorld === 11) { boss.hp = 55; boss.maxHp = 55; }
         if (this.currentWorld === 12) { boss.hp = 65; boss.maxHp = 65; }
         if (!bosses[this.currentWorld]) { boss.hp = 50; boss.maxHp = 50; }
-        bossStarke(boss);           // 3,2-mal Leben, 1,4-mal zäher, Angriffe 1,5-mal so oft
+        bossStarke(boss);           // 3,2-mal Leben, 1,4-mal zäher, Angriffe 3-mal so oft
         this.enemies.push(boss);
     },
 
@@ -1718,7 +1744,10 @@ const Game = {
             }
             const enemyBush = this.world.isBush(enemy.centerX(), enemy.centerY());
             const tempoScale = this._tempoScale(enemy);
-            if (frozen || (enemyBush && !playerBush && !enemy.isBoss)) {
+            // Ansage-Nachhalt (nur Bosse): ein Zustandwechsel mitten in der Vorwarnung wird
+            // zurueckgehalten, bis die Vorwarnung BOSS_TELL_MIN Sekunden echt sichtbar war.
+            const tellHold = !!(enemy.isBoss && !enemy.dead && this._g1TellHold(enemy, dt));
+            if (frozen || tellHold || (enemyBush && !playerBush && !enemy.isBoss)) {
                 if (enemy.iFrames > 0) enemy.iFrames -= dt;
                 continue;
             }
