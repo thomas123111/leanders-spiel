@@ -45,9 +45,14 @@ const BOSS_TEMPO = BOSS_TEMPO_BASE * BOSS_HASTE;
 // Sekunden echte Zeit, und eine Schwindel-Pause behält ihre alte Länge (Leander, 20.10.2026).
 const BOSS_TELL_MIN = 0.35;
 // Zustandsnamen, im Spiel eine Vorwarnung ankündigen (…Wind, …Aim, warn, crouch, charge, …).
-// Dazu die Zustände mit Warnkreis am Landeplatz: bomb (Riesenfuchs, js/fox.js), slam/rising
-// (js/entities.js:1043) und clap (js/entities.js:399) - der Kreis ist die Vorwarnung.
-const BOSS_TELL_STATE = /wind|windup|aim|warn|threat|tell|crouch|coil|rear|hiss|charge|raise|hold|bomb|slam|clap/i;
+// Dazu drei Namen, die keiner Muster-Silbe folgen, aber eine Vorwarnung sind: `bomb` - der
+// Landekreis der Riesenbombe (js/fox.js:747), `clap` - der Warnkreis bis zum Einschlag
+// (js/entities.js:361, Schaden erst bei 0,7 von 1,4 s) und `lift` - das Ausholen des
+// Feuerspeiers vor dem Tritt (js/golem.js:676). Bewusst NICHT aufgenommen: `slam` - der Wortteil
+// steckt auch in den Ausführungs-Zuständen der Tritte (js/golem.js:669, js/devil.js:904, je
+// 0,12-0,14 s bis zum Aufprall); die Ansagen davor heissen `lift`, `slamRaise` und `rising` und
+// sind schon erfasst.
+const BOSS_TELL_STATE = /wind|windup|aim|warn|threat|tell|crouch|coil|rear|hiss|charge|raise|hold|bomb|clap|lift/i;
 // Zustände, in denen der Boss benommen ist und Mark frei zuschlagen kann
 const BOSS_DIZZY_STATE = /dizzy|stun|dazed|stagger/i;
 // Der Wochen-Boss bleibt eine Stufe über den normalen Bossen: auf deren neue Werte nochmal
@@ -1385,7 +1390,7 @@ const Game = {
         // (Riesenfuchs `aim`, Steinwoelf `windup` in Welt 15), nie eine bekommen kann. Diese
         // Bosse werden bis zur Untergrenze angehalten - laengstens eine Untergrenze lang, damit
         // in einem Halt nichts haengen bleiben kann.
-        if (!zustandswechsler && typeof enemy.stateT === 'number') enemy._g1TellZaehler = true;
+        if (!zustandswechsler && lesbar) enemy._g1TellZaehler = true;   // nur ein zahlender Zaehler
         if (enemy._g1TellZaehler && !lesbar) return false;      // vom Zaehler freigegeben
         return true;
     },
