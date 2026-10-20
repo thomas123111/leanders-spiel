@@ -60,6 +60,9 @@ function bossStarke(boss, hpGrund) {
     boss.hp = boss.maxHp;
     boss.toughness = BOSS_TOUGHNESS;
     boss.tempo = BOSS_TEMPO;
+    // Bosse, die ihr Leben spaeter selbst neu setzen (der Vampir nach der Verwandlung in
+    // js/vampire.js), brauchen den Faktor, damit sie nicht auf die unkalierte Klasse zurueckfallen.
+    boss._g1BossSkala = BOSS_HP;
     return boss;
 }
 
@@ -1302,10 +1305,18 @@ const Game = {
         if (enemy.slowTimer > 0) tempo *= (enemy.slowFactor || 1);
         if (!enemy.isBoss) return tempo;
         const zustand = String(enemy.state || enemy.mode || '');
+        // Angesetzte Zeit des Zustands: die neuen Bosse führen stateDur (von ihrem _set gesetzt).
+        // Die alten Bosse der Dateien entities.js/entities2.js kennen nur ihren Zustandszähler
+        // stateT, der im Bild des Wechsels noch die volle Länge zeigt. Wer stateDur führt, bekommt
+        // stateT nie als Ansatz - bei denen ist der Zähler kein Zustandszähler.
+        const zaehler = typeof enemy.stateT === 'number' ? enemy.stateT : 0;
+        const kennt = 'stateDur' in enemy;
         if (zustand !== enemy._g1Zustand) {
             enemy._g1Zustand = zustand;
-            // stateDur = die Zeit, mit der der Boss seinen Zustand selbst angesetzt hat
-            enemy._g1Ansage = typeof enemy.stateDur === 'number' ? enemy.stateDur : 0;
+            const angesetzt = typeof enemy.stateDur === 'number' ? enemy.stateDur : 0;
+            enemy._g1Ansage = angesetzt > 0 ? angesetzt : (kennt ? 0 : zaehler);
+        } else if (!kennt && zaehler > enemy._g1Ansage) {
+            enemy._g1Ansage = zaehler;      // derselbe Zustand wurde mit neuer Länge angesetzt
         }
         if (BOSS_DIZZY_STATE.test(zustand)) return Math.max(1, tempo / BOSS_HASTE);
         if (enemy._g1Ansage > 0 && BOSS_TELL_STATE.test(zustand))

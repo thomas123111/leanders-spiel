@@ -405,6 +405,7 @@
         // SUPERBOSS_TOUGHNESS-mal Zaehigkeit (frueher 3,2 und 1,4 - auf der alten Boss-Basis).
         boss.maxHp = Math.round(boss.maxHp * SUPERBOSS_HP);
         boss.hp = boss.maxHp;
+        boss._g1BossSkala = (boss._g1BossSkala || BOSS_HP) * SUPERBOSS_HP;
         boss.toughness = (boss.toughness || BOSS_TOUGHNESS) * SUPERBOSS_TOUGHNESS;
         boss.superboss = true;
         return true;

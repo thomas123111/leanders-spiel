@@ -951,8 +951,9 @@ class BossGiantVampire extends Enemy {
         const mx = this.centerX(), my = this.centerY();
         this.form = 'vampir';
         this.phase = 1;
-        this.maxHp = this.vampirHp;
-        this.hp = this.vampirHp;                 // neue VOLLE Lebensleiste
+        const ziel = Math.round(this.vampirHp * (this._g1BossSkala || 1));   // neue VOLLE Lebensleiste
+        this.maxHp = ziel;
+        this.hp = ziel;
         this.bigHits = 0;
         this.seq = 0;
         this.speed = 44;
