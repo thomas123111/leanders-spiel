@@ -1290,7 +1290,13 @@ const Game = {
     _schluesselTraegerLeben(e) {
         if (e.isBoss || !e.isKeyGhost || e._g1Schluessel || typeof e._g1Leben !== 'number') return;
         e._g1Schluessel = true;
-        if (e.maxHp === e._g1Leben) return;
+        // Nachgezogen wird nur, wenn die Welt-Datei das Leben im ersten Bild WIRKLICH selbst gesetzt
+        // hat. Zwei Anzeichen: der Wert hat sich seit dem Bild vor dem Update geändert, oder die
+        // Datei hat ihren eigenen Schalter _keyInit gesetzt (22 Welt-Dateien tun das in genau diesem
+        // Block). Der Vergleich mit dem hochgerechneten Klassenleben (e._g1Leben) reicht nicht: bei
+        // Klassenleben 6 und Schlüsselwert 9 fallen beide auf 9 (6 · 1,5), der Nachzug fiele aus.
+        const hatDateiWert = e.maxHp !== e._g1VorBild || !!e._keyInit;
+        if (typeof e._g1VorBild !== 'number' || !hatDateiWert) return;
         e.maxHp = Math.max(1, Math.round(e.maxHp * FOE_HP));
         e.hp = e.maxHp;
     },
@@ -1721,6 +1727,7 @@ const Game = {
             // tempo: Bosse BOSS_TEMPO, normale Gegner je nach Schwierigkeit (für sie läuft die Zeit schneller)
             // Steht Mark in einer Schattenwolke, erhält er statt Mark ein Ersatzziel (zielen und folgen).
             enemy._tempoEff = tempoScale;
+            if (enemy.isKeyGhost && !enemy._g1Schluessel) enemy._g1VorBild = enemy.maxHp;   // vor dem ersten Bild
             enemy.update(dt * tempoScale, this.world, this._aimTarget(enemy), this.enemies, this.projectiles);
             if (enemy.isKeyGhost && !enemy._g1Schluessel && this.currentWorld !== 0) this._schluesselTraegerLeben(enemy);
 
