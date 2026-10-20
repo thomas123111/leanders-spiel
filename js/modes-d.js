@@ -694,6 +694,10 @@ function D4MegaRuf(nr) {
     if (!boss) return null;
     boss.maxHp = Math.max(20, Math.round((boss.maxHp || 40) * 2));
     boss.hp = boss.maxHp;
+    // Der doppelte Lebensfaktor muss auch in den Merker der zentralen Boss-Staerke (js/main.js
+    // bossStarke): Bosse, die ihr Leben spaeter selbst neu setzen (Verwandlung, Phase 2), rechnen
+    // sonst mit dem einfachen Faktor zurueck und waeren halbvoll, obwohl sie mega sind.
+    boss._g1BossSkala = (boss._g1BossSkala || BOSS_HP) * 2;
     boss.tempo = (typeof BOSS_TEMPO === 'number' ? BOSS_TEMPO : 1) * 1.55;
     boss.isMega = true;
     ModiD.mega = { nr, boss, name: (D4MegaBosse[nr] && D4MegaBosse[nr].name) || boss.constructor.name };
@@ -710,7 +714,11 @@ registerMode({
     wertung: 'zeit',
     start(g) {
         ModiD.mega = null;
-        Modes.arena({ welt: 12, breite: 48, hoehe: 26, herzen: 8, zeitlimit: 300 });
+        // 600 s statt 300 s: seit den schwereren Bossen (3,2-mal Leben, 2,1-mal zaeh) braucht der
+        // laengste Mega-Boss 386 bis 410 s, wenn Mark durch den Raum laeuft und nur trifft, wenn er
+        // drankommt (klebend am Boss 102 s; Messung aller zehn Bosse in ERGEBNIS-3). Mit 300 s waren
+        // sieben von zehn Bossen nicht mehr zu schaffen - daher doppelte Frist: sicher zu schaffen.
+        Modes.arena({ welt: 12, breite: 48, hoehe: 26, herzen: 8, zeitlimit: 600 });
         const nr = ModiD.wuerfel(D4MegaBosse.length) - 1;
         D4MegaRuf(nr);
         if (Game.player) Game.player.hasAuto = false;
