@@ -1334,25 +1334,35 @@ const Game = {
     // Haelt einen Boss Bilder lang an, wenn seine Ansage (Vorwarnung) sonst keine
     // BOSS_TELL_MIN Sekunden echte Zeit zu sehen waere. Bei 3-mal Angriffstempo waere eine
     // kurze oder abgebrochene Vorwarnung nach 0,1 s weg - fuer Kinder zu schnell zum Ausweichen.
-    // Bosse mit angesetzter Zeit (`stateDur`, die Welten ab 22) werden nur angehalten, wenn ihr
-    // eigener Zustandszaehler weniger Restzeit hat, als die Ansage bis zur Untergrenze braucht;
+    // Bosse mit angesetzter Zeit fuehren `stateT` meist als RUECKWAERTSzaehler (er steigt mit
+    // `stateDur` in `_set(...)` ein und laeuft in ihrem Update auf 0 herunter), zwei Klassen
+    // (js/butterfly.js, js/thunder.js) zaehlen ihn hoch. Aus dem letzten Bild wird die Lesart
+    // abgeleitet (Zaehler kleiner -> laeuft herunter, groesser -> laeuft hoch) und daraus die
+    // Restzeit des Bosses in dieser Ansage geholt. Ist sie bei ihrem Tempo kuerzer als der Weg
+    // zur Untergrenze, wird die Ansage angehalten - hoechstens bis BOSS_TELL_MIN erreicht ist.
     // Bosse ohne angesetzte Zeit (die alten Welten 1-21) werden von Anfang an gehalten.
-    // Der Halt endet spaetestens mit BOSS_TELL_MIN - ein Boss kann darin nicht haengen bleiben.
+    // Haengen kann kein Boss: der Halt laeuft nie laenger als BOSS_TELL_MIN echte Bilder.
     _g1TellHold(enemy, dt) {
         const zustand = String(enemy.state || enemy.mode || '');
-        if (!BOSS_TELL_STATE.test(zustand)) { enemy._g1TellZeit = 0; return false; }
-        if (zustand !== enemy._g1TellZustand) {
+        if (!BOSS_TELL_STATE.test(zustand)) { enemy._g1TellZeit = 0; enemy._g1Rest = -1; return false; }
+        const eigene = typeof enemy.stateT === 'number' ? enemy.stateT : -1;
+        const angesetzte = typeof enemy.stateDur === 'number' ? enemy.stateDur : -1;
+        if (zustand !== enemy._g1TellZustand) {          // neue Ansage: alles von vorn
             enemy._g1TellZustand = zustand;
             enemy._g1TellZeit = 0;
+            enemy._g1Rest = -1;
+        } else {
+            const vorher = typeof enemy._g1TellT === 'number' ? enemy._g1TellT : -1;
+            // herunterzaehlender Zaehler (Regel): Rest = Zaeher. Hochzaehlende Ausnahmen bleiben
+            // unbeobachtet (-1) - bei ihnen waere die Restzeit aus `stateDur` nicht sicher zu
+            // lesen, und ihr Clamping in `_tempoScale()` haelt die Untergrenze ohnehin ein.
+            if (eigene >= 0 && vorher >= 0 && eigene < vorher) enemy._g1Rest = eigene;
         }
+        enemy._g1TellT = eigene;
         enemy._g1TellZeit += dt;
         if (enemy._g1TellZeit >= BOSS_TELL_MIN) return false;   // lang genug sichtbar - vorbei
-        const angesetzte = typeof enemy.stateDur === 'number' ? enemy.stateDur : 0;
-        if (angesetzte > 0) {
-            const eigene = typeof enemy.stateT === 'number' ? enemy.stateT : 0;
-            // Restzeit des Bosses in dieser Ansage gegen die Restzeit der Untergrenze rechnen
-            if (angesetzte - eigene > (BOSS_TELL_MIN - enemy._g1TellZeit) * (enemy._tempoEff || 1)) return false;
-        }
+        if (angesetzte > 0 && enemy._g1Rest >= 0 &&
+            enemy._g1Rest / (enemy._tempoEff || 1) >= BOSS_TELL_MIN - enemy._g1TellZeit) return false;
         return true;
     },
 
