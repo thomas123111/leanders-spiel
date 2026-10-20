@@ -712,7 +712,9 @@ const MarkExtras = (() => {
     const SAUG_KREIS = 150;   // px: ab hier greift der Sog
     const SAUG_ZUG = 430;     // px pro Sekunde Grundtempo des Sogs
     // 18 statt 12: seit dem schwereren Gegner-Leben (FOE_HP 1,5 in js/main.js) hat jeder Gegner
-    // 1,5-mal so viele Herzen. 12 · 1,5 = 18, damit greift der Sog bei genau denselben Gegnern wie vorher.
+    // 1,5-mal so viele Herzen. 12 · 1,5 = 18, damit greift der Sog bei genau denselben Gegnern wie
+    // vorher. Ausnahme Training (Welt 0): dort läuft die Hochrechnung nicht (js/main.js:1262), die
+    // Gegner behalten ihr Klassenleben - beim Sog egal, dort hat kein Gegner 13 bis 18 Leben.
     const KLEIN_BEI = 18;     // Gegner mit so viel Leben oder weniger lässt der Sog greifen
     const BISS_KREIS = 34;    // px: ganz bei Mark packt der Sog zu
     const BISS_ZEIT = 0.25;   // Sekunden zwischen zwei Bissen
@@ -1009,6 +1011,8 @@ MarkExtras.herz = herz;
                 if (e.isBoss) fallen = BOSS_HEILUNG;
                 // 12 statt 8: dasselbe wie beim Sog - die Gegner haben seit dem schwereren Gegner-Leben
                 // (FOE_HP 1,5) 1,5-mal so viele Herzen, 8 · 1,5 = 12. Es gilt also wie vorher ab 8 Leben.
+                // Nur im Training (Welt 0) bleibt das Klassenleben nicht hochgerechnet: dort brauchen die
+                // Gegner mit 8 bis 11 Leben die seltene Chance (30 %) statt der haeufigen (55 %).
                 else if ((e.maxHp || 0) >= 12 && Math.random() < CHANCE_TAFF) fallen = HEILUNG;
                 else if (Math.random() < CHANCE) fallen = HEILUNG;
                 if (fallen === null) return;

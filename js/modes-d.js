@@ -695,8 +695,10 @@ function D4MegaRuf(nr) {
     boss.maxHp = Math.max(20, Math.round((boss.maxHp || 40) * 2));
     boss.hp = boss.maxHp;
     // Der doppelte Lebensfaktor muss auch in den Merker der zentralen Boss-Staerke (js/main.js
-    // bossStarke): Bosse, die ihr Leben spaeter selbst neu setzen (Verwandlung, Phase 2), rechnen
-    // sonst mit dem einfachen Faktor zurueck und waeren halbvoll, obwohl sie mega sind.
+    // bossStarke): Bosse, die ihr Leben spaeter selbst neu setzen (Verwandlung, Phase 2 - heute
+    // nur der Vampir, und der steht in keiner Mega-Auswahl), rechnen sonst mit dem einfachen
+    // Faktor zurueck und waeren nach der Verwandlung halbvoll, obwohl sie mega sind. Sicherungs-
+    // zeile: zieht erst, wenn ein solcher Boss in die Auswahl kommt.
     boss._g1BossSkala = (boss._g1BossSkala || BOSS_HP) * 2;
     boss.tempo = (typeof BOSS_TEMPO === 'number' ? BOSS_TEMPO : 1) * 1.55;
     boss.isMega = true;
