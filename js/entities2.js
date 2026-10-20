@@ -418,7 +418,7 @@ class BossSkeletonRider extends Enemy {
     update(dt, world, player) {
         this.baseUpdate(dt, world);
         if (this.dead) return;
-        if (this.hp <= 30 && this.phase === 1) {
+        if (this.hp <= this.maxHp / 2 && this.phase === 1) {
             this.phase = 2;
             this.speed = 50;
             this.chargeTimer = 0.5;
@@ -953,7 +953,7 @@ class BossHydra extends Enemy {
     update(dt, world, player) {
         this.baseUpdate(dt, world);
         if (this.dead) return;
-        if (this.hp <= 33 && this.phase === 1) {
+        if (this.hp <= this.maxHp / 2 && this.phase === 1) {
             this.phase = 2;
             this.speed = 30;
             Kit915.burst(this.centerX(), this.centerY(), ['#6bff5a', '#a45cff', '#ffffff'], 18, 200, 0.7);
@@ -1481,7 +1481,7 @@ class BossStoneDemon extends Enemy {
     update(dt, world, player) {
         this.baseUpdate(dt, world);
         if (this.dead) return;
-        if (this.hp <= 35 && this.phase === 1) {
+        if (this.hp <= this.maxHp / 2 && this.phase === 1) {
             this.phase = 2;
             this.speed = 40;
             Kit915.burst(this.centerX(), this.centerY(), ['#ff8a3d', '#ffd23f', '#8b86c9'], 20, 220, 0.8);
@@ -3033,8 +3033,8 @@ class BossFruitGiant extends Enemy {
         const dist = Math.hypot(dx, dy) || 1;
         this.look.x = dx / dist;
         this.look.y = dy / dist;
-        if (this.hp <= 40) this.phase = 2;
-        if (this.hp <= 28 && !this.triggeredExplosion) {
+        if (this.hp <= this.maxHp / 2) this.phase = 2;
+        if (this.hp <= this.maxHp * 0.35 && !this.triggeredExplosion) {
             this.triggeredExplosion = true;
             this.state = 'explode';
             this.explosionTimer = 1.1;
@@ -4628,7 +4628,7 @@ class BossStingRex extends Enemy {
     update(dt, world, player) {
         this.baseUpdate(dt, world);
         if (this.dead) return;
-        if (this.hp <= 45 && this.phase === 1) {
+        if (this.hp <= this.maxHp / 2 && this.phase === 1) {
             this.phase = 2;
             this.speed = 32;
             this.tailTimer = Math.min(this.tailTimer, 2.2);
@@ -5122,7 +5122,7 @@ class BossTimeSphere extends Enemy {
     update(dt, world, player) {
         this.baseUpdate(dt, world);
         if (this.dead) return;
-        if (this.hp <= 40) this.phase = 2;
+        if (this.hp <= this.maxHp / 2) this.phase = 2;
         const mx = this.centerX(), my = this.centerY();
         const dx = player.x + player.w / 2 - mx;
         const dy = player.y + player.h / 2 - my;
@@ -5576,7 +5576,7 @@ class BossShadowCrocodile extends Enemy {
     update(dt, world, player) {
         this.baseUpdate(dt, world);
         if (this.dead) return;
-        if (this.hp <= 42) this.phase = 2;
+        if (this.hp <= this.maxHp / 2) this.phase = 2;
         const mx = this.centerX(), my = this.centerY();
         const dx = player.x + player.w / 2 - mx;
         const dy = player.y + player.h / 2 - my;
@@ -6100,7 +6100,7 @@ class BossFootball extends Enemy {
         this.baseUpdate(dt, world);
         if (this.dead) return;
         this.t += dt;
-        if (this.hp <= 45) this.phase = 2;
+        if (this.hp <= this.maxHp / 2) this.phase = 2;
         const mx = this.centerX(), my = this.centerY();
         const dx = player.x + player.w / 2 - mx;
         const dy = player.y + player.h / 2 - my;
@@ -6514,7 +6514,7 @@ class BossScrapRaccoon extends Enemy {
     update(dt, world, player) {
         this.baseUpdate(dt, world);
         if (this.dead) return;
-        if (this.hp <= 40) this.phase = 2;
+        if (this.hp <= this.maxHp / 2) this.phase = 2;
         const mx = this.centerX(), my = this.centerY();
         const dx = player.x + player.w / 2 - mx;
         const dy = player.y + player.h / 2 - my;

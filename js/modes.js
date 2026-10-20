@@ -430,7 +430,7 @@ const Modes = {
         const ort = g.world.bossSpawn || { x: g.world.pixelWidth / 2, y: g.world.pixelHeight / 2 };
         const boss = new K(ort.x, ort.y);
         boss.isBoss = true;
-        boss.toughness = BOSS_TOUGHNESS;
+        bossStarke(boss);                         // dieselben Boss-Werte wie in den Welten
         boss.tempo = BOSS_TEMPO * (run.tempo || 1);
         g.enemies.push(boss);
         g.bossActive = true;

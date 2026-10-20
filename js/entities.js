@@ -17,6 +17,10 @@ class Enemy {
         this.knockbackVy = 0;
         this.phasesThroughWalls = false;
         this.contactDamage = true;
+        // Die beiden zentralen Schalter für „alles schwerer“ (Werte in js/main.js, gesetzt wird
+        // js/main.js _harteGegner beim Erzeugen bzw. im ersten Bild des Gegners):
+        this.toughness = 1;      // ein Treffer wird durch diesen Wert geteilt (Bosse: BOSS_TOUGHNESS)
+        this.tempo = 1;          // für diese Figur läuft die Zeit `tempo`-mal so schnell (FOE_TEMPO, BOSS_TEMPO)
         // Einfrieren (Eisball, Eishammer) - sitzt an der Grundklasse, damit alle 50 Welten es können
         this.freezeTimer = 0;      // > 0: eingefroren, bewegt und schießt nicht
         this.freezeCooldown = 0;   // Bosse: höchstens alle 4 Sekunden wieder einfrierbar
@@ -1298,7 +1302,7 @@ class BossSlime extends Enemy {
         if (this.dead) return;
         if (this.landT > 0) this.landT -= dt;
 
-        if (this.hp <= 18 && this.phase === 1) {
+        if (this.hp <= this.maxHp / 2 && this.phase === 1) {
             this.phase = 2;
             this.speed = 25;
             this.jumpCooldown = 4;
@@ -1334,11 +1338,11 @@ class BossSlime extends Enemy {
         }
 
         // Teilung (G-08: kleine Schleime nur auf freien Boden)
-        if (this.hp <= 25 && !this.splitAt25 && enemies) {
+        if (this.hp <= this.maxHp * 0.71 && !this.splitAt25 && enemies) {
             this.splitAt25 = true;
             this._split(world, enemies, mx, my, 0);
         }
-        if (this.hp <= 10 && !this.splitAt10 && enemies) {
+        if (this.hp <= this.maxHp * 0.29 && !this.splitAt10 && enemies) {
             this.splitAt10 = true;
             this._split(world, enemies, mx, my, 0.5);
         }
@@ -3970,7 +3974,7 @@ class BossMushroomGiant extends Enemy {
         this.baseUpdate(dt, world);
         if (this.dead) return;
 
-        if (this.hp <= 25 && this.phase === 1) {
+        if (this.hp <= this.maxHp / 2 && this.phase === 1) {
             this.phase = 2;
             this.sporeCooldown = 2.5;
             this.vineCooldown = 3.5;
@@ -5426,7 +5430,7 @@ class BossFirePhoenix extends Enemy {
         this.baseUpdate(dt, world);
         if (this.dead) return;
 
-        if (this.hp <= 35 && this.phase === 1) {
+        if (this.hp <= this.maxHp / 2 && this.phase === 1) {
             this.phase = 2;
             this.attackCooldown = 2;
             this.speed = 50;
@@ -6823,7 +6827,7 @@ class BossShadowMaster extends Enemy {
     update(dt, world, player, enemies) {
         this.baseUpdate(dt, world);
         if (this.dead) return;
-        if (this.hp <= 28 && this.phase === 1) {
+        if (this.hp <= this.maxHp / 2 && this.phase === 1) {
             this.phase = 2;
             this.speed = 45;
             Kit915.burst(this.centerX(), this.centerY(), ['#ff4fd8', '#b36bff', '#ffffff'], 18, 200, 0.7);
@@ -6922,7 +6926,7 @@ class BossShadowMaster extends Enemy {
     }
 
     _drawOrbs(ctx, cx, y, t, back) {
-        const n = this.phase === 2 || this.hp <= 28 ? 6 : 4;
+        const n = this.phase === 2 || this.hp <= this.maxHp / 2 ? 6 : 4;
         for (let i = 0; i < n; i++) {
             const a = t * 1.3 + (i * TAU) / n;
             const s = Math.sin(a);
@@ -6937,7 +6941,7 @@ class BossShadowMaster extends Enemy {
 
     _drawBody(ctx, cx, cy, dying) {
         const t = Art.time + this.seed;
-        const p2 = this.phase === 2 || this.hp <= 28;
+        const p2 = this.phase === 2 || this.hp <= this.maxHp / 2;
         const tired = this.state === 'stunned' || dying;
         const castK = this.state === 'cast' ? 1 - this.castT / this.castMax : 0;
         const y = cy - 4 + (tired ? 3 : Math.sin(t * 1.8) * 4);
@@ -7436,7 +7440,7 @@ class BossFruitKing extends Enemy {
     update(dt, world, player, enemies) {
         this.baseUpdate(dt, world);
         if (this.dead) return;
-        if (this.hp <= 30 && this.phase === 1) {
+        if (this.hp <= this.maxHp / 2 && this.phase === 1) {
             this.phase = 2;
             this.speed = 35;
             Kit915.burst(this.centerX(), this.y + 10, ['#ff4d6d', '#ffd23f', '#ffffff'], 16, 180, 0.6);
@@ -7539,7 +7543,7 @@ class BossFruitKing extends Enemy {
 
     _drawBody(ctx, cx, cy, dying) {
         const t = Art.time + this.seed;
-        const p2 = this.phase === 2 || this.hp <= 30;
+        const p2 = this.phase === 2 || this.hp <= this.maxHp / 2;
         const tired = this.state === 'stunned' || dying;
         const castK = this.state === 'cast' ? 1 - this.castT / this.castMax : 0;
         const foot = cy + 45;

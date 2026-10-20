@@ -19,17 +19,54 @@ const LEVELS = [TUTORIAL_LEVEL, WORLD1_LEVEL, WORLD2_LEVEL, WORLD3_LEVEL, WORLD4
     WORLD51_LEVEL, WORLD52_LEVEL, WORLD53_LEVEL,
     WORLD54_LEVEL, WORLD55_LEVEL, WORLD56_LEVEL, WORLD57_LEVEL];
 
-// Stärkere Bosse in allen Welten (Wunsch von Leander).
-// BOSS_TOUGHNESS: Bosse nehmen nur 1/1,5 des Schadens, halten also 1,5-mal so viel aus. Absichtlich nicht
-// über mehr Lebenspunkte gelöst: viele Bosse wechseln bei einer festen Lebenszahl in Phase 2, das bleibt so gleich.
-// BOSS_TEMPO lässt die Zeit für Bosse schneller laufen (Laufen, Angriffe, Pausen), Geschosse fliegen normal.
-const BOSS_TOUGHNESS = 1.5;
-const BOSS_TEMPO = 1.15;
+// Alles schwerer (Thomas und Leander, 20.10.2026: „das ist alles noch sehr einfach und langsam“).
+// Die Werte stehen zentral hier und in der Gegner-Grundklasse js/entities.js, nicht in den Welt-Dateien.
+//
+// Normale Gegner: FOE_HP-mal so viel Leben, FOE_TEMPO-mal so schnell unterwegs und greifen
+// FOE_TEMPO-mal so oft an (für sie läuft die Zeit schneller, dadurch kürzere Pausen und Abklingzeiten).
+// Beides wirkt auf ALLE Schwierigkeitsstufen: Schwer und Extrem rechnen wie bisher darauf.
+const FOE_HP = 1.5;
+const FOE_TEMPO = 1.3;
+
+// Bosse: BOSS_HP-mal so viel Leben und BOSS_TOUGHNESS-mal so zäh wie vor dieser Änderung - zusammen
+// halten sie es aus wie früher der Wochen-Boss (Leanders Wunsch „alle Bosse wie der Wochen-Boss“).
+// BOSS_TOUGHNESS teilt den Schaden, BOSS_HP hebt die Lebensanzeige selbst an: Kinder sehen daran,
+// dass der Boss mehr aushält. Bosse, deren Phase 2 an einer festen Lebenszahl hing, prüfen jetzt den
+// Anteil ihrer Lebenspunkte (Liste in der ERGEBNIS-Datei zum Auftrag).
+// BOSS_TEMPO lässt die Zeit für Bosse schneller laufen (Laufen, Angriffe, Pausen), Geschosse fliegen normal:
+// BOSS_TEMPO_BASE war das Tempo vorher, BOSS_HASTE ist der Wunsch „Angriffe 1,5-mal so oft“.
+const BOSS_HP = 3.2;
+const BOSS_TOUGHNESS = 2.1;             // 1,5 (vorher) mal 1,4
+const BOSS_TEMPO_BASE = 1.15;           // das Tempo von vor dieser Änderung
+const BOSS_HASTE = 1.5;                 // Angriffstempo 1,5-mal
+const BOSS_TEMPO = BOSS_TEMPO_BASE * BOSS_HASTE;
+// Ruhe, damit Kinder ausweichen können: eine Ansage (Vorwarnung) dauert mindestens so viele
+// Sekunden echte Zeit, und eine Schwindel-Pause behält ihre alte Länge (Leander, 20.10.2026).
+const BOSS_TELL_MIN = 0.35;
+// Zustandsnamen, im Spiel eine Vorwarnung ankündigen (…Wind, …Aim, warn, crouch, charge, …)
+const BOSS_TELL_STATE = /wind|windup|aim|warn|threat|tell|crouch|coil|rear|hiss|charge|raise|hold/i;
+// Zustände, in denen der Boss benommen ist und Mark frei zuschlagen kann
+const BOSS_DIZZY_STATE = /dizzy|stun|dazed|stagger/i;
+// Der Wochen-Boss bleibt eine Stufe über den normalen Bossen: auf deren neue Werte nochmal
+// SUPERBOSS_HP-mal Leben und SUPERBOSS_TOUGHNESS-mal Zähigkeit (vorher 3,2 und 1,4 auf alter Basis).
+const SUPERBOSS_HP = 1.5;
+const SUPERBOSS_TOUGHNESS = 1.2;
+
+// Jeder Boss bekommt die neuen Werte beim Spawnen - in allen Welten und in allen Extra-Modi.
+// hpGrund = Lebenspunkte, die die Klasse gebaut hat (oder eine Welt vorgesetzt hat).
+function bossStarke(boss, hpGrund) {
+    const grund = Math.max(1, hpGrund || boss.maxHp || 40);
+    boss.maxHp = Math.round(grund * BOSS_HP);
+    boss.hp = boss.maxHp;
+    boss.toughness = BOSS_TOUGHNESS;
+    boss.tempo = BOSS_TEMPO;
+    return boss;
+}
 
 // Schwierigkeit (Einstellung; „Extrem“ sind Leanders Wunschwerte). Gilt für normale Gegner, nicht für Bosse
 // und nicht fürs Training. anzahl = Vielfaches der Gegner, tempo = Laufgeschwindigkeit,
 // treffer = Würfe/Schläge, die ein durchschnittlicher Gegner mit Marks Waffe dieser Welt aushält
-// (Welt 1–8, 9–16, 17 und höher); null = Lebenspunkte wie gebaut.
+// (Welt 1–8, 9–16, 17 und höher); null = Lebenspunkte wie gebaut (dazu kommt überall FOE_HP).
 const DIFFICULTY = {
     normal: { name: 'Normal', anzahl: 1, tempo: 1, treffer: null },
     schwer: { name: 'Schwer', anzahl: 2, tempo: 1.5, treffer: [3, 3, 4] },
@@ -1205,23 +1242,75 @@ const Game = {
         this._applyDifficulty(worldNum, diff);
     },
 
-    // Zähere und schnellere Gegner je nach Schwierigkeit. Zähigkeit über den Schadensteiler (wie bei Bossen),
-    // bemessen an Marks Waffe in dieser Welt: ein durchschnittlicher Gegner hält „treffer“ Treffer aus,
-    // stärkere Gegnerarten entsprechend mehr, schwächere weniger.
+    // Alle Gegner schwerer (Thomas, 20.10.2026): 1,5-mal Leben und 1,3-mal Tempo - auf JEDEM
+    // Schwierigkeitsgrad. Schwer und Extrem rechnen wie früher darauf: zäher über den Schadensteiler
+    // (bemessen an Marks Waffe dieser Welt, ein durchschnittlicher Gegner hält „treffer“ Treffer aus)
+    // und ihr eigenes Tempo. Reihenfolge: erst die Zähigkeit am gebauten Leben bemessen, dann das Leben
+    // erhöhen - sonst würde „Schwer“ durch das mehr Leben selbst wieder weicher.
     _applyDifficulty(worldNum, diff) {
-        if (!diff.treffer || worldNum === 0) return;
+        if (worldNum === 0) return;             // Training bleibt zum Lernen da
         const foes = this.enemies.filter(e => !e.isBoss);
         if (!foes.length) return;
-        const target = diff.treffer[worldNum <= 8 ? 0 : worldNum <= 16 ? 1 : 2];
-        const dmg = (this.player.activeWeapon && this.player.activeWeapon.damage) || 3;
-        const avgHp = foes.reduce((s, e) => s + (e.maxHp || 4), 0) / foes.length;
-        const tough = Math.max(1, (target - 0.5) * dmg / avgHp);
-        for (const e of foes) {
-            e.toughness = tough;
-            // Schneller über die Zeit (wie BOSS_TEMPO), nicht über e.speed: viele Gegner bewegen sich mit
-            // eigenen Sprüngen, Schritten und Abständen, dort käme ein größeres speed kaum an (gemessen).
-            e.tempo = diff.tempo;
+        let tough = 1;
+        if (diff.treffer) {
+            const target = diff.treffer[worldNum <= 8 ? 0 : worldNum <= 16 ? 1 : 2];
+            const dmg = (this.player.activeWeapon && this.player.activeWeapon.damage) || 3;
+            const avgHp = foes.reduce((s, e) => s + (e.maxHp || 4), 0) / foes.length;
+            tough = Math.max(1, (target - 0.5) * dmg / avgHp);
         }
+        for (const e of foes) {
+            if (tough > 1) e.toughness = tough;
+            e.tempo = diff.tempo;               // Normal = 1, Schwer 1,5, Extrem 3
+            this._harteGegner(e);               // darauf: mehr Leben und FOE_TEMPO
+        }
+    },
+
+    // Ein normaler Gegner bekommt die zentralen Gegner-Werte: FOE_HP-mal Leben, FOE_TEMPO-mal Tempo
+    // (für ihn läuft die Zeit schneller - Laufen, Angriffe und Abklingzeiten werden kürzer, gemessen am
+    // e.speed käme das kaum an, viele Gegner bewegen sich über eigene Sprünge und Schritte).
+    // Steht als eigener Schritt, damit auch Gegner, die erst im Kampf auftauchen (die Kinder der Bosse,
+    // Gegner in Extra-Modi), dieselben Werte bekommen. Pro Gegner genau einmal.
+    _harteGegner(e) {
+        if (e._g1Hart) return;
+        e._g1Hart = true;
+        if (typeof e.maxHp === 'number' && e.maxHp > 0) {
+            e.maxHp = Math.max(1, Math.round(e.maxHp * FOE_HP));
+            e.hp = Math.max(1, Math.round((typeof e.hp === 'number' ? e.hp : e.maxHp) * FOE_HP));
+        }
+        e.tempo = (e.tempo || 1) * FOE_TEMPO;
+        e._g1Leben = e.maxHp;
+    },
+
+    // Die Schlüsselträger der Welten 31–57 setzen ihr Leben im ersten Bild selbst auf einen festen
+    // Wert (9 oder 10) und entgehen so der zentralen Rechnung. Wer das Leben nach dem ersten Bild
+    // geändert hat, bekommt deshalb hier noch einmal das zentrale Gegner-Leben.
+    _schluesselTraegerLeben(e) {
+        if (e.isBoss || !e.isKeyGhost || e._g1Schluessel || typeof e._g1Leben !== 'number') return;
+        e._g1Schluessel = true;
+        if (e.maxHp === e._g1Leben) return;
+        e.maxHp = Math.max(1, Math.round(e.maxHp * FOE_HP));
+        e.hp = e.maxHp;
+    },
+
+    // Takt eines Gegners: Grundtempo (BOSS_TEMPO bei Bossen, Schwierigkeits-Tempo bei normalen
+    // Gegnern) mal eine Verlangsamung. Bei Bossen kommt die Rücksicht aufs Kind dazu:
+    // - eine Schwindel-Pause bleibt so lang, wie sie vor dem neuen Angriffstempo war,
+    // - eine Ansage (Vorwarnung) dauert immer mindestens BOSS_TELL_MIN Sekunden echte Zeit,
+    //   damit Leander noch ausweichen kann.
+    _tempoScale(enemy) {
+        let tempo = enemy.tempo || 1;
+        if (enemy.slowTimer > 0) tempo *= (enemy.slowFactor || 1);
+        if (!enemy.isBoss) return tempo;
+        const zustand = String(enemy.state || enemy.mode || '');
+        if (zustand !== enemy._g1Zustand) {
+            enemy._g1Zustand = zustand;
+            // stateDur = die Zeit, mit der der Boss seinen Zustand selbst angesetzt hat
+            enemy._g1Ansage = typeof enemy.stateDur === 'number' ? enemy.stateDur : 0;
+        }
+        if (BOSS_DIZZY_STATE.test(zustand)) return Math.max(1, tempo / BOSS_HASTE);
+        if (enemy._g1Ansage > 0 && BOSS_TELL_STATE.test(zustand))
+            return Math.min(tempo, enemy._g1Ansage / BOSS_TELL_MIN);
+        return tempo;
     },
 
     _spawnBoss() {
@@ -1255,8 +1344,7 @@ const Game = {
         if (this.currentWorld === 11) { boss.hp = 55; boss.maxHp = 55; }
         if (this.currentWorld === 12) { boss.hp = 65; boss.maxHp = 65; }
         if (!bosses[this.currentWorld]) { boss.hp = 50; boss.maxHp = 50; }
-        boss.toughness = BOSS_TOUGHNESS;
-        boss.tempo = BOSS_TEMPO;
+        bossStarke(boss);           // 3,2-mal Leben, 1,4-mal zäher, Angriffe 1,5-mal so oft
         this.enemies.push(boss);
     },
 
@@ -1596,6 +1684,9 @@ const Game = {
                 if (!enemy._deathFxDone) this._onEnemyDeathFx(enemy);
                 continue;
             }
+            // Alles schwerer: Gegner, die erst im Kampf auftauchen (die Kinder der Bosse, Gegner in
+            // Extra-Modi), bekommen die zentralen Werte spätestens in ihrem ersten Bild.
+            if (!enemy.isBoss && !enemy._g1Hart && this.currentWorld !== 0) this._harteGegner(enemy);
             // Versteinert (Stein-Gift Welt 15), eingefroren (Eisball, Eishammer) oder im Busch
             // versteckt: wartet, bleibt aber verwundbar
             const frozen = enemy.stoneTimer > 0 || enemy.freezeTimer > 0;
@@ -1609,7 +1700,7 @@ const Game = {
                 if (enemy.slowTimer <= 0) enemy.slowFactor = 1;
             }
             const enemyBush = this.world.isBush(enemy.centerX(), enemy.centerY());
-            const tempoScale = (enemy.tempo || 1) * (enemy.slowTimer > 0 ? (enemy.slowFactor || 1) : 1);
+            const tempoScale = this._tempoScale(enemy);
             if (frozen || (enemyBush && !playerBush && !enemy.isBoss)) {
                 if (enemy.iFrames > 0) enemy.iFrames -= dt;
                 continue;
@@ -1620,6 +1711,7 @@ const Game = {
             // Steht Mark in einer Schattenwolke, erhält er statt Mark ein Ersatzziel (zielen und folgen).
             enemy._tempoEff = tempoScale;
             enemy.update(dt * tempoScale, this.world, this._aimTarget(enemy), this.enemies, this.projectiles);
+            if (enemy.isKeyGhost && !enemy._g1Schluessel && this.currentWorld !== 0) this._schluesselTraegerLeben(enemy);
 
             // Berührungsschaden
             if (!enemy.dead && enemy.contactDamage && !this.player.dead &&

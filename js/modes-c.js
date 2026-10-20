@@ -391,7 +391,8 @@
     });
 
     // ══════════════ Modus 4: Wochen-Boss - alle sieben Tage ein Superboss ══════════════
-    // Derselbe Boss wie in seiner Welt, aber mit dreimal so viel Leben. Die Welt des Bosses
+    // Derselbe Boss wie in seiner Welt, aber eine Stufe drueber: anderthalbmal so viel Leben und
+    // 1,2-mal so zaehe wie ein Welt-Boss. Die Welt des Bosses
     // haelt sich die Woche ueber (aus der Wochennummer gewaehlt), damit alle Kinder
     // dieselbe Aufgabe haben.
     function superboss(g) {
@@ -399,9 +400,12 @@
         g._spawnBoss();                                     // nimmt den Boss der laufenden Welt
         const boss = g.enemies.find(e => e && e.isBoss && !e.dead);
         if (!boss) return false;
-        boss.maxHp = Math.round(Math.max(20, boss.maxHp || 40) * 3.2);
+        // Der Wochen-Boss bleibt eine Stufe ueber den normalen Bossen: auf deren neue Werte
+        // (3,2-mal Leben, 1,4-mal zaeh) kommen darauf SUPERBOSS_HP-mal Leben und
+        // SUPERBOSS_TOUGHNESS-mal Zaehigkeit (frueher 3,2 und 1,4 - auf der alten Boss-Basis).
+        boss.maxHp = Math.round(boss.maxHp * SUPERBOSS_HP);
         boss.hp = boss.maxHp;
-        boss.toughness = (boss.toughness || BOSS_TOUGHNESS) * 1.4;
+        boss.toughness = (boss.toughness || BOSS_TOUGHNESS) * SUPERBOSS_TOUGHNESS;
         boss.superboss = true;
         return true;
     }
@@ -410,7 +414,7 @@
         id: 'wochen-boss',
         name: 'Wochen-Boss',
         emoji: '👑',
-        text: 'Jede Woche ein Superboss: dreimal so viel Leben, große Belohnung.',
+        text: 'Jede Woche ein Superboss: eine Stufe staerker als ein Welt-Boss, große Belohnung.',
         frei: g => g.maxWorldUnlocked >= 10,
         hinweis: 'Erst 10 Welten schaffen, dann kommt der Wochen-Boss.',
         wertung: 'zeit',
