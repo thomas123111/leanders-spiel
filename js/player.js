@@ -570,18 +570,11 @@ class Player {
         return P;
     }
 
-    // Groesse von Mark (Extra-Modi, js/modes.js): 1 = normal. Wirkt auf Trefferflaeche UND Figur;
-    // die Fuesse bleiben auf dem Boden, damit Mark nicht über oder in der Erde steht.
+    // Groesse von Mark (Extra-Modi, js/modes.js): 1 = normal. Wirkt nur auf die Zeichnung
+    // (sizeScale fuer ctx.scale); die Kollisionsbox bleibt immer baseW/baseH = 28x28,
+    // damit Mark durch jeden Gang und jede Tuer passt (Gaenge sind 32 px = 1 Kachel breit).
     setSize(scale) {
-        const s = clamp(+scale || 1, 0.4, 3);
-        if (this.baseW === undefined) { this.baseW = this.w; this.baseH = this.h; }
-        const cx = this.x + this.w / 2;
-        const foot = this.y + this.h;
-        this.sizeScale = s;
-        this.w = this.baseW * s;
-        this.h = this.baseH * s;
-        this.x = cx - this.w / 2;
-        this.y = foot - this.h;
+        this.sizeScale = clamp(+scale || 1, 0.4, 3);
     }
 
     // Stehend/laufend: Wippen, Stauchen und Strecken um den Fußpunkt; Ausweichrolle als Salto.
@@ -589,7 +582,7 @@ class Player {
         const cx = P.cx;
         const cy = P.cy;
         const s = this.sizeScale || 1;   // 1 = normale Groesse (alles bleibt wie bisher)
-        const footY = cy + 14 * s;
+        const footY = cy + this.h / 2;   // Fusspunkt = Unterkante der Kollisionsbox
         ctx.save();
         if (P.roll) {
             ctx.translate(cx, cy - 2 - P.lift);
