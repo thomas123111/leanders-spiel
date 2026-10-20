@@ -373,9 +373,12 @@
 
     // Fünffach Tempo heißt: js/main.js ruft enemy.update(dt * 5) auf, und dt ist bis 0,05 s
     // groß - ein einzelner Bild darf den Gegner damit bis zu 25 px weit tragen, durch eine
-    // 32-px-Wand hindurch. Deshalb jeder Turm-Gegner in Teilschritte zerlegt: kein Schritt
-    // über ~6 px, der Wandtest (baseUpdate/escapeFromWalls, moveWithCollision) wirkt in
-    // jedem Teilschritt. Läuft das Spiel mit 60 Bildern, bleibt es bei einem Aufruf.
+    // 32-px-Wand hindurch. Deshalb jeder Turm-Gegner in Teilschritte zerlegt: bei normaler
+    // Laufgeschwindigkeit kein Schritt über ~6 px, der Wandtest (baseUpdate/escapeFromWalls,
+    // moveWithCollision) wirkt in jedem Teilschritt. Ansturm-Schnellstarter (ArmorRat-Stoss,
+    // Werwolf-Sprung) bewegen sich in einem Teilschritt weiter - die 12-px-Unterteilung aus
+    // moveWithCollision und der wandbewusste Kit915.rush halten auch sie an der Wand auf.
+    // Läuft das Spiel mit 60 Bildern, bleibt es bei einem Aufruf pro Bild.
     function turmTeilschritte(e) {
         const original = e.update;
         if (typeof original !== 'function' || original.turmTeilschritte) return;
