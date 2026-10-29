@@ -20,6 +20,7 @@
 // wandern in den Vorrat und lassen sich dort öffnen (dieselbe Öffnung wie beim Coinshop-Kauf).
 
 const WOCHE_ANZAHL = 3;   // drei Angebote je Woche (Thomas, 29.10.2026)
+const WOCHE_PAKET_TER = 3; // ein Upgrade-Paket sind genau drei fehlende Extras einer Figur
 
 // Feste Preise je Angebotsart: preis = Kosten, anzahl = was man dafür bekommt, waehrung = 'J' 💎 | 'M' 🪙
 const WOCHE_PREISE = {
@@ -41,7 +42,8 @@ const ShopWoche = {
         const woche = this._wocheSchluessel();
         const alt = Game.shopWoche;
         const brauchbar = !!(alt && alt.woche === woche && Array.isArray(alt.angebote) &&
-            alt.angebote.length <= this.ANZAHL && this._kenntAlle(alt.angebote));
+            alt.angebote.length <= this.ANZAHL && this._kenntAlle(alt.angebote) &&
+            new Set(alt.angebote.map(it => it && it.art)).size === alt.angebote.length);
         const stand = brauchbar ? alt : { woche, angebote: [] };
         let geaendert = !brauchbar;
         const moeglich = this._moeglich();
@@ -76,8 +78,12 @@ const ShopWoche = {
         if (!it || typeof it !== 'object' || typeof it.gekauft !== 'boolean') return false;
         switch (it.art) {
             case 'gems': case 'coins': case 'boxes': case 'stars': return true;
-            case 'pack': return !!UPGRADE_PRICES[it.fig] && Array.isArray(it.ids) &&
-                it.ids.length === 3 && it.ids.every(id => upgradeKnown(id));
+            case 'pack': {
+                if (!UPGRADE_PRICES[it.fig] || !Array.isArray(it.ids) || it.ids.length !== WOCHE_PAKET_TER) return false;
+                if (new Set(it.ids).size !== WOCHE_PAKET_TER) return false;   // dreimal dasselbe Extra ist keins
+                return it.ids.every(id => upgradeKnown(id) && !isWorldReward(UPGRADE_BY_ID[id]) &&
+                    UPGRADE_BY_ID[id].figur === it.fig);
+            }
             default: return false;
         }
     },
@@ -139,7 +145,7 @@ const ShopWoche = {
             case 'stars':
                 return { ...J, emoji: '😈', preis: WOCHE_PREISE.stars.preis, anzahl: WOCHE_PREISE.stars.anzahl,
                     name: 'Böse-Sterne-Paket', text: '3 Böse Sterne für ' + WOCHE_PREISE.stars.preis +
-                        ' Juwelen – einer ist geschenkt.' };
+                        ' Juwelen – auf Vorrat, jederzeit zu öffnen.' };
             case 'pack': {
                 const h = UPGRADE_HEROES.find(x => x.id === it.fig) || { name: '', emoji: '🎖️' };
                 return { ...J, emoji: '🎖️', preis: 2 * (UPGRADE_PRICES[it.fig] || 0), anzahl: 3,
@@ -151,9 +157,10 @@ const ShopWoche = {
         }
     },
 
-    // Zum Paket gehört nichts mehr, wenn alle drei Extras schon frei sind (anderswo gekauft oder erreicht).
+    // Zum Paket gehört nichts mehr, wenn NICHT genau drei seiner Extras noch fehlen (bestellt sind drei
+    // FEHLENDE Upgrades). Wer schon eines hat, bekäme sonst für den Zweier-Preis zu wenig geliefert.
     _schon(it) {
-        return it.art === 'pack' && it.ids.every(id => upgradeIsFree(id, Game));
+        return it.art === 'pack' && it.ids.filter(id => !upgradeIsFree(id, Game)).length < WOCHE_PAKET_TER;
     },
 
     // ── Die drei Karten oben in der Abteilung Wochenbelohnung ──
@@ -172,8 +179,8 @@ const ShopWoche = {
         else {
             const hat = s.waehrung === 'J' ? (Game.jewels | 0) : (Game.coins | 0);
             const kann = s.preis > 0 && hat >= s.preis;
-            fuss = `<button class="btn small blue" data-act="wochebuy" data-i="${i}" data-cur="${s.waehrung}" ` +
-                `data-price="${s.preis}"${kann ? '' : ' disabled'}>${s.zeichen} ${s.preis}</button>` +
+            fuss = `<button class="btn small blue" data-act="wochebuy" data-i="${i}"${kann ? '' : ' disabled'}>` +
+                `${s.zeichen} ${s.preis}</button>` +
                 `<span class="up-hint">${kann ? 'einmal pro Woche' : 'noch ' + (s.preis - hat) + ' ' +
                     (s.waehrung === 'J' ? 'Juwelen' : 'Münzen') + ' zu wenig'}</span>`;
         }
@@ -193,10 +200,14 @@ const ShopWoche = {
             Sound.coin();
             Game.vibrate(60);
             this._belohnung(it);
-        } else if (it.gekauft) {
-            UI.flashMessage('Das Angebot hast du diese Woche schon gekauft');
-        } else if (this._schon(it)) {
-            UI.flashMessage('Das hast du schon');
+            return true;
+        }
+        // Genau eine Meldung je Grund - die Reihenfolge ist die der Kaufprüfung selbst
+        if (it.gekauft) UI.flashMessage('Das Angebot hast du diese Woche schon gekauft');
+        else if (this._schon(it)) UI.flashMessage('Das hast du schon');
+        else if (it.art === 'pack' && upgradePurchaseBlocked(Game)) {
+            UI.flashMessage('Upgrades kaufst du erst, wenn die Runde zu Ende ist');
+            UI.renderShop();
         } else {
             const s = this.stoff(it);
             UI.flashMessage('Nicht genug ' + (s.waehrung === 'J' ? 'Juwelen' : 'Münzen') +
@@ -207,16 +218,13 @@ const ShopWoche = {
     },
 
     // Kaufen: Geld weg, Merker „diese Woche gekauft“ (ein zweiter Kauf geht nie), dann die Belohnung.
-    // Liefert false, wenn das Angebot schon gekauft war, nichts mehr fehlt oder das Geld nicht reicht.
+    // Liefert false ohne jede Wirkung - welche Meldung passt, entscheidet onClick in einer einzigen Kette.
     kaufen(i) {
         const it = this.angebote().angebote[i];
         if (!it || it.gekauft || this._schon(it)) return false;
+        if (it.art === 'pack' && upgradePurchaseBlocked(Game)) return false;
         const s = this.stoff(it);
         if (!s.preis) return false;
-        if (it.art === 'pack' && upgradePurchaseBlocked(Game)) {
-            UI.flashMessage('Upgrades kaufst du erst, wenn die Runde zu Ende ist');
-            return false;
-        }
         const bezahlt = s.waehrung === 'J' ? Game._spendJewels(s.preis) : Game._spendCoins(s.preis);
         if (!bezahlt) return false;
         it.gekauft = true;
@@ -241,11 +249,6 @@ const ShopWoche = {
             return true;
         }
         if (it.art === 'boxes') {
-            if (typeof Progress === 'undefined' || !Progress.grant) {
-                UI.flashMessage('🧰 ' + s.anzahl + ' Glücksboxen im Shop bereit');
-                UI.renderShop();
-                return true;
-            }
             for (let k = 0; k < s.anzahl; k++) Progress.grant({ box: 0 });
             // Eine geht sofort auf, die übrigen bleiben im Vorrat und lassen sich dort öffnen
             if (typeof BoxUI !== 'undefined' && BoxUI.openNow(0, zurueck)) return true;
@@ -254,15 +257,12 @@ const ShopWoche = {
             return true;
         }
         if (it.art === 'stars') {
-            if (Game.shopRandomStarActive) {
-                UI.flashMessage('😈 ' + s.anzahl + ' Böse Sterne im Vorrat – gleich zu öffnen');
-                UI.renderShop();
-                return true;
-            }
+            // Erst der Vorrat, dann die Öffnung: ein noch laufender Böser Stern darf ein bezahltes
+            // Angebot nicht schlucken (dieselbe Reihenfolge wie der Sternen-Kauf im Coinshop).
             Game.boseStarUses = (Game.boseStarUses || 0) + s.anzahl;
             Game.save();
-            if (UI.openBadStarNow && UI.openBadStarNow(false, zurueck)) return true;
-            UI.flashMessage('😈 ' + s.anzahl + ' Böse Sterne im Vorrat – im Coinshop zu öffnen');
+            if (!Game.shopRandomStarActive && UI.openBadStarNow && UI.openBadStarNow(false, zurueck)) return true;
+            UI.flashMessage('😈 ' + s.anzahl + ' Böse Sterne im Vorrat – gleich zu öffnen');
             UI.renderShop();
             return true;
         }
