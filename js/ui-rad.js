@@ -30,6 +30,8 @@ const RadUI = {
     _lockUntil: 0,
 
     // ── Shop-Karte (wie die „Glücksboxen“-Karte) ──
+    // Wunsch von Leander (29.10.2026): kein Zurückknopf am Rad. Der Knopf hier öffnet das Rad und dreht
+    // sofort - sonst stünde ein Kind vor dem Rad und käme nur mit 💎 wieder heraus.
     shopCards() {
         if (!this._ready()) return '';         // alte gespeicherte progress.js: Karte bleibt weg
         const free = Progress.radFree();
@@ -43,19 +45,19 @@ const RadUI = {
             <p>${note}</p></div></div>
             <div class="foot">
                 <button class="btn small ${free ? 'green pulse' : ''}" data-act="radopen"
-                        ${Progress.radCanSpin() ? '' : 'disabled'}>${free ? 'Gratis drehen!' : 'Zum Rad · 💎 ' + RAD_SPIN_COST}</button>
+                        ${Progress.radCanSpin() ? '' : 'disabled'}>${free ? 'Gratis drehen!' : 'Drehen! · 💎 ' + RAD_SPIN_COST}</button>
             </div></div>`;
     },
 
     // ── Alle Knöpfe des Rad-Bildschirms ──
     onClick(act, btn, e) {
         if (act === 'radopen') {
+            // Öffnen und sofort drehen (nur wenn eine Drehung möglich ist - der Knopf ist sonst ausgegraut)
             this._prize = null;
+            this._spin = null;
+            this._busy = false;
             this.render();
-            return true;
-        }
-        if (act === 'radback') {
-            if (!this._spin && !this._busy) UI.renderShop();
+            if (Progress.radCanSpin()) this._start();
             return true;
         }
         if (act === 'radspin') { this._start(); return true; }
@@ -79,10 +81,7 @@ const RadUI = {
         const el = UI.screens.rad;
         if (this._prize) { this._renderPrize(); return; }
         this._sparks = [];                 // Funkenregen des letzten Besuchs ist vorbei
-        const busy = !!(this._spin || this._busy);
         el.innerHTML = `
-            <button class="btn small gray rad-back" data-act="radback" aria-label="Zurück zum Shop"
-                    ${busy ? 'disabled' : ''}>◀ Zurück</button>
             <div class="rad-head">Glücksrad</div>
             <div class="rad-wheel"><canvas></canvas></div>
             <div class="rad-msg">${this._msg()}</div>
@@ -109,8 +108,6 @@ const RadUI = {
         if (m) m.innerHTML = this._msg();
         const b = el.querySelector('.rad-go');
         if (b) { b.innerHTML = this._goLabel(); b.disabled = !this._can(); }
-        const back = el.querySelector('.rad-back');
-        if (back) back.disabled = !!(this._spin || this._busy);
     },
 
     // Drehen: bezahlen (oder die Wochen-Drehung zählen), Feld ziehen und das Rad anlaufen lassen.
@@ -353,6 +350,7 @@ const RadUI = {
 
 UI.register({
     screens: { rad: 'full' },
+    shopTab: 'woche',           // die Rad-Karte steht in der Abteilung „Wochenbelohnung“
     onClick(act, btn, e) { return RadUI.onClick(act, btn, e); },
     shopCards() { return RadUI.shopCards(); },
 });

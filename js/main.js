@@ -1615,8 +1615,9 @@ const Game = {
             if (this.state === 'TITLE' && Input.keyPressed('Enter')) this.openWorldSelect();
             if (this.state === 'TITLE' && Input.keyPressed('ArrowRight')) UI.titleTurn(1);
             if (this.state === 'TITLE' && Input.keyPressed('ArrowLeft')) UI.titleTurn(-1);
-            // Beim Bösen Stern gibt es kein Zurück (Wunsch von Leander), auch nicht per Escape
-            else if (this.state !== 'TITLE' && Input.keyPressed('Escape') && UI.current !== 'star') this.returnToTitle();
+            // Beim Bösen Stern und am Glücksrad gibt es kein Zurück (Wunsch von Leander), auch nicht per Escape –
+            // am Rad führt der einzige Weg nach dem Gewinn über „Weiter“ zurück in den Shop
+            else if (this.state !== 'TITLE' && Input.keyPressed('Escape') && UI.current !== 'star' && UI.current !== 'rad') this.returnToTitle();
             if (this.state === 'TITLE' && Input.keyPressed('KeyF')) this.enterFullscreen();
             Input.postUpdate();
             return;
