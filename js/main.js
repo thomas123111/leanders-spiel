@@ -155,6 +155,7 @@ const Game = {
     jewels: 0,
     dailyRewardClaimDate: '',
     shopFelder: null,          // Fragezeichen-Felder im Coinshop { date, felder } - siehe js/shop-felder.js
+    shopWoche: null,           // Wochenangebote { woche, angebote } - siehe js/shop-woche.js
     freeStarTier: null,
     boseStarUses: 0,
     shopRandomStarActive: false,
@@ -466,6 +467,7 @@ const Game = {
                 trainingDone: this.trainingCompleted,
                 dailyRewardClaimDate: this.dailyRewardClaimDate,
                 felder: this.shopFelder || null,
+                woche: this.shopWoche || null,
                 freeStarTier: this.freeStarTier,
                 boseStarUses: this.boseStarUses,
                 worldRewards: this.worldRewardClaims,
@@ -520,6 +522,8 @@ const Game = {
                 this.dailyRewardClaimDate = data.dailyRewardClaimDate || '';
                 // Fragezeichen-Felder: roh übernommen - js/shop-felder.js prüft jeden Eintrag und heilt ihn
                 this.shopFelder = data.felder && typeof data.felder === 'object' ? data.felder : null;
+                // Wochenangebote: roh übernommen - js/shop-woche.js prüft jedes Angebot und zieht es neu
+                this.shopWoche = data.woche && typeof data.woche === 'object' ? data.woche : null;
                 this.freeStarTier = data.freeStarTier || null;
                 this.boseStarUses = num(data.boseStarUses);
                 this.worldRewardClaims = data.worldRewards || {};
@@ -682,13 +686,26 @@ const Game = {
     _claimWorldReward(worldNum) {
         const key = this._worldRewardKey(worldNum);
         if (this.worldRewardClaims[key]) return null;
-        const reward = this._worldRewardTable()[worldNum];
+        let reward = this._worldRewardTable()[worldNum];
         if (!reward) return null;
         this.worldRewardClaims[key] = true;
         this.rewardValues[key] = 0;
         if (reward.star) this.boseStarUses = (this.boseStarUses || 0) + 1;
         if (reward.starPack) this.boseStarUses = (this.boseStarUses || 0) + reward.starPack;
+        // Steht in dieser Welt ein Extra, das längst im Shop gekauft wurde, gibt es stattdessen Juwelen
+        // in Höhe seines Shop-Preises (Thomas, 29.10.2026) - die Seite sagt „Hast du schon: dafür 💎 850“.
+        const ersatz = this._upgradeErsatz(worldNum);
+        if (ersatz) reward = { ...reward, jewels: (reward.jewels | 0) + ersatz.juwelen, schonUpgrade: ersatz };
         return { ...reward, rewardValue: 0 };
+    },
+
+    // Die Extras dieser Welt, die schon gekauft wurden (Merker boughtUpgrades): Ersatz in Juwelen in Höhe
+    // ihres Shop-Preises, als Summe - eine Welt hat höchstens zwei eigene Extras (js/upgrades.js `welt`).
+    _upgradeErsatz(worldNum) {
+        if (typeof UPGRADES === 'undefined') return null;
+        const eigenen = UPGRADES.filter(u => u.welt === worldNum && this.hasBoughtUpgrade(u.id) && upgradePrice(u) > 0);
+        if (!eigenen.length) return null;
+        return { namen: eigenen.map(u => u.name), juwelen: eigenen.reduce((s, u) => s + upgradePrice(u), 0) };
     },
 
     _getWorldReward(worldNum) {
@@ -1491,6 +1508,11 @@ const Game = {
                 this.lastHowTo = this._howTo(this.currentWorld);
             }
             this[u[0]] = true;
+        }
+        // Ersatz für ein schon gekauftes Welt-Extra: die Endseite zeigt den Ersatz, nicht die Freischaltung.
+        if (reward && reward.schonUpgrade) {
+            this.lastUnlockText = 'Hast du schon: dafür 💎 ' + reward.schonUpgrade.juwelen;
+            this.lastHowTo = '';
         }
         if (reward && (reward.star || reward.starPack)) this.lastHowTo = 'Löse Böse Sterne im Shop ein – sie zahlen besonders viel aus!';
         if (!this.lastUnlockText && reward) {

@@ -192,7 +192,14 @@ const BoxUI = {
         for (const it of (items || [])) {
             if (!it) continue;
             if (it.coins) pages.push({ kind: 'coins', n: it.coins, label: it.coins + ' Münzen' });
-            else if (it.jewels) pages.push({ kind: 'jewels', n: it.jewels, label: it.jewels + ' Juwelen' });
+            else if (it.jewels) {
+                // Ersatz in Juwelen für ein schon gekauftes Welt-Extra (js/main.js _upgradeErsatz)
+                pages.push({
+                    kind: 'jewels', n: it.jewels,
+                    label: it.schonUpgrade ? 'Hast du schon: dafür 💎 ' + it.schonUpgrade.juwelen
+                        : it.jewels + ' Juwelen',
+                });
+            }
             else if (it.pp) pages.push({ kind: 'pp', n: it.pp, label: it.pp + ' Powerpunkte' });
         }
         return pages;

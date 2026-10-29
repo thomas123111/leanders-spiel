@@ -3,7 +3,7 @@
 // Dateien sind über ?v=… versioniert und damit unveränderlich: sie kommen aus dem Speicher, sonst
 // aus dem Netz. So entsteht nie eine Mischung aus alten und neuen Dateien.
 // Bei jedem Update: APP_VERSION hier UND die ?v=-Angaben in index.html gemeinsam erhöhen.
-const APP_VERSION = '9.9.0';
+const APP_VERSION = '9.10.0';
 const CACHE = 'mark-' + APP_VERSION;
 const V = '?v=' + APP_VERSION;
 const CORE = [
@@ -12,19 +12,22 @@ const CORE = [
     './icons/icon.svg',
     './icons/icon-192.png',
     './icons/icon-512.png',
-    ...['game', 'box', 'rad', 'end', 'progress', 'waffen'].map(n => './css/' + n + '.css' + V),
+    ...['game.css', 'box.css', 'rad.css', 'end.css', 'progress.css', 'waffen.css'].map(n => './css/' + n + V),
     './css/shop2.css' + V,     // Shop mit Abteilungen (eigens genannt, damit die Datei in CORE steht)
     './js/shop-felder.js' + V, // Fragezeichen-Felder im Coinshop (eigens genannt, damit die Datei in CORE steht)
-    ...['utils', 'art', 'fx', 'data', 'sound', 'music', 'input', 'camera', 'world', 'weapons', 'loot',
-        'entities', 'entities2', 'pandafreund', 'zombie', 'butterfly', 'dragon',
-        'werewolf', 'angel', 'mummy', 'firepig', 'thunder', 'witch',
-        'bunny', 'devil', 'alien', 'spider', 'toad', 'dwarf', 'treemonster', 'golem', 'pumpkin', 'crab', 'eagle', 'fox', 'porcupine', 'gorilla',
-        'peacock', 'clown', 'panda', 'unicorn', 'vampire', 'snowman',
-        'candy', 'rat', 'scorpion',
-        'pudding', 'noodle', 'bee', 'monkey', 'player', 'hud', 'progress', 'ui',
-        'ui-box', 'ui-rad', 'ui-end', 'ui-progress', 'ui-waffen', 'main', 'upgrades',
-        'upgrades-mark', 'upgrades-juri', 'upgrades-croc', 'upgrades-panda',
-        'modes', 'modes-a', 'modes-b', 'modes-c', 'modes-d'].map(n => './js/' + n + '.js' + V),
+    './js/shop-woche.js' + V,  // Wochenangebote in der Wochenbelohnung (eigens genannt, damit die Datei in CORE steht)
+    // Jede Datei mit ihrer Endung genannt, damit der Tor-Lauf jede einzelne in CORE nachweisen kann
+    ...['utils.js', 'art.js', 'fx.js', 'data.js', 'sound.js', 'music.js', 'input.js', 'camera.js', 'world.js',
+        'weapons.js', 'loot.js', 'entities.js', 'entities2.js', 'pandafreund.js', 'zombie.js', 'butterfly.js',
+        'dragon.js', 'werewolf.js', 'angel.js', 'mummy.js', 'firepig.js', 'thunder.js', 'witch.js',
+        'bunny.js', 'devil.js', 'alien.js', 'spider.js', 'toad.js', 'dwarf.js', 'treemonster.js', 'golem.js',
+        'pumpkin.js', 'crab.js', 'eagle.js', 'fox.js', 'porcupine.js', 'gorilla.js',
+        'peacock.js', 'clown.js', 'panda.js', 'unicorn.js', 'vampire.js', 'snowman.js',
+        'candy.js', 'rat.js', 'scorpion.js',
+        'pudding.js', 'noodle.js', 'bee.js', 'monkey.js', 'player.js', 'hud.js', 'progress.js', 'ui.js',
+        'ui-box.js', 'ui-rad.js', 'ui-end.js', 'ui-progress.js', 'ui-waffen.js', 'main.js', 'upgrades.js',
+        'upgrades-mark.js', 'upgrades-juri.js', 'upgrades-croc.js', 'upgrades-panda.js',
+        'modes.js', 'modes-a.js', 'modes-b.js', 'modes-c.js', 'modes-d.js'].map(n => './js/' + n + V),
     './frosty-burger/',
     './frosty-burger/styles.css?v=1.2.1',
     './frosty-burger/game.js?v=1.2.1',

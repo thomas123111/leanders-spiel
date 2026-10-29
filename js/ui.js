@@ -243,6 +243,8 @@ const UI = {
 
     _rewardText(r) {
         if (!r) return 'Belohnung';
+        // Ersatz für ein schon gekauftes Welt-Extra (js/main.js _upgradeErsatz): Juwelen statt des Extras.
+        if (r.schonUpgrade) return 'Hast du schon: dafür 💎 ' + r.schonUpgrade.juwelen;
         const map = {
             'Kein Bonus': 'Ruhm & Ehre', 'BASEBALL-WERFER': 'Baseball-Werfer', 'AUTO': 'Auto', 'KRONE': 'Krone',
             'SCHATTEN-WERFER': 'Schatten-Werfer', 'OBST-UPGRADES': 'Obst-Upgrades', 'GAMER-PISTOLE': 'Gamer-Pistole',
