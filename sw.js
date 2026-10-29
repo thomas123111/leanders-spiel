@@ -12,7 +12,7 @@ const CORE = [
     './icons/icon.svg',
     './icons/icon-192.png',
     './icons/icon-512.png',
-    ...['game', 'box', 'rad', 'end', 'progress', 'waffen'].map(n => './css/' + n + '.css' + V),
+    ...['game', 'box', 'rad', 'end', 'progress', 'waffen', 'shop2'].map(n => './css/' + n + '.css' + V),
     ...['utils', 'art', 'fx', 'data', 'sound', 'music', 'input', 'camera', 'world', 'weapons', 'loot',
         'entities', 'entities2', 'pandafreund', 'zombie', 'butterfly', 'dragon',
         'werewolf', 'angel', 'mummy', 'firepig', 'thunder', 'witch',

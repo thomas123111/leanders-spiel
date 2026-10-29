@@ -7,6 +7,12 @@ const STAR_TIERS = [
     { id: 'red', label: 'Ultra Scharf', color: '#ff5f5f', price: 350, gift: 'Goldene Krone', flag: 'unlockedCrown', emoji: '🔴' },
 ];
 const BAD_STAR_PRICE = 100;   // Juwelen (seit 04.10.2026, vorher Münzen)
+const BAD_STAR_PACK_MAX = 10; // Böse Sterne gibt es als Pakete von 1 bis 10 (je Stern 💎 BAD_STAR_PRICE)
+
+// Juwelen für Münzen im Coinshop (Thomas und Leander, 29.10.2026): genau diese Angebote, keins mit 50 💎.
+const GEM_OFFERS = [
+    [10, 1000], [20, 1500], [30, 2000], [40, 2500], [60, 3500], [70, 4000], [80, 4500], [90, 5000], [100, 5500],
+];
 
 // Seltenheiten der Bösen Sterne (Wunsch von Leander: wie in Brawl Stars). Namen und Farben nur hier ändern.
 // c = Grundfarbe, hi/lo = helle und dunkle Seite der 3D-Facetten, rainbow = Regenbogen-Facetten.
@@ -259,31 +265,98 @@ const UI = {
     },
 
     // ── Shop ──
-    // Karten im Raster, die Seite scrollt nach unten (Leander 19.10.2026: „beim Shop soll es doch runtergehen“,
-    // nimmt die waagerechte Reihe vom 12.10. zurück). Abschnitte als Überschriften über die ganze Breite.
+    // Vier Abteilungen links (Wunsch von Leander, 29.10.2026): Wochenbelohnung, Upgrades, Coinshop,
+    // Wechselstube. Rechts steht die gewählte Abteilung und scrollt nach unten (Leander 19.10.2026:
+    // „beim Shop soll es doch runtergehen“); Abschnitte sind Überschriften über die ganze Breite.
+    // Das Aussehen der Leiste liefert css/shop2.css (.shop-split > .shop-nav + .page-body.shop-body).
+    // Die gewählte Abteilung bleibt beim Neuzeichnen und beim nächsten Öffnen erhalten (Start: Coinshop).
+    _shopTab: 'coin',
+    _starPack: 1,      // gewähltes Böse-Sterne-Paket (1 bis 10 Stück)
+    _boxPack: 1,       // gewähltes Glücksbox-Paket – js/ui-box.js liest und setzt diesen Wert
+
+    // Reihenfolge der Leiste, wie bestellt: Wochenbelohnung, Upgrades, Coinshop, Wechselstube
+    _shopTabs() {
+        return [['woche', '🎁', 'Wochenbelohnung'], ['up', '🎖️', 'Upgrades'],
+            ['coin', '🪙', 'Coinshop'], ['wechsel', '🏦', 'Wechselstube']];
+    },
+
     renderShop() {
         const el = this.screens.shop;
+        if (!this._shopTabs().some(t => t[0] === this._shopTab)) this._shopTab = 'coin';
+        const body = this._shopTab === 'woche' ? this._shopWocheTabHtml()
+            : this._shopTab === 'up' ? this._shopUpHtml()
+                : this._shopTab === 'wechsel' ? this._shopWechselHtml()
+                    : this._shopCoinHtml();
+        const nav = this._shopTabs().map(([id, ico, name]) =>
+            `<button class="nav-btn${id === this._shopTab ? ' on' : ''}" data-act="shoptab" data-tab="${id}" ` +
+            `aria-pressed="${id === this._shopTab ? 'true' : 'false'}"><i>${ico}</i>${name}</button>`).join('');
+        el.innerHTML = `
+            <div class="page-head">
+                <button class="btn small gray" data-act="title">◀ Zurück</button>
+                <h2>Shop</h2>
+                ${this._chips()}
+            </div>
+            <div class="shop-split">
+                <div class="shop-nav">${nav}</div>
+                <div class="page-body shop-body"><div class="cards">${body}</div></div>
+            </div>`;
+        this.show('shop');
+        this._shopKeepScroll(el.querySelector('.shop-body'));
+    },
+
+    // Karten der angemeldeten Module je Abteilung: js/ui-box.js (Glücksboxen) und js/ui-rad.js (Glücksrad)
+    // nennen in UI.register ihr shopTab; ein Modul ohne Angabe steht wie bisher im Coinshop.
+    _extShopCards(tab) {
+        return this.ext.map(m => !m.shopCards ? ''
+            : ((m.shopTab || 'coin') === tab ? m.shopCards() || '' : '')).join('');
+    },
+
+    // Paket-Auswahl 1 bis max als kleine Knopf-Reihe; data-n ist die Stückzahl für den Kaufknopf darunter
+    _packRow(act, sel, max) {
+        let row = '<div class="pack-row">';
+        for (let n = 1; n <= max; n++) row += `<button class="pack-btn${n === sel ? ' on' : ''}" data-act="${act}" data-n="${n}">${n}</button>`;
+        return row + '</div>';
+    },
+
+    // Platzhalter für die Fragezeichen-Felder oben im Coinshop (Folgeauftrag): der Faden ist die Datei
+    // js/shop-felder.js mit dem Objekt ShopFelder, von dem hier das Raster (.q-grid) eingehängt wird.
+    // Gibt es das Modul noch nicht, bleibt die Stelle leer – der Coinshop steht dann ohne Felder da.
+    _shopFelderHtml() {
+        return typeof ShopFelder !== 'undefined' && ShopFelder && typeof ShopFelder.html === 'function'
+            ? ShopFelder.html() || '' : '';
+    },
+
+    // Platzhalter für die Wochenangebote (Folgeauftrag): js/shop-woche.js mit dem Objekt ShopWoche hängt
+    // hier seine Angebote über die Tagesbelohnung. Ohne das Modul liefert der Haken ''.
+    _shopWocheHtml() {
+        return typeof ShopWoche !== 'undefined' && ShopWoche && typeof ShopWoche.html === 'function'
+            ? ShopWoche.html() || '' : '';
+    },
+
+    // ── Abteilung Wochenbelohnung ──
+    // Vorerst die Tagesbelohnung und das Glücksrad (eine Gratis-Drehung je Woche); die Wochenangebote
+    // kommen über den Haken oben, sobald js/shop-woche.js da ist.
+    _shopWocheTabHtml() {
         const g = Game;
-        const today = g._todayKey();
-        const dailyDone = g.dailyRewardClaimDate === today;
-        let starCards = '';
-        for (const t of STAR_TIERS) {
-            const owned = !!g[t.flag];
-            const free = g.freeStarTier === t.id;
-            const can = free || (!owned && g.coins >= t.price);
-            let label = '🪙 ' + t.price;
-            if (free) label = owned ? 'GRATIS: +150 🪙' : 'GRATIS holen';
-            starCards += `<div class="card" style="--a:${t.color}">
-                <div class="head"><span class="ico">⭐</span><div><h3>${t.label}</h3><p>schenkt dir: <b>${t.gift}</b></p></div></div>
-                <div class="foot">
-                    ${owned ? '<span class="owned">✓ hast du schon</span>' : ''}
-                    ${owned && !free ? '' : `<button class="btn small ${free ? 'green' : ''}" data-act="buystar" data-tier="${t.id}" ${can ? '' : 'disabled'}>${label}</button>`}
-                </div></div>`;
-        }
-        // Upgrades, die noch fehlen UND man kaufen kann: eine Karte je Eintrag, der Preis in Juwelen
-        // richtet sich nach der Figur (UPGRADE_PRICES in js/upgrades.js). Gekauft = eigener Merker, danach
-        // auf der Seite „Waffen“ wählbar. Belohnungen aus einer Welt (Eintrag hat `welt`) zeigt
-        // upgradesToBuy() gar nicht erst an - die gibt es nur in ihrer Welt (Leander, 18.10.2026).
+        const dailyDone = g.dailyRewardClaimDate === g._todayKey();
+        return `${this._shopWocheHtml()}
+            <div class="card" style="--a:#3ddc97">
+                <div class="head"><span class="ico">🎁</span><div><h3>Tagesbelohnung</h3>
+                <p>${dailyDone ? 'Heute schon geholt. Morgen gibt es die nächste!' : 'Einmal am Tag gratis: Münzen, Upgrade oder ein Böser Stern!'}</p></div></div>
+                ${g.freeStarTier ? `<p>Freier Stern wartet: <b>${(STAR_TIERS.find(t => t.id === g.freeStarTier) || {}).label || g.freeStarTier}</b></p>` : ''}
+                <div class="foot">${dailyDone
+                    ? '<span class="owned">✓ heute geholt</span>'
+                    : '<button class="btn small green pulse" data-act="daily">GRATIS holen</button>'}</div>
+            </div>
+            ${this._extShopCards('woche')}`;
+    },
+
+    // ── Abteilung Upgrades ──
+    // Alle noch fehlenden Extras, die man kaufen kann: eine Karte je Eintrag, der Preis in Juwelen nach
+    // Figur (UPGRADE_PRICES in js/upgrades.js). Belohnungen aus einer Welt (Eintrag hat `welt`) zeigt
+    // upgradesToBuy() gar nicht erst an – die gibt es nur in ihrer Welt (Leander, 18.10.2026).
+    _shopUpHtml() {
+        const g = Game;
         const hero = f => UPGRADE_HEROES.find(h => h.id === f) || { name: '', farbe: '#7b4dff' };
         const lockedRound = upgradePurchaseBlocked(g);
         let upCards = '';
@@ -305,61 +378,83 @@ const UI = {
             upCards = `<div class="card" style="--a:#3ddc97">
                 <div class="head"><span class="ico">🎖️</span><div><h3>Upgrades</h3>
                 <p>Jedes Extra, das man kaufen kann, hast du schon. Der Rest ist Belohnung in einer Welt
-                und steht nicht zum Kauf - im Menü „Waffen“ suchst du für jede Figur ihr Extra aus.</p></div></div></div>`;
+                und steht nicht zum Kauf – im Menü „Waffen“ suchst du für jede Figur ihr Extra aus.</p></div></div></div>`;
         }
-        // Gleicher Kurs in beide Richtungen (1 💎 = 10 🪙) – vorher ließen sich unendlich Münzen erzeugen.
-        const exchange = [
-            [20, 'J', 100, 'M'], [50, 'J', 500, 'M'], [100, 'J', 1000, 'M'], [150, 'J', 1500, 'M'],
-            [500, 'M', 50, 'J'], [1000, 'M', 100, 'J'], [3000, 'M', 300, 'J'], [5000, 'M', 500, 'J'],
-        ];
-        const exBtns = exchange.map(([a, from, b, to], i) => {
-            const can = from === 'J' ? g.jewels >= a : g.coins >= a;
-            const ic = x => x === 'J' ? '💎' : '🪙';
-            return `<button class="btn small blue" data-act="exchange" data-i="${i}" ${can ? '' : 'disabled'}>${a}${ic(from)} → ${b}${ic(to)}</button>`;
-        }).join('');
+        return upCards;
+    },
+
+    // ── Abteilung Coinshop ──
+    // Oben die Fragezeichen-Felder (Platzhalter), dann die Pakete: Böse Sterne zu 100 💎 je Stern,
+    // Glücksboxen zu 500 🪙 je Box (Karte kommt aus js/ui-box.js), Juwelen zu den festen Angeboten,
+    // dazu die Goldene Krone und der Sternen-Markt wie bisher.
+    _shopCoinHtml() {
+        const g = Game;
         const own = g.boseStarUses || 0;
-        const badBtns = g.shopRandomStarActive
+        const n = this._starPack;
+        const starFoot = g.shopRandomStarActive
             ? '<button class="btn small pink pulse" data-act="badstar">Weitermachen!</button>'
             : `${own ? `<button class="btn small pink" data-act="badstar">Öffnen (${own} 😈)</button>` : ''}
-               <button class="btn small" data-act="badstarbuy" ${g.jewels >= BAD_STAR_PRICE ? '' : 'disabled'}>Kaufen · 💎 ${BAD_STAR_PRICE}</button>`;
-        el.innerHTML = `
-            <div class="page-head">
-                <button class="btn small gray" data-act="title">◀ Zurück</button>
-                <h2>Shop</h2>
-                ${this._chips()}
+               <button class="btn small" data-act="badstarbuy" data-n="${n}" ${g.jewels >= BAD_STAR_PRICE * n ? '' : 'disabled'}>${n} kaufen · 💎 ${BAD_STAR_PRICE * n}</button>`;
+        const gemBtns = GEM_OFFERS.map(([gem, cost], i) =>
+            `<button class="btn small blue" data-act="buygems" data-i="${i}" ${(g.coins | 0) >= cost ? '' : 'disabled'}>💎 ${gem} · 🪙 ${cost}</button>`).join('');
+        let starCards = '';
+        for (const t of STAR_TIERS) {
+            const owned = !!g[t.flag];
+            const free = g.freeStarTier === t.id;
+            const can = free || (!owned && g.coins >= t.price);
+            let label = '🪙 ' + t.price;
+            if (free) label = owned ? 'GRATIS: +150 🪙' : 'GRATIS holen';
+            starCards += `<div class="card" style="--a:${t.color}">
+                <div class="head"><span class="ico">⭐</span><div><h3>${t.label}</h3><p>schenkt dir: <b>${t.gift}</b></p></div></div>
+                <div class="foot">
+                    ${owned ? '<span class="owned">✓ hast du schon</span>' : ''}
+                    ${owned && !free ? '' : `<button class="btn small ${free ? 'green' : ''}" data-act="buystar" data-tier="${t.id}" ${can ? '' : 'disabled'}>${label}</button>`}
+                </div></div>`;
+        }
+        return `${this._shopFelderHtml()}
+            <div class="card" style="--a:#ff5f5f">
+                <div class="head"><span class="ico">😈</span><div><h3>Böse Sterne</h3>
+                <p>Tippe den Stern ${STAR_TRIES}-mal an. Mit Glück wird er seltener und die Belohnung größer:
+                ${STAR_RARITIES.map(r => r.name).join(', ')}!</p>
+                <p>Ein Stern kostet 💎 ${BAD_STAR_PRICE} – unten die Stückzahl wählen.${own ? ` Du hast ${own} ${own === 1 ? 'Stern' : 'Sterne'}.` : ''}</p></div></div>
+                ${this._packRow('starpick', n, BAD_STAR_PACK_MAX)}
+                <div class="foot">${starFoot}</div>
             </div>
-            <div class="page-body shop-body"><div class="cards">
-                <div class="card" style="--a:#3ddc97">
-                    <div class="head"><span class="ico">🎁</span><div><h3>Tagesbelohnung</h3>
-                    <p>${dailyDone ? 'Heute schon geholt. Morgen gibt es die nächste!' : 'Einmal am Tag gratis: Münzen, Upgrade oder ein Böser Stern!'}</p></div></div>
-                    ${g.freeStarTier ? `<p>Freier Stern wartet: <b>${(STAR_TIERS.find(t => t.id === g.freeStarTier) || {}).label || g.freeStarTier}</b></p>` : ''}
-                    <div class="foot">${dailyDone
-                        ? '<span class="owned">✓ heute geholt</span>'
-                        : '<button class="btn small green pulse" data-act="daily">GRATIS holen</button>'}</div>
-                </div>
-                <div class="card" style="--a:#ff5f5f">
-                    <div class="head"><span class="ico">😈</span><div><h3>Böse Sterne</h3>
-                    <p>Tippe den Stern ${STAR_TRIES}-mal an. Mit Glück wird er seltener und die Belohnung größer:
-                    ${STAR_RARITIES.map(r => r.name).join(', ')}!</p></div></div>
-                    <div class="foot">${badBtns}</div>
-                </div>
-                <div class="card" style="--a:#ffd23f">
-                    <div class="head"><span class="ico">👑</span><div><h3>Goldene Krone</h3>
-                    <p>Jedes Level startest du mit 15 Sekunden Schutzschild.</p></div></div>
-                    <div class="foot">${g.unlockedCrown ? '<span class="owned">✓ hast du schon</span>' :
-                        `<button class="btn small" data-act="crown" ${g.coins >= 500 ? '' : 'disabled'}>🪙 500</button>`}</div>
-                </div>
-                ${this._extHtml('shopCards')}
-                <div class="section-title">Upgrades</div>
-                ${upCards}
-                <div class="section-title">Sternen-Markt</div>
-                ${starCards}
-                <div class="section-title">Wechselstube</div>
-                <div class="card wide" style="--a:#4cc9f0"><div class="exchange">${exBtns}</div></div>
-            </div></div>`;
-        this.show('shop');
-        this._exchange = exchange;
-        this._shopKeepScroll(el.querySelector('.shop-body'));
+            ${this._extShopCards('coin')}
+            <div class="card" style="--a:#39d5ff">
+                <div class="head"><span class="ico">💎</span><div><h3>Juwelen kaufen</h3>
+                <p>Genau diese Angebote – für Münzen. Juwelen bekommst du sonst nur als Beute, aus dem
+                Glücksrad und aus den Bösen Sternen.</p></div></div>
+                <div class="foot exchange-wrap"><div class="exchange">${gemBtns}</div></div>
+            </div>
+            <div class="card" style="--a:#ffd23f">
+                <div class="head"><span class="ico">👑</span><div><h3>Goldene Krone</h3>
+                <p>Jedes Level startest du mit 15 Sekunden Schutzschild.</p></div></div>
+                <div class="foot">${g.unlockedCrown ? '<span class="owned">✓ hast du schon</span>' :
+                    `<button class="btn small" data-act="crown" ${g.coins >= 500 ? '' : 'disabled'}>🪙 500</button>`}</div>
+            </div>
+            <div class="section-title">Sternen-Markt</div>
+            ${starCards}`;
+    },
+
+    // ── Abteilung Wechselstube ──
+    // Nur noch Juwelen hinaus (Stand 29.10.2026): Juwelen gegen Münzen zu den alten Kursen und Juwelen
+    // gegen Powerpunkte. Münzen gegen Juwelen entfällt ganz – Juwelen für Münzen gibt es nur noch in den
+    // Angeboten des Coinshops, sonst kaufte dort niemand mehr etwas.
+    _shopWechselHtml() {
+        const g = Game;
+        this._exchange = [
+            [20, 'J', 100, 'M'], [50, 'J', 500, 'M'], [100, 'J', 1000, 'M'], [150, 'J', 1500, 'M'],
+            [10, 'J', 20, 'P'], [25, 'J', 55, 'P'], [50, 'J', 120, 'P'], [100, 'J', 260, 'P'],
+        ];
+        const icons = { J: '💎', M: '🪙', P: '<span class="pp-orb"></span>' };
+        const row = to => this._exchange.map(([a, from, b, target], i) => target === to
+            ? `<button class="btn small blue" data-act="exchange" data-i="${i}" ${g.jewels >= a ? '' : 'disabled'}>${a}💎 → ${b}${icons[target]}</button>`
+            : '').join('');
+        return `<div class="section-title">Juwelen gegen Münzen</div>
+            <div class="card wide" style="--a:#4cc9f0"><div class="exchange">${row('M')}</div></div>
+            <div class="section-title">Juwelen gegen Powerpunkte</div>
+            <div class="card wide" style="--a:#b26bff"><div class="exchange">${row('P')}</div></div>`;
     },
 
     // Beim Neuzeichnen (nach jedem Kauf) bleibt die Seite an der Stelle, an der man war.
@@ -930,6 +1025,14 @@ const UI = {
                 break;
             case 'training': g.maybeFullscreen(); g.startWorld(0); break;
             case 'shop': g.openShop(); break;
+            case 'shoptab':
+                // Abteilung wechseln (Wochenbelohnung, Upgrades, Coinshop, Wechselstube) - von vorn gezeichnet
+                if (this._shopTabs().some(t => t[0] === btn.dataset.tab) && btn.dataset.tab !== this._shopTab) {
+                    this._shopTab = btn.dataset.tab;
+                    this._shopScroll = 0;
+                    this.renderShop();
+                }
+                break;
             case 'extra': g.openExtraMode(); break;
             case 'title': g.returnToTitle(); break;
             case 'worlds': g.openWorldSelect(); break;
@@ -1037,18 +1140,53 @@ const UI = {
                 const [a, from, b, to] = this._exchange[+btn.dataset.i];
                 const ok = from === 'J' ? g._spendJewels(a) : g._spendCoins(a);
                 if (ok) {
-                    if (to === 'J') g._grantJewels(b); else g._grantCoins(b);
+                    if (to === 'J') g._grantJewels(b);
+                    else if (to === 'P') Progress.grant({ pp: b });   // schreibt und speichert den Fortschritt
+                    else g._grantCoins(b);
                     g.save();
                     Sound.coin();
                 }
                 this.renderShop();
                 break;
             }
-            case 'badstar':
-            case 'badstarbuy':
-                // Gekauft oder verdient: der Stern öffnet sich sofort (antippen, Seltenheit, Belohnung)
-                if (!this.openBadStarNow(act === 'badstarbuy')) this.renderShop();
+            case 'starpick':
+                this._starPack = clamp(+btn.dataset.n || 1, 1, BAD_STAR_PACK_MAX);
+                this.renderShop();
                 break;
+            case 'buygems': {
+                // Juwelen für Münzen, Preis aus GEM_OFFERS (Coinshop)
+                const offer = GEM_OFFERS[+btn.dataset.i];
+                if (offer && g._spendCoins(offer[1])) {
+                    g._grantJewels(offer[0]);
+                    g.save();
+                    Sound.coin();
+                    g.vibrate(60);
+                    this.flashMessage('💎 ' + offer[0] + ' gekauft');
+                }
+                this.renderShop();
+                break;
+            }
+            case 'badstar':
+                // Ein Stern aus dem Vorrat öffnet sich sofort (antippen, Seltenheit, Belohnung)
+                if (!this.openBadStarNow(false)) this.renderShop();
+                break;
+            case 'badstarbuy': {
+                // Paket von 1 bis 10 Sternen zu je 💎 BAD_STAR_PRICE: gekauft kommt in den Vorrat und
+                // wird wie bisher über „Öffnen“ gestartet (der Stern-Bildschirm kostet weiter einen Stern)
+                const n = clamp(+btn.dataset.n || 1, 1, BAD_STAR_PACK_MAX);
+                this._starPack = n;
+                if (g._spendJewels(BAD_STAR_PRICE * n)) {
+                    g.boseStarUses = (g.boseStarUses || 0) + n;
+                    g.save();
+                    Sound.coin();
+                    g.vibrate(60);
+                    this.flashMessage('😈 ' + n + ' ' + (n === 1 ? 'Stern gekauft' : 'Sterne gekauft'));
+                } else {
+                    this.flashMessage('Nicht genug Juwelen – ' + n + ' Sterne kosten 💎 ' + BAD_STAR_PRICE * n);
+                }
+                this.renderShop();
+                break;
+            }
             case 'startap': {
                 if (g.shopRandomStarFinished || this._starBusy) break;
                 const up = g._advanceRandomStarStep();

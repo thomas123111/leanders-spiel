@@ -6,7 +6,8 @@
 // Regel von Leander (18.10.2026): Der runde Zähler unten rechts (box-badge, "×N Belohnungen") steht nur
 // beim Öffnen einer Glücksbox - alle anderen Belohnungsseiten zeigen ihn nicht (opts.count).
 
-const BOX_PRICE = 30;
+const BOX_PRICE = 500;   // Münzen je Glücksbox (Coinshop, 29.10.2026) - der Kauf für 30 Juwelen entfällt
+const BOX_PACK_MAX = 10; // Glücksboxen gibt es als Pakete von 1 bis 10 (je Box 🪙 BOX_PRICE)
 
 // Festgenagelte Werte fuer die Holztruhe: Maserung und Muenzwurf flackern nicht (kein Zufall pro Bild).
 // Maserung je Brett: [x0, y0, x1, y1] in Anteilen von Breite und Hoehe der Vorderseite.
@@ -45,21 +46,25 @@ const BoxUI = {
     _boxHead: null,               // Kopfzeile der Belohnungsseite (leer = Seltenheitsname der Box)
     _boxReturn: null,             // wohin nach der letzten Seite zurueck (leer = Shop)
 
-    // ── Shop-Karte (wie die „Böse Sterne“-Karte) ──
+    // ── Shop-Karte im Coinshop (neben den „Bösen Sternen“) ──
+    // Wunsch von Leander (29.10.2026): Boxen gibt es als Pakete von 1 bis 10 zu je 500 Münzen;
+    // der Kauf für 30 Juwelen entfällt.
     shopCards() {
         const owned = Progress.boxes.length;
         const started = !!Progress.box;
         let openLabel, openCls = 'btn small pink', openCan;
         if (started) { openLabel = 'Weitermachen!'; openCls += ' pulse'; openCan = true; }
         else { openLabel = 'Öffnen (' + owned + ' 🧰)'; openCan = owned > 0; }
-        const canBuy = (Game.jewels | 0) >= BOX_PRICE;
+        const n = UI._boxPack || 1;
+        const canBuy = (Game.coins | 0) >= BOX_PRICE * n;
         return `<div class="card" style="--a:#ff6ec7">
             <div class="head"><span class="ico">🧰</span><div><h3>Glücksboxen</h3>
             <p>Tippe die Truhe ${BOX_TRIES}-mal an. Mit Glück wird sie größer: Typisch, Groß, Supergroß, Megagroß, Ultragroß!</p>
-            <p>Du hast: ${owned} ${owned === 1 ? 'Truhe' : 'Truhen'}${started ? ' · eine ist schon offen' : ''}</p></div></div>
+            <p>Du hast: ${owned} ${owned === 1 ? 'Truhe' : 'Truhen'}${started ? ' · eine ist schon offen' : ''} · eine Box kostet 🪙 ${BOX_PRICE}</p></div></div>
+            ${UI._packRow('boxpick', n, BOX_PACK_MAX)}
             <div class="foot">
                 <button class="${openCls}" data-act="boxopen" ${openCan ? '' : 'disabled'}>${openLabel}</button>
-                <button class="btn small purple" data-act="boxbuy" ${canBuy ? '' : 'disabled'}>Kaufen · 💎 ${BOX_PRICE}</button>
+                <button class="btn small purple" data-act="boxbuy" data-n="${n}" ${canBuy ? '' : 'disabled'}>${n} kaufen · 🪙 ${BOX_PRICE * n}</button>
             </div></div>`;
     },
 
@@ -72,12 +77,22 @@ const BoxUI = {
             if (Progress.startBox()) this.renderBox();
             return true;
         }
+        if (act === 'boxpick') {
+            UI._boxPack = clamp(+btn.dataset.n || 1, 1, BOX_PACK_MAX);
+            UI.renderShop();
+            return true;
+        }
         if (act === 'boxbuy') {
-            // Gekauft wird, um zu öffnen: die neue Box erscheint sofort (Wunsch von Leander, 04.10.2026)
-            if (!Progress.box && Game._spendJewels(BOX_PRICE)) {
-                Progress.grant({ box: 0 });
+            // Gekauft wird, um zu öffnen: eine einzelne Box erscheint sofort (Wunsch von Leander, 04.10.2026),
+            // ein Paket von 2 bis 10 Boxen kommt in den Vorrat und wird der Reihe nach geöffnet
+            const n = clamp(+btn.dataset.n || UI._boxPack || 1, 1, BOX_PACK_MAX);
+            UI._boxPack = n;
+            if (!Progress.box && Game._spendCoins(BOX_PRICE * n)) {
+                for (let i = 0; i < n; i++) Progress.grant({ box: 0 });
                 Sound.coin();
-                if (this.openNow(0)) return true;
+                Game.vibrate(60);
+                if (n === 1 && this.openNow(0)) return true;
+                UI.flashMessage('🧰 ' + n + ' Glücksboxen gekauft');
             }
             UI.renderShop();
             return true;
@@ -695,6 +710,7 @@ const BoxUI = {
 
 UI.register({
     screens: { box: 'full' },
+    shopTab: 'coin',            // die Boxen-Karte steht in der Abteilung „Coinshop“
     onClick(act, btn, e) { return BoxUI.onClick(act, btn, e); },
     shopCards() { return BoxUI.shopCards(); },
 });

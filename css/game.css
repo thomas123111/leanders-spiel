@@ -234,7 +234,18 @@ button { font-family: inherit; color: inherit; border: 0; background: none; curs
 .card .up-hint { font-size: 11px; font-weight: 900; color: #ffe38a; }
 .card.wide { grid-column: 1 / -1; }
 .exchange { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+/* Der Juwelen-Knopfrost sitzt in einer Karten-Fusszeile: die soll dafür breit werden, nicht nebeln */
+.card .foot.exchange-wrap { display: block; width: 100%; }
 .section-title { grid-column: 1 / -1; font-size: 15px; font-weight: 900; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 4px; }
+/* Paket-Auswahl in den Shop-Karten (Böse Sterne, Glücksboxen): 1 bis 10 Stück, der gewählte Knopf leuchtet */
+.pack-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.pack-btn {
+    min-width: 34px; min-height: 30px; padding: 0 8px; border-radius: 11px; cursor: pointer;
+    font: inherit; font-size: 13px; font-weight: 900; color: #fff;
+    background: rgba(255, 255, 255, 0.10); border: 2px solid rgba(255, 255, 255, 0.18);
+}
+.pack-btn.on { background: linear-gradient(180deg, #9a6bff, #5a2fd6); border-color: var(--gold); box-shadow: 0 3px 0 #3a1a9a; }
+.pack-btn:active { transform: translateY(2px); }
 
 /* ── Böse Sterne ── */
 #scr-star {
