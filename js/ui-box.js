@@ -87,7 +87,12 @@ const BoxUI = {
             // ein Paket von 2 bis 10 Boxen kommt in den Vorrat und wird der Reihe nach geöffnet
             const n = clamp(+btn.dataset.n || UI._boxPack || 1, 1, BOX_PACK_MAX);
             UI._boxPack = n;
-            if (!Progress.box && Game._spendCoins(BOX_PRICE * n)) {
+            if (Progress.box) {
+                UI.flashMessage('Erst die angefangene Truhe zu Ende tippen');
+                UI.renderShop();
+                return true;
+            }
+            if (Game._spendCoins(BOX_PRICE * n)) {
                 for (let i = 0; i < n; i++) Progress.grant({ box: 0 });
                 Sound.coin();
                 Game.vibrate(60);

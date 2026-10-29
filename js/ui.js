@@ -1137,7 +1137,9 @@ const UI = {
                 break;
             }
             case 'exchange': {
-                const [a, from, b, to] = this._exchange[+btn.dataset.i];
+                const kur = this._exchange ? this._exchange[+btn.dataset.i] : null;
+                if (!kur) break;
+                const [a, from, b, to] = kur;
                 const ok = from === 'J' ? g._spendJewels(a) : g._spendCoins(a);
                 if (ok) {
                     if (to === 'J') g._grantJewels(b);

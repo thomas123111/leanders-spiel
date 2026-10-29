@@ -52,12 +52,15 @@ const RadUI = {
     // ── Alle Knöpfe des Rad-Bildschirms ──
     onClick(act, btn, e) {
         if (act === 'radopen') {
-            // Öffnen und sofort drehen (nur wenn eine Drehung möglich ist - der Knopf ist sonst ausgegraut)
+            // Oeffnen und sofort drehen. Ohne moegliche Drehung bleibt der Bildschirm besser zu:
+            // am Rad gibt es keinen Zurueckknopf mehr, man kaeme dort nicht mehr heraus.
+            if (!this._ready() || !Progress.radCanSpin()) { UI.renderShop(); return true; }
             this._prize = null;
             this._spin = null;
             this._busy = false;
+            this._win = -1;
             this.render();
-            if (Progress.radCanSpin()) this._start();
+            this._start();
             return true;
         }
         if (act === 'radspin') { this._start(); return true; }
