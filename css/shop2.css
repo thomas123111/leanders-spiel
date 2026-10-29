@@ -1,0 +1,76 @@
+/* ── Shop mit Abteilungen (Entwurf Claude, 29.10.2026, von Thomas abgenommen) ──
+   Aufbau im Bildschirm #scr-shop:
+   .page-head (wie bisher)
+   .shop-split
+     .shop-nav    > .nav-btn[.on] (data-act="shoptab" data-tab="woche|up|coin|wechsel") > i (Bild) + Name
+     .page-body.shop-body > .cards > Karten wie bisher (.card, .section-title)
+   Fragezeichen-Felder (im Coinshop oben): .q-grid > .q-tile[.open][.turning] > .q-in > .q-front + .q-back
+     .q-front: <b>?</b>              (verdeckt, kein Preis)
+     .q-back:  <i>Bild</i><span>Name</span> + Knopf (.btn.small.blue Preis | .btn.small.pink „Öffnen“ | .owned „✓“)
+   Münzschwarm beim Aufdecken: .coin-swarm > i (je Münze, Start/Ziel per --x0 --y0 --x1 --y1, Verzögerung per --d)
+   Zahl an der Münzanzeige: .chip.coin > .chip-plus („+10“)
+   Keine shadowBlur/filter im Canvas betroffen; nur CSS. */
+
+#scr-shop .shop-split { flex: 1 1 auto; min-height: 0; display: flex; gap: 12px; }
+#scr-shop .shop-nav { flex: 0 0 120px; display: flex; flex-direction: column; gap: 8px; }
+#scr-shop .nav-btn {
+    flex: 1; min-height: 0; border-radius: 18px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    background: linear-gradient(180deg, #3b2280, #1f1147); border: 3px solid rgba(255,255,255,0.12); color: var(--muted);
+    font: inherit; font-weight: 900; font-size: 13px; text-align: center; line-height: 1.05;
+    box-shadow: 0 5px 0 rgba(0,0,0,0.35);
+}
+#scr-shop .nav-btn i { font-style: normal; font-size: 24px; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.4)); }
+#scr-shop .nav-btn.on { background: linear-gradient(180deg, #9a6bff, #5a2fd6); color: #fff; border-color: var(--gold); box-shadow: 0 5px 0 #3a1a9a, 0 0 0 3px rgba(255,210,63,0.25); }
+#scr-shop .nav-btn:active { transform: translateY(3px); }
+#scr-shop .shop-body { flex: 1 1 auto; }
+
+/* Fragezeichen-Felder */
+.q-grid { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; padding: 2px; }
+.q-tile { aspect-ratio: 1 / 1; perspective: 700px; cursor: pointer; min-width: 0; }
+.q-in { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(.3, 1.4, .5, 1); }
+.q-tile.open .q-in { transform: rotateY(180deg); }
+.q-front, .q-back { position: absolute; inset: 0; border-radius: 18px; backface-visibility: hidden; -webkit-backface-visibility: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.q-front { background: linear-gradient(180deg, #b58cff, #6a3df0); border: 3px solid #e2c4ff; box-shadow: 0 6px 0 #3a1a9a; }
+.q-front b { font-size: clamp(36px, 9vh, 64px); font-weight: 900; color: #ffe14d; text-shadow: 0 4px 0 #8a4b00, 0 0 18px rgba(255,225,77,0.5); line-height: 1; }
+.q-tile:not(.open):active .q-in { transform: scale(0.96); }
+.q-back { transform: rotateY(180deg); background: linear-gradient(180deg, #fff3c4, #ffc94d); border: 3px solid #ff9f1c; box-shadow: 0 6px 0 #b0600a; color: #4a2600; gap: 2px; padding: 4px; }
+.q-back i { font-style: normal; font-size: clamp(24px, 7vh, 38px); line-height: 1; }
+.q-back span { font-size: 13px; font-weight: 900; text-align: center; line-height: 1.1; }
+.q-back .btn.small { min-height: 28px; font-size: 12px; padding: 0 10px; border-radius: 10px; margin-top: 3px; }
+.q-back .owned { font-size: 12px; font-weight: 900; color: #127a47; }
+
+/* Münzschwarm und „+10“ an der Münzanzeige (nur bei den Fragezeichen-Feldern, kein Münzenberg) */
+.coin-swarm { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+.coin-swarm i {
+    position: absolute; left: 0; top: 0; font-style: normal; font-size: 18px; line-height: 1;
+    transform: translate(var(--x0), var(--y0)); opacity: 0;
+    animation: coin-fly 0.75s cubic-bezier(.5, 0, .6, 1) var(--d, 0s) forwards;
+}
+@keyframes coin-fly {
+    0%   { transform: translate(var(--x0), var(--y0)) scale(0.6); opacity: 0; }
+    15%  { opacity: 1; }
+    55%  { transform: translate(calc((var(--x0) + var(--x1)) / 2), calc(min(var(--y0), var(--y1)) - 40px)) scale(1.15); }
+    100% { transform: translate(var(--x1), var(--y1)) scale(0.7); opacity: 0.9; }
+}
+.chip.coin { position: relative; }
+.chip-plus {
+    position: absolute; right: 100%; top: 50%; margin-right: 8px; transform: translateY(-50%);
+    font-size: 16px; font-weight: 900; color: #ffe38a; text-shadow: 0 2px 0 #7a4a00; white-space: nowrap;
+    animation: chip-plus 1.4s ease-out forwards;
+}
+@keyframes chip-plus { 0% { opacity: 0; transform: translate(6px, -50%) scale(0.6); } 20% { opacity: 1; transform: translate(0, -50%) scale(1.15); } 70% { opacity: 1; transform: translate(0, -50%) scale(1); } 100% { opacity: 0; transform: translate(-6px, -70%); } }
+.chip.coin.bump b { animation: chip-bump 0.35s ease-out; display: inline-block; }
+@keyframes chip-bump { 50% { transform: scale(1.25); } }
+
+/* Schmale Bildschirme (Handy hoch): Leiste wird zur Reihe oben */
+@media (max-aspect-ratio: 1/1) {
+    #scr-shop .shop-split { flex-direction: column; }
+    #scr-shop .shop-nav { flex: 0 0 auto; flex-direction: row; }
+    #scr-shop .nav-btn { min-height: 64px; }
+    .q-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .q-in { transition: none; }
+    .coin-swarm i, .chip-plus { animation-duration: 0.01s; }
+}
