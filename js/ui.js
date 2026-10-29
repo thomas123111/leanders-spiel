@@ -278,7 +278,7 @@ const UI = {
 
     // Reihenfolge der Leiste, wie bestellt: Wochenbelohnung, Upgrades, Coinshop, Wechselstube
     _shopTabs() {
-        return [['woche', '🎁', 'Wochenbelohnung'], ['up', '🎖️', 'Upgrades'],
+        return [['woche', '🎁', 'Wochen&shy;belohnung'], ['up', '🎖️', 'Upgrades'],
             ['coin', '🪙', 'Coinshop'], ['wechsel', '🏦', 'Wechselstube']];
     },
 

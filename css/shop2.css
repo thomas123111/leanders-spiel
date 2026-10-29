@@ -67,7 +67,7 @@
 @media (max-aspect-ratio: 1/1) {
     #scr-shop .shop-split { flex-direction: column; }
     #scr-shop .shop-nav { flex: 0 0 auto; flex-direction: row; }
-    #scr-shop .nav-btn { min-height: 64px; }
+    #scr-shop .nav-btn { flex: 1 1 0; min-width: 0; min-height: 64px; font-size: 11px; padding: 0 2px; }
     .q-grid { grid-template-columns: repeat(3, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) {
