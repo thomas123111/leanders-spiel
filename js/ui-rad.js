@@ -25,6 +25,7 @@ const RadUI = {
     _sparks: [],
     _spin: null,          // laufende Drehung { from, to, t0, index, ticks }
     _busy: false,         // Rad steht, die Belohnung wird gleich gezeigt
+    _gift: false,         // die nächste Drehung ist schon bezahlt (Fragezeichen-Feld im Coinshop)
     _win: -1,             // angezeigtes Gewinnfeld (nur nach dem Stillstand)
     _prize: null,         // gewinnenes Upgrade: { emoji, name, text } – eigene Seite
     _lockUntil: 0,
@@ -93,13 +94,29 @@ const RadUI = {
         this._animate(el.querySelector('canvas'));
     },
 
-    _can() { return !this._spin && !this._busy && Progress.radCanSpin(); },
+    // Eine Drehung aus einem Fragezeichen-Feld ist schon bezahlt (js/shop-felder.js): das Rad öffnet
+    // sich und dreht sofort, ohne dass noch einmal gezahlt wird und ohne die Gratis-Drehung der Woche.
+    geschenktOeffnen() {
+        if (!this._ready()) return false;
+        this._gift = true;
+        this._prize = null;
+        this._spin = null;
+        this._busy = false;
+        this._win = -1;
+        this.render();
+        this._start();
+        return true;
+    },
+
+    _can() { return (!this._spin && !this._busy) && (this._gift || Progress.radCanSpin()); },
     _goLabel() {
         if (this._spin || this._busy) return 'Das Rad läuft …';
+        if (this._gift) return 'Drehen! · geschenkt';
         return Progress.radFree() ? 'Drehen!' : `Drehen! · 💎 ${RAD_SPIN_COST}`;
     },
     _msg() {
         if (this._spin || this._busy) return 'Der Pfeil oben entscheidet …';
+        if (this._gift) return 'Diese Drehung ist dein Geschenk aus dem Fragezeichen-Feld – zahl nichts dazu.';
         return Progress.radFree()
             ? 'Eine Drehung ist diese Woche gratis. Das Feld unter dem Pfeil ist dein Gewinn!'
             : `Gratis-Drehung schon gehabt – jetzt 💎 ${RAD_SPIN_COST} je Drehung.`;
@@ -118,7 +135,9 @@ const RadUI = {
     // Gutschrift können also nie auseinanderlaufen.
     _start() {
         if (this._spin || this._busy) return;
-        const res = Progress.radSpin();
+        const gekauft = !!this._gift;      // aus dem Fragezeichen-Feld: schon bezahlt
+        this._gift = false;
+        const res = Progress.radSpin(gekauft);
         if (!res) {
             UI.flashMessage(`Nicht genug Juwelen – eine Drehung kostet 💎 ${RAD_SPIN_COST}`);
             this._sync();

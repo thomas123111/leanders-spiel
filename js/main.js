@@ -154,6 +154,7 @@ const Game = {
     coins: 0,
     jewels: 0,
     dailyRewardClaimDate: '',
+    shopFelder: null,          // Fragezeichen-Felder im Coinshop { date, felder } - siehe js/shop-felder.js
     freeStarTier: null,
     boseStarUses: 0,
     shopRandomStarActive: false,
@@ -464,6 +465,7 @@ const Game = {
                 jewels: this.jewels,
                 trainingDone: this.trainingCompleted,
                 dailyRewardClaimDate: this.dailyRewardClaimDate,
+                felder: this.shopFelder || null,
                 freeStarTier: this.freeStarTier,
                 boseStarUses: this.boseStarUses,
                 worldRewards: this.worldRewardClaims,
@@ -516,6 +518,8 @@ const Game = {
                 this.jewels = num(data.jewels);
                 this.trainingCompleted = !!data.trainingDone;
                 this.dailyRewardClaimDate = data.dailyRewardClaimDate || '';
+                // Fragezeichen-Felder: roh übernommen - js/shop-felder.js prüft jeden Eintrag und heilt ihn
+                this.shopFelder = data.felder && typeof data.felder === 'object' ? data.felder : null;
                 this.freeStarTier = data.freeStarTier || null;
                 this.boseStarUses = num(data.boseStarUses);
                 this.worldRewardClaims = data.worldRewards || {};

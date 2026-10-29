@@ -529,9 +529,11 @@ const Progress = {
     },
     // Drehen: bezahlt (oder zählt die Wochen-Drehung), zieht ein Feld und schreibt die Belohnung gut.
     // Liefert null, wenn die Woche schon gedreht ist und die Juwelen nicht reichen – dann dreht das Rad auch nicht.
-    radSpin() {
-        const free = this.radFree();
-        if (!free && !Game._spendJewels(RAD_SPIN_COST)) return null;
+    // gekauft = die Drehung wurde schon bezahlt (Fragezeichen-Feld im Coinshop): weder Juwelen noch die
+    // Gratis-Drehung der Woche werden angetastet.
+    radSpin(gekauft) {
+        const free = !gekauft && this.radFree();
+        if (!free && !gekauft && !Game._spendJewels(RAD_SPIN_COST)) return null;
         const index = this.radDraw();
         const reward = this.radReward(RAD_FIELDS[index]);
         if (free) this.rad.week = this.radWeekKey();
